@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>XMLHttpRequest Example</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        #content {
+            margin-top: 20px;
+            border: 1px solid #ccc;
+            padding: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>指定のURLから内容を取得</h1>
+    <input type="text" id="urlInput" placeholder="取得したいURLを入力" style="width: 300px;">
+    <button id="fetchButton">データを取得</button>
+    <div id="content"></div>
+
+    <script>
+        document.getElementById('fetchButton').addEventListener('click', function() {
+            var url = document.getElementById('urlInput').value; // テキストボックスからURLを取得
+            var xhr = new XMLHttpRequest();
+
+            if (!url) {
+                document.getElementById('content').innerText = 'URLを入力してください。';
+                return;
+            }
+
+            xhr.open('GET', url, true);
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === 4) {
+                    if (xhr.status === 200) {
+                        // 成功した場合、レスポンスを表示
+                        document.getElementById('content').innerText = xhr.responseText;
+                    } else {
+                        // エラーが発生した場合
+                        document.getElementById('content').innerText = 'エラーが発生しました: ' + xhr.status;
+                    }
+                }
+            };
+            xhr.send();
+        });
+    </script>
+</body>
+</html>
+
