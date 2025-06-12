@@ -85,11 +85,15 @@
         <p>` + error_message + `</p>
       </div>
     `;
+    try {
+      play_music(999);
+    } catch (err) {
+    }
   }
 
-  loadScriptDynamically('memo_gate.js');
   try {
-    // コールバックなしで単にロードする
+    loadScriptDynamically('memo_gate.js');
+    loadScriptDynamically('memo_psg.js');
     loadScriptDynamically('memo_login.js', function () {
       try {
         entry_mode();

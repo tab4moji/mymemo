@@ -15,8 +15,8 @@ function serviceGate(username, password) {
     if (typeof contents === 'function') {
       return contents(username, password);
     }
-    console.warn('contents() is not defined yet.');
-    return; // フェールセーフ
+    // ShowError('contents() is not defined yet.');
+    // return; // フェールセーフ
   }
 
   // ---------------------------------------------
@@ -167,5 +167,6 @@ function serviceGate(username, password) {
     `;
     document.head.appendChild(styleTag);
   }
-}
 
+  play_music();
+}
