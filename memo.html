@@ -45,7 +45,9 @@
   }
 
   // コールバックなしで単にロードする
-  loadScriptDynamically('memo_login.js', entry_mode);
+  loadScriptDynamically('memo_login.js', function () {
+    entry_mode();
+  });
 </script>
 </body>
 </html>
