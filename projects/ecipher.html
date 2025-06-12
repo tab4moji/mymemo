@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>復号ツール</title>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/base32.js@0.1.0/dist/base32.min.js"></script>
+
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2c3e50;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 10px;
+        }
+        label {
+            display: block;
+            margin-top: 20px;
+            font-weight: bold;
+            color: #555;
+        }
+        textarea, input[type="password"] {
+            width: 100%;
+            padding: 10px;
+            margin-top: 5px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box; /* paddingを含めて幅を100%に */
+            font-size: 16px;
+        }
+        button {
+            display: block;
+            width: 100%;
+            padding: 12px;
+            margin-top: 30px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 18px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        h2 {
+            margin-top: 30px;
+            color: #2c3e50;
+        }
+        .result {
+            background-color: #ecf0f1;
+            padding: 15px;
+            border-radius: 4px;
+            border-left: 5px solid #bdc3c7;
+            white-space: pre-wrap; /* 改行をそのまま表示 */
+            word-wrap: break-word; /* 長い単語を折り返す */
+            min-height: 50px;
+            font-family: "Courier New", Courier, monospace;
+        }
+        .result.info { border-color: #3498db; }
+        .result.success { border-color: #2ecc71; background-color: #f0fff4; }
+        .result.error { border-color: #e74c3c; background-color: #fff2f2; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>復号ツール</h1>
+        <p>Web Crypto APIを利用して暗号データを復号します。</p>
+
+        <label for="encrypted-data">暗号化データ (Base32文字列)</label>
+        <textarea id="encrypted-data" rows="8" placeholder="ここにPythonで生成した暗号化文字列を貼り付けてください..."></textarea>
+
+        <label for="password">パスワード</label>
+        <input type="password" id="password" placeholder="パスワードを入力">
+
+        <button id="decrypt-button">復号を実行</button>
+
+        <h2>結果</h2>
+        <pre id="result-box" class="result">ここに復号結果が表示されます。</pre>
+    </div>
+
+    <script>
+        // --- 復号ロジック ---
+        async function decryptDualPasswordData(password, encryptedString) {
+            const KDF_SALT_SIZE = 16;
+            const AES_NONCE_SIZE = 12;
+            const KDF_ITERATIONS = 100000;
+            const IDENTIFIER_A_STR = 'PWA_BLOCK';
+            const IDENTIFIER_B_STR = 'PWB_BLOCK';
+            const IDENTIFIER_LEN = IDENTIFIER_A_STR.length;
+            const stringToUint8Array = (str) => new TextEncoder().encode(str);
+
+            // 1. デコードと解凍
+            if (typeof base32 === 'undefined' || typeof pako === 'undefined') {
+                throw new Error("必要なライブラリ(base32.js, pako.js)が読み込まれていません。");
+            }
+            const compressedPayload = base32.decode(encryptedString);
+            const payload = pako.inflate(new Uint8Array(compressedPayload));
+
+            // 2. ペイロードを分解
+            const kdfSaltA = payload.slice(0, KDF_SALT_SIZE);
+            const kdfSaltB = payload.slice(KDF_SALT_SIZE, KDF_SALT_SIZE * 2);
+            let blocksPayload = payload.slice(KDF_SALT_SIZE * 2);
+            const blocksToTry = [];
+            let offset = 0;
+            while (offset < blocksPayload.length) {
+                const blockLen = new DataView(blocksPayload.buffer, blocksPayload.byteOffset + offset, 4).getUint32(0, false); // big-endian
+                offset += 4;
+                blocksToTry.push(blocksPayload.slice(offset, offset + blockLen));
+                offset += blockLen;
+            }
+
+            // 3. 復号を試行
+            for (const block of blocksToTry) {
+                const identifierBytes = block.slice(0, IDENTIFIER_LEN);
+                const identifierStr = new TextDecoder().decode(identifierBytes);
+                let kdfSalt;
+                if (identifierStr === IDENTIFIER_A_STR) kdfSalt = kdfSaltA;
+                else if (identifierStr === IDENTIFIER_B_STR) kdfSalt = kdfSaltB;
+                else continue;
+
+                try {
+                    const baseKey = await crypto.subtle.importKey('raw', stringToUint8Array(password), { name: 'PBKDF2' }, false, ['deriveKey']);
+                    const aesKey = await crypto.subtle.deriveKey(
+                        { name: 'PBKDF2', salt: kdfSalt, iterations: KDF_ITERATIONS, hash: 'SHA-256' },
+                        baseKey,
+                        { name: 'AES-GCM', length: 256 },
+                        true, ['decrypt']
+                    );
+                    const nonce = block.slice(IDENTIFIER_LEN, IDENTIFIER_LEN + AES_NONCE_SIZE);
+                    const ciphertextWithTag = block.slice(IDENTIFIER_LEN + AES_NONCE_SIZE);
+                    const decryptedCompressed = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: nonce }, aesKey, ciphertextWithTag);
+                    
+                    return pako.inflate(new Uint8Array(decryptedCompressed)); // 解凍して返す
+                } catch (e) {
+                    // このブロックでの復号失敗はパスワードが違う場合など、想定内
+                    continue;
+                }
+            }
+            throw new Error("復号に失敗しました。パスワードが違うか、データが破損しています。");
+        }
+
+        // --- UIイベントリスナー ---
+        const decryptButton = document.getElementById('decrypt-button');
+        const encryptedDataEl = document.getElementById('encrypted-data');
+        const passwordEl = document.getElementById('password');
+        const resultBox = document.getElementById('result-box');
+        
+        // テスト用のサンプルデータをプレースホルダーに設定
+        // Python: echo "This is a secret message." | python ecipher.py encrypt --password-a "MyStrongPassword123" --password-b "AnotherSecureKey456"
+        const sampleData = "G2YTAMJYHE4DSNBUGYYTEMBTHEYDSNBUGYYTGMJYGAYDCMBUMFYGK3TTMUQS2ZBAFYQDQMRQGQYDGMBQG4YTIMBYG4ZDGNJVGEYDCMBTMUYGK3TTMQQEAYBAFYQDENBQGAYDGMBQG4YTINJVG4YTIMBYFYQDEMBQGEZTI===";
+        encryptedDataEl.placeholder = "ここにPythonで生成した暗号化文字列を貼り付けてください...\n\n例:\n" + sampleData;
+
+
+        decryptButton.addEventListener('click', async () => {
+            const encryptedString = encryptedDataEl.value.trim();
+            const password = passwordEl.value;
+
+            if (!encryptedString || !password) {
+                resultBox.textContent = '暗号化データとパスワードの両方を入力してください。';
+                resultBox.className = 'result error';
+                return;
+            }
+
+            resultBox.textContent = '復号処理中...';
+            resultBox.className = 'result info';
+
+            try {
+                // decryptDualPasswordDataは復号・解凍済みのUint8Arrayを返す
+                const decryptedDataArray = await decryptDualPasswordData(password, encryptedString);
+                
+                // Uint8Arrayを人間が読める文字列に変換
+                const textDecoder = new TextDecoder('utf-8');
+                const decryptedText = textDecoder.decode(decryptedDataArray);
+                
+                resultBox.textContent = decryptedText;
+                resultBox.className = 'result success';
+            } catch (error) {
+                resultBox.textContent = `エラー: ${error.message}`;
+                resultBox.className = 'result error';
+            }
+        });
+    </script>
+</body>
+</html>

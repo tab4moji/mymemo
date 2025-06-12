@@ -1,1 +1,117 @@
-<html><body>hello</body></html>
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>8ビットなスロットマシーン</title>
+  <!-- レトロな8bitフォント -->
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <style>
+    body {
+      background-color: #303030;
+      color: #fff;
+      font-family: 'Press Start 2P', sans-serif;
+      text-align: center;
+      margin: 0;
+      padding: 0;
+    }
+    .machine {
+      margin-top: 50px;
+      display: inline-block;
+      border: 4px solid #ff69b4;
+      padding: 20px;
+      background-color: #000;
+    }
+    .reels {
+      display: flex;
+      justify-content: center;
+      margin: 20px 0;
+    }
+    .reel {
+      width: 70px;
+      height: 70px;
+      margin: 0 10px;
+      line-height: 70px;
+      font-size: 40px;
+      background-color: #222;
+      border: 3px solid #ff69b4;
+    }
+    button {
+      font-family: 'Press Start 2P', sans-serif;
+      font-size: 20px;
+      padding: 10px 20px;
+      background-color: #ff69b4;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    button:active {
+      background-color: #ff1493;
+    }
+  </style>
+</head>
+<body>
+  <div class="machine">
+    <h1>スロットマシーン</h1>
+    <div class="reels">
+      <div class="reel" id="reel1">?</div>
+      <div class="reel" id="reel2">?</div>
+      <div class="reel" id="reel3">?</div>
+    </div>
+    <button id="spinButton">START!</button>
+    <p id="result"></p>
+  </div>
+
+  <script>
+    // 使用するシンボル（絵文字で表現）
+    const symbols = ['🍒', '🍋', '🔔', '🍀', '7'];
+
+    // ランダムなシンボルを取得する関数
+    function getRandomSymbol() {
+      return symbols[Math.floor(Math.random() * symbols.length)];
+    }
+
+    // 指定したリール要素をduration(ms)間隔でアニメーション表示し、最終的にランダムシンボルを決定
+    function animateReel(reel, duration) {
+      let interval = setInterval(() => {
+        reel.textContent = getRandomSymbol();
+      }, 100);
+      setTimeout(() => {
+        clearInterval(interval);
+        // 最終シンボルを決定
+        reel.textContent = getRandomSymbol();
+      }, duration);
+    }
+
+    // スピン処理：各リールに個別のアニメーション速度を与えてスロットを回す
+    function spinReels() {
+      const reel1 = document.getElementById('reel1');
+      const reel2 = document.getElementById('reel2');
+      const reel3 = document.getElementById('reel3');
+      const result = document.getElementById('result');
+      const spinButton = document.getElementById('spinButton');
+
+      // ボタンを一時的に無効化
+      spinButton.disabled = true;
+      result.textContent = "";
+
+      animateReel(reel1, 1000);
+      animateReel(reel2, 1500);
+      animateReel(reel3, 2000);
+
+      // 全リールのアニメーションが終了した後、勝敗を判定してボタンを再度有効化
+      setTimeout(() => {
+        if (reel1.textContent === reel2.textContent && reel2.textContent === reel3.textContent) {
+          result.textContent = "大当たり！";
+        } else {
+          result.textContent = "もう一度！";
+        }
+        spinButton.disabled = false;
+      }, 2200);
+    }
+
+    document.getElementById('spinButton').addEventListener('click', spinReels);
+  </script>
+</body>
+</html>
