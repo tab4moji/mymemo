@@ -81,8 +81,8 @@ document.addEventListener('DOMContentLoaded', () => {
     </style>
     <div class="login-container">
       <h1>Memo!</h1>
-      <input type="text" id="username" placeholder="USER">
-      <input type="password" id="password" placeholder="PaSS" autocomplete="current-password">
+      <input type="text" id="username" placeholder="username">
+      <input type="password" id="password" placeholder="password" autocomplete="current-password">
       <button id="enterBtn">Enter</button>
     </div>
   `;
@@ -98,7 +98,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const password = passwordInput.value;
 
     if (!username || !password) {
-      alert('USER と PaSS を入力してください。');
+      alert('USERiD と PassWOrd を入力してください。');
       return;
     }
 
