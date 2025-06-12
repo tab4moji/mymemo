@@ -95,67 +95,31 @@ function entry_mode () {
   // ログイン処理
   function login() {
     const username = usernameInput.value.trim();
-    const password = passwordInput.value;
-
-    if (!username || !password) {
-      alert('USERiD と PassWOrd を入力してください。');
-      return;
-    }
+    const password = passwordInput.value.trim();
 
     // パスワードのフォーマットチェック: 8文字以上かつ大文字・小文字・数字をチェック
     const passwordPattern = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
-    if (!passwordPattern.test(password)) {
-      alert('パスワードは8文字以上で、大文字・小文字・数字を含む形式にしてください。');
-      return;
-    }
 
-    if (typeof memory === "function") {
-      // memory 関数が存在する場合に呼び出す
-      memory(username, password);
+    if (!username || !password) {
+      ShowError('USERname と PassWOrd を入力してください。', "NO!");
+    } else if (!passwordPattern.test(password)) {
+      // パスワードは8文字以上で、大文字・小文字・数字を含む形式にしてください。
+      ShowError('パスワードは8文字以上で、大文字・小文字・数字を含む形式にしてください。', "NO!");
+      return;
+    } else if (typeof serviceGate === "function") {
+      // serviceGate 関数が存在する場合に呼び出す
+      serviceGate(username, password);
     } else {
-      // memory 関数が無い場合はエラーを表示（エラー描画は memo.html の領域に任せる）
-      document.body.innerHTML = `
-        <style>
-          body {
-            background-color: #111;
-            color: #fff;
-            font-family: 'Press Start 2P', cursive;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            height: 100vh;
-            margin: 0;
-          }
-          .error-container {
-            text-align: center;
-            background-color: #222;
-            padding: 30px;
-            border: 4px solid #f00;
-            border-radius: 10px;
-            box-shadow: 0 0 20px #f00;
-            animation: shake 0.5s;
-          }
-          @keyframes shake {
-            0% { transform: translateX(0); }
-            20% { transform: translateX(-10px); }
-            40% { transform: translateX(10px); }
-            60% { transform: translateX(-10px); }
-            80% { transform: translateX(10px); }
-            100% { transform: translateX(0); }
-          }
-        </style>
-        <div class="error-container">
-          <h1>Error!</h1>
-          <p>memory 関数が見つかりません。</p>
-        </div>
-      `;
+      ShowError("serviceGate 関数が見つかりません。");
     }
   }
 
   // Enter キーでログイン処理を起動
   [usernameInput, passwordInput].forEach(input => {
     input.addEventListener('keyup', (e) => {
-      if (e.key === 'Enter') login();
+      if (e.key === 'Enter') {
+        login();
+      }
     });
   });
 

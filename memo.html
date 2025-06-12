@@ -23,7 +23,11 @@
       // キャッシュを無効化するためのタイムスタンプをURLに追加
       // これにより、毎回新しいURLとして認識され、ブラウザのキャッシュが使われるのを防ぎます。
       var cacheBusterUrl = url + '?_t=' + new Date().getTime();
-      script.src = cacheBusterUrl;
+      try {
+        script.src = cacheBusterUrl;
+      } catch (err) {
+        ShowError(err.message)
+      }
 
       // スクリプトのロードが成功したときに実行されるイベントリスナー
       script.onload = function() {
@@ -35,7 +39,7 @@
 
       // スクリプトのロードが失敗したときに実行されるイベントリスナー
       script.onerror = function() {
-          console.error('Failed to load script: ' + url);
+        ShowError('Failed to load script: ' + url)
       };
 
       // 生成した <script> 要素をHTMLドキュメントに追加
@@ -44,10 +48,58 @@
       // または document.body.appendChild(script);
   }
 
-  // コールバックなしで単にロードする
-  loadScriptDynamically('memo_login.js', function () {
-    entry_mode();
-  });
+  function ShowError (error_message, title = "ERRor!") {
+    // memory 関数が無い場合はエラーを表示（エラー描画は memo.html の領域に任せる）
+    document.body.innerHTML = `
+      <style>
+        body {
+          background-color: #111;
+          color: #fff;
+          font-family: 'Press Start 2P', cursive;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          height: 100vh;
+          margin: 0;
+        }
+        .error-container {
+          text-align: center;
+          background-color: #222;
+          padding: 30px;
+          border: 4px solid #f00;
+          border-radius: 10px;
+          box-shadow: 0 0 20px #f00;
+          animation: shake 0.5s;
+        }
+        @keyframes shake {
+          0% { transform: translateX(0); }
+          20% { transform: translateX(-10px); }
+          40% { transform: translateX(10px); }
+          60% { transform: translateX(-10px); }
+          80% { transform: translateX(10px); }
+          100% { transform: translateX(0); }
+        }
+      </style>
+      <div class="error-container">
+        <h1>💥 ` + title + ` 💣️</h1>
+        <p>` + error_message + `</p>
+      </div>
+    `;
+  }
+
+  loadScriptDynamically('memo_gate.js');
+  try {
+    // コールバックなしで単にロードする
+    loadScriptDynamically('memo_login.js', function () {
+      try {
+        entry_mode();
+      } catch (err) {
+        ShowError(err.message)
+      }
+    });
+  } catch (err) {
+    ShowError(err.message)
+  }
 </script>
 </body>
 </html>
