@@ -82,7 +82,7 @@ function entry_mode () {
     <div class="login-container">
       <h1>Memo!</h1>
       <input type="text" id="username" placeholder="username">
-      <input type="password" id="password" placeholder="password" autocomplete="current-password">
+      <input type="password" id="password" placeholder="password" autocomplete="new-password">
       <button id="enterBtn">Enter</button>
     </div>
   `;
