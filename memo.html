@@ -13,6 +13,39 @@
 </head>
 <body>
   <!-- body は memo_login.js により動的に構築 -->
-  <script src="memo_login.js"></script>
+  <!-- <script src="memo_login.js"></script> -->
+  <script language="javascript" type="text/javascript" charset="utf-8">
+  function loadScriptDynamically(url, callback) {
+      // 新しい <script> 要素を作成
+      var script = document.createElement('script');
+      script.type = 'text/javascript';
+
+      // キャッシュを無効化するためのタイムスタンプをURLに追加
+      // これにより、毎回新しいURLとして認識され、ブラウザのキャッシュが使われるのを防ぎます。
+      var cacheBusterUrl = url + '?_t=' + new Date().getTime();
+      script.src = cacheBusterUrl;
+
+      // スクリプトのロードが成功したときに実行されるイベントリスナー
+      script.onload = function() {
+          console.log('Script loaded successfully: ' + url);
+          if (callback) {
+              callback(); // コールバック関数があれば実行
+          }
+      };
+
+      // スクリプトのロードが失敗したときに実行されるイベントリスナー
+      script.onerror = function() {
+          console.error('Failed to load script: ' + url);
+      };
+
+      // 生成した <script> 要素をHTMLドキュメントに追加
+      // 通常は <head> に追加しますが、状況によっては <body> の最後にしても問題ありません。
+      document.head.appendChild(script);
+      // または document.body.appendChild(script);
+  }
+
+  // コールバックなしで単にロードする
+  loadScriptDynamically('memo_login.js');
+</script>
 </body>
 </html>
