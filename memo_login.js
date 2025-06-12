@@ -1,4 +1,4 @@
-document.addEventListener('DOMContentLoaded', () => {
+callback () {
   // ログイン画面のスタイルと内容を動的に生成
   document.body.innerHTML = `
     <style>
@@ -160,5 +160,4 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   enterBtn.addEventListener('click', login);
-});
-
+}
