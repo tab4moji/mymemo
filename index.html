@@ -86,7 +86,7 @@
       left: 50%;
       transform: translateX(-50%);
       font-family: 'Press Start 2P', sans-serif;
-      font-size: 3.5vw; /* 修正箇所 */
+      font-size: 18px;
       padding: 10px 20px;
       background-color: #ff69b4;
       color: #fff;
@@ -102,7 +102,7 @@
     /* 結果メッセージ */
     #result {
       margin: 10px 0;
-      font-size: 4vw; /* 修正箇所 */
+      font-size: 20px;
       text-shadow: 0 0 8px #ff69b4;
     }
     /* スマホなど小さい画面用のレスポンシブ設定 */
@@ -126,12 +126,16 @@
         width: 80px;
         height: 80px;
       }
+      /* ここに追記 */
+      #result {
+        font-size: 16px; /* スマホ用に小さくする */
+      }
     }
   </style>
 </head>
 <body>
   <div class="machine">
-    <h1>スロットマシーン v.1.0</h1>
+    <h1>スロットマシーン ver. 1.2</h1>
     <div class="reels">
       <div class="reel-container">
         <canvas id="reel0" width="100" height="100"></canvas>
