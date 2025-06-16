@@ -4,7 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>スロットマシーン</title>
-  <!-- 8bit風フォント -->
   <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
   <style>
     /* 全体の背景とフォント設定 */
@@ -24,7 +23,8 @@
       border: 4px solid #ff69b4;
       position: relative;
       display: inline-block;
-      padding-bottom: 100px; /* 下部ボタン分のスペース */
+      padding-bottom: 100px;
+      /* 下部ボタン分のスペース */
       box-shadow: 0 0 15px #ff69b4;
     }
     /* タイトル：各文字にプルス（鼓動）アニメーションを付与 */
@@ -38,8 +38,10 @@
       color: #ff69b4;
     }
     @keyframes pulse {
-      0%, 100% { transform: scale(1); text-shadow: 0 0 4px #ff69b4; }
-      50% { transform: scale(1.1); text-shadow: 0 0 15px #ff69b4; }
+      0%, 100% { transform: scale(1);
+      text-shadow: 0 0 4px #ff69b4; }
+      50% { transform: scale(1.1); text-shadow: 0 0 15px #ff69b4;
+      }
     }
     /* リール部分 */
     .reels {
@@ -84,7 +86,7 @@
       left: 50%;
       transform: translateX(-50%);
       font-family: 'Press Start 2P', sans-serif;
-      font-size: 18px;
+      font-size: 3.5vw; /* 修正箇所 */
       padding: 10px 20px;
       background-color: #ff69b4;
       color: #fff;
@@ -100,7 +102,7 @@
     /* 結果メッセージ */
     #result {
       margin: 10px 0;
-      font-size: 20px;
+      font-size: 4vw; /* 修正箇所 */
       text-shadow: 0 0 8px #ff69b4;
     }
     /* スマホなど小さい画面用のレスポンシブ設定 */
@@ -161,7 +163,6 @@
         h1.appendChild(span);
       }
     });
-
     // 設定パラメータ：リールのサイズ拡大
     const config = {
       symbolHeight: 100,      // シンボルの高さ(px)
@@ -213,7 +214,6 @@
     const startButton = document.getElementById('startButton');
     const stopButtons = document.querySelectorAll('.stopButton');
     const resultP = document.getElementById('result');
-
     // 補助関数：常に正の値の剰余を返す
     function mod(n, m) {
       return ((n % m) + m) % m;
@@ -266,7 +266,6 @@
         stopReel(parseInt(button.getAttribute('data-reel'), 10));
       });
     });
-
     startButton.addEventListener('click', startSpin);
 
     // リールのアニメーション更新（requestAnimationFrame）
@@ -275,7 +274,6 @@
       if (!lastTime) lastTime = timestamp;
       const dt = (timestamp - lastTime) / 1000;
       lastTime = timestamp;
-      
       reels.forEach(reel => {
         if (reel.spinning && !reel.stopping) {
           reel.currentOffset -= reel.speed * dt;
@@ -291,7 +289,6 @@
         }
         drawReel(reel);
       });
-
       // 全リールが停止したら最終結果を判定
       if (reels.every(r => !r.spinning)) {
         const finalSymbols = reels.map(r => {
