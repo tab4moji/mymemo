@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>紹介状の復号と検証デモ</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        label { display: block; margin-bottom: 5px; }
+        input[type="text"], textarea { width: 80%; padding: 8px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 4px; }
+        button { padding: 10px 15px; background-color: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        button:hover { background-color: #218838; }
+        pre { background-color: #f4f4f4; padding: 15px; border: 1px solid #ddd; border-radius: 4px; overflow-x: auto; white-space: pre-wrap; word-wrap: break-word; }
+        .error { color: red; font-weight: bold; }
+        .success { color: green; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <h1>紹介状の復号と検証デモ</h1>
+    <p>
+        生成された「紹介状」JSONと、対応する公開鍵、AESパスワードを入力して復号と署名検証を行います。
+    </p>
+
+    <div>
+        <label for="invitationInput">紹介状 (JSON形式):</label>
+        <textarea id="invitationInput" rows="15" cols="80" placeholder="ここに生成された紹介状JSONを貼り付けてください"></textarea>
+    </div>
+    <div>
+        <label for="aesPasswordInput">AES暗号化パスワード (生成時と一致させる):</label>
+        <input type="text" id="aesPasswordInput" value="helloworld">
+    </div>
+    <div>
+        <label for="publicKeyInput">デジタル署名用公開鍵 (JWK形式):</label>
+        <textarea id="publicKeyInput" rows="10" cols="80" placeholder="ここに生成時にコンソールに出力されたJWK形式の公開鍵を貼り付けてください"></textarea>
+    </div>
+    
+    <button onclick="processInvitation()">紹介状を復号・検証</button>
+
+    <h2>結果</h2>
+    <pre id="output"></pre>
+
+    <script src="https://cdn.jsdelivr.net/npm/pako@2.1.0/dist/pako.min.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/hi-base32@0.5.1/build/base32.min.js" defer></script>
+
+    <script>
+        // ライブラリのロード状態をチェックするフラグ
+        let isPakoLoaded = false;
+        let isBase32Loaded = false;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            if (typeof pako !== 'undefined') {
+                isPakoLoaded = true;
+                console.log('pako.min.js is loaded.');
+            } else {
+                console.warn('pako.min.js not found after DOMContentLoaded.');
+            }
+
+            if (typeof base32 !== 'undefined') { // hi-base32 exposes `base32`
+                isBase32Loaded = true;
+                console.log('hi-base32.min.js is loaded.');
+            } else {
+                console.warn('hi-base32.min.js not found after DOMContentLoaded.');
+            }
+        });
+
+        window.onload = () => {
+            const outputElement = document.getElementById('output');
+            if (typeof pako === 'undefined' || typeof base32 === 'undefined') {
+                outputElement.className = 'error';
+                outputElement.textContent = "エラー: 必要なライブラリがロードされていません。インターネット接続を確認してください。";
+                console.error("Libraries pako or base32 are not loaded on window.onload.");
+            }
+        };
+
+        // --- 補助関数 ---
+
+        /**
+         * パスワードと塩から暗号化キーを導出する関数
+         * @param {string} password パスワード
+         * @param {Uint8Array} salt 塩
+         * @returns {Promise<CryptoKey>} 導出されたAES暗号化キー
+         */
+        function deriveEncryptionKey(password, salt) {
+            var enc = new TextEncoder();
+            return window.crypto.subtle.importKey(
+                "raw",
+                enc.encode(password),
+                { name: "PBKDF2" },
+                false,
+                ["deriveBits"]
+            )
+            .then(function(keyMaterial) {
+                return window.crypto.subtle.deriveBits(
+                    { name: "PBKDF2", salt: salt, iterations: 100000, hash: "SHA-256" },
+                    keyMaterial,
+                    256 // 256ビット (32バイト) の鍵を導出
+                );
+            })
+            .then(function(bits) {
+                return window.crypto.subtle.importKey(
+                    "raw",
+                    bits,
+                    { name: "AES-GCM" }, // AES-GCM 用の鍵としてインポート
+                    true,
+                    ["encrypt", "decrypt"] // 暗号化と復号の両方を許可
+                );
+            });
+        }
+
+        /**
+         * Base32文字列をArrayBufferに変換
+         * @param {string} base32String
+         * @returns {ArrayBuffer}
+         */
+        function base32ToArrayBuffer(base32String) {
+            // ライブラリのロードチェック
+            if (!isBase32Loaded || typeof base32 === 'undefined') {
+                throw new Error("Base32ライブラリが利用できません。");
+            }
+            // hi-base32 の decode.asBytes() は Uint8Array を返す
+            const decodedBytes = base32.decode.asBytes(base32String);
+            // decodedBytes から新しい ArrayBuffer を作成して返す
+            return new Uint8Array(decodedBytes).buffer; // ここを修正
+        }
+
+        /**
+         * 文字列のSHA-256ハッシュを計算する
+         * @param {string} message
+         * @returns {Promise<ArrayBuffer>} ハッシュ値のArrayBuffer
+         */
+        function sha256(message) {
+            var msgUint8 = new TextEncoder().encode(message); // encode as (utf-8) Uint8Array
+            return crypto.subtle.digest('SHA-256', msgUint8); // hash the message
+        }
+
+        // --- メイン関数 ---
+
+        /**
+         * 紹介状の署名を確認し、復号して平文JSONを返す関数
+         *
+         * @param {string} invitationJsonString JSON形式の紹介状文字列
+         * 例: {"encrypted_data": "Base32AESCiphertext", "signature": "Base32Signature"}
+         * @param {string} aesPassword AES暗号化に使われたパスワード
+         * @param {string} publicKeyJwkString 署名検証用の公開鍵 (JWK形式の文字列)
+         * @returns {Promise<Object|null>} 署名確認と復号が成功すれば平文のJSONオブジェクト、失敗すればnull
+         */
+        async function verify_invitation(invitationJsonString, aesPassword, publicKeyJwkString) {
+            const salt = new TextEncoder().encode("some-static-salt-for-demo-purposes"); // 生成時と一致させる
+
+            // ライブラリのロード状態を再確認
+            if (typeof pako === 'undefined' || typeof base32 === 'undefined') {
+                throw new Error("必要なライブラリがロードされていません。");
+            }
+
+            let parsedInvitation;
+            let encryptedDataBase32;
+            let signatureBase32;
+            let iv;
+            let actualEncryptedData;
+            let publicKey;
+
+            try {
+                // 1. JSONパースと公開鍵のインポート
+                parsedInvitation = JSON.parse(invitationJsonString);
+                encryptedDataBase32 = parsedInvitation.encrypted_data;
+                signatureBase32 = parsedInvitation.signature;
+
+                if (!encryptedDataBase32 || !signatureBase32) {
+                    throw new Error("紹介状のフォーマットが不正です。'encrypted_data'と'signature'が必要です。");
+                }
+                
+                const publicKeyJwk = JSON.parse(publicKeyJwkString);
+                publicKey = await window.crypto.subtle.importKey(
+                    "jwk",
+                    publicKeyJwk,
+                    { name: "RSASSA-PKCS1-v1_5", hash: { name: "SHA-256" } },
+                    true, // エクスポート可能にする
+                    ["verify"]
+                );
+
+                // 暗号化データのBase32デコードとIVの分離
+                const decodedEncryptedBuffer = base32ToArrayBuffer(encryptedDataBase32);
+                const decodedEncryptedUint8 = new Uint8Array(decodedEncryptedBuffer);
+
+                if (decodedEncryptedUint8.length < 16) {
+                    throw new Error("暗号文が短すぎます。IVが含まれていない可能性があります。");
+                }
+                iv = decodedEncryptedUint8.slice(0, 16); // 最初の16バイトをIVとする
+                actualEncryptedData = decodedEncryptedUint8.slice(16); // 残りが実際の暗号化データ
+
+            } catch (e) {
+                console.error("紹介状のパース、公開鍵のインポート、またはBase32デコード中にエラー:", e);
+                throw e; // エラーを上位に伝播
+            }
+
+            try {
+                // 2. AES復号
+                const aesKey = await deriveEncryptionKey(aesPassword, salt);
+                const decryptedBuffer = await window.crypto.subtle.decrypt(
+                    {
+                        name: "AES-GCM",
+                        iv: iv,
+                        tagLength: 128 // 認証タグは128ビット (16バイト)
+                    },
+                    aesKey,
+                    actualEncryptedData
+                );
+
+                // 3. zlib解凍とJSONパース
+                const decompressedData = pako.inflate(new Uint8Array(decryptedBuffer), { to: 'string' });
+                const decryptedJsonObject = JSON.parse(decompressedData);
+
+                // 署名検証用の対象データ（urlとusername_hashを結合した文字列のハッシュ値）を生成
+                if (!decryptedJsonObject.url || !decryptedJsonObject.username_hash) {
+                    throw new Error("復号されたJSONに'url'または'username_hash'が含まれていません。");
+                }
+                const signedMessage = decryptedJsonObject.url + decryptedJsonObject.username_hash;
+                const hashedSignedMessageBuffer = await sha256(signedMessage);
+
+                // 署名データのBase32デコード
+                const decodedSignatureBuffer = base32ToArrayBuffer(signatureBase32);
+
+                // 4. デジタル署名検証
+                const isValid = await window.crypto.subtle.verify(
+                    { name: "RSASSA-PKCS1-v1_5" }, // 署名アルゴリズムは公開鍵と一致させる
+                    publicKey,
+                    decodedSignatureBuffer,
+                    hashedSignedMessageBuffer
+                );
+
+                if (!isValid) {
+                    throw new Error("署名が無効です。紹介状が改ざんされたか、公開鍵または署名アルゴリズムが異なります。");
+                }
+
+                return decryptedJsonObject; // 成功した場合は平文のJSONを返す
+
+            } catch (e) {
+                console.error("復号または署名検証中にエラーが発生しました:", e);
+                throw e; // エラーを上位に伝播
+            }
+        }
+
+        // --- UI連携 ---
+        async function processInvitation() {
+            const invitationInput = document.getElementById('invitationInput').value;
+            const aesPassword = document.getElementById('aesPasswordInput').value;
+            const publicKeyInput = document.getElementById('publicKeyInput').value;
+            const outputElement = document.getElementById('output');
+
+            outputElement.className = ''; // クラスをリセット
+            outputElement.textContent = "処理中...";
+
+            // 必須入力のチェック
+            if (!invitationInput || !aesPassword || !publicKeyInput) {
+                outputElement.className = 'error';
+                outputElement.textContent = "全てのフィールドを入力してください。";
+                return;
+            }
+
+            // ライブラリのロード状態を再確認
+            if (typeof pako === 'undefined' || typeof base32 === 'undefined') {
+                outputElement.className = 'error';
+                outputElement.textContent = "エラー: 必要なライブラリがロードされていません。インターネット接続を確認してください。";
+                console.error("Libraries pako or base32 are not loaded.");
+                return;
+            }
+
+            try {
+                const decryptedJson = await verify_invitation(invitationInput, aesPassword, publicKeyInput);
+                
+                outputElement.className = 'success';
+                outputElement.textContent = "署名確認および復号に成功しました！\n復号されたJSON:\n" + JSON.stringify(decryptedJson, null, 2);
+            } catch (error) {
+                outputElement.className = 'error';
+                outputElement.textContent = "エラー: 署名確認または復号に失敗しました。\n" + error.message + "\n詳細はコンソールを確認してください。";
+                console.error("処理エラー:", error);
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,32 @@
+<!--
+  memo.html - 統合版エントリーポイント
+  -------------------------------------------------
+  Version History:
+  1.0 (2025-06-14): 初版。従来の各HTMLファイルとJSファイルを統合し、基本的なレスポンシブ対応・キャッシュ無効化および8bit風フォントの指定を実装。
+  1.1 (2025-06-14): 履歴コメントを追加。将来的な変更履歴や注記はこのコメント内に追記すること。
+  1.2 (2025-06-16): CSS を外部ファイル memo.css に分離し、HTML 内の inline CSS を削除。
+-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <title>Memo!</title>
+  <!-- 8bit風フォント -->
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <!-- 外部スタイルシート -->
+  <link rel="stylesheet" href="memo.css">
+</head>
+<body>
+  <!-- メインUIおよび各画面は memo.js により動的に構築 -->
+  <script src="https://cdn.jsdelivr.net/npm/pako@2.1.0/dist/pako.min.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/hi-base32@0.5.1/build/base32.min.js" defer></script>
+  <script src="memo_lib.js"></script>
+  <script src="memo_publickeys.js"></script>
+  <script src="memo.js"></script>
+</body>
+</html>
+

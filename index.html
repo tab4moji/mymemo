@@ -3,51 +3,127 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>スロットマスィーン</title>
-  <!-- レトロな8bitフォント -->
+  <title>スロットマシーン</title>
+  <!-- 8bit風フォント -->
   <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
   <style>
+    /* 全体の背景とフォント設定 */
     body {
-      background-color: #303030;
+      margin: 0;
+      padding: 0;
+      background: linear-gradient(135deg, #1a1a1a, #303030);
       color: #fff;
       font-family: 'Press Start 2P', sans-serif;
       text-align: center;
-      margin: 0;
-      padding: 0;
     }
+    /* マシン全体のコンテナ：ネオンの枠と影 */
     .machine {
-      margin-top: 50px;
-      display: inline-block;
-      border: 4px solid #ff69b4;
+      margin: 30px auto;
       padding: 20px;
       background-color: #000;
+      border: 4px solid #ff69b4;
+      position: relative;
+      display: inline-block;
+      padding-bottom: 100px; /* 下部ボタン分のスペース */
+      box-shadow: 0 0 15px #ff69b4;
     }
+    /* タイトル：各文字にプルス（鼓動）アニメーションを付与 */
+    h1 {
+      margin: 0 0 20px 0;
+      font-size: 24px;
+    }
+    h1 span {
+      display: inline-block;
+      animation: pulse 1.5s infinite;
+      color: #ff69b4;
+    }
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); text-shadow: 0 0 4px #ff69b4; }
+      50% { transform: scale(1.1); text-shadow: 0 0 15px #ff69b4; }
+    }
+    /* リール部分 */
     .reels {
       display: flex;
       justify-content: center;
-      margin: 20px 0;
+      margin-bottom: 20px;
+      gap: 20px;
     }
-    .reel {
-      width: 70px;
-      height: 70px;
-      margin: 0 10px;
-      line-height: 70px;
-      font-size: 40px;
-      background-color: #222;
+    .reel-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    canvas {
       border: 3px solid #ff69b4;
+      background-color: #222;
+      image-rendering: pixelated; /* 8bitピクセル感を強調 */
+      width: 100px;
+      height: 100px;
     }
-    button {
+    /* STOPボタン：青いネオン */
+    .stopButton {
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      background-color: #2196F3;
+      border: none;
+      margin-top: 10px;
+      cursor: pointer;
+      box-shadow: 0 0 8px #2196F3;
       font-family: 'Press Start 2P', sans-serif;
-      font-size: 20px;
+    }
+    .stopButton:disabled {
+      background-color: #999;
+      box-shadow: none;
+      cursor: default;
+    }
+    /* STARTボタン：ネオンピンクのグロー */
+    #startButton {
+      position: absolute;
+      bottom: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-family: 'Press Start 2P', sans-serif;
+      font-size: 18px;
       padding: 10px 20px;
       background-color: #ff69b4;
       color: #fff;
       border: none;
       border-radius: 8px;
       cursor: pointer;
+      box-shadow: 0 0 12px #ff69b4;
     }
-    button:active {
-      background-color: #ff1493;
+    #startButton:disabled {
+      background-color: #999;
+      box-shadow: none;
+    }
+    /* 結果メッセージ */
+    #result {
+      margin: 10px 0;
+      font-size: 20px;
+      text-shadow: 0 0 8px #ff69b4;
+    }
+    /* スマホなど小さい画面用のレスポンシブ設定 */
+    @media (max-width: 480px) {
+      .machine {
+        margin: 20px auto;
+        padding: 15px;
+      }
+      h1 {
+        font-size: 20px;
+      }
+      #startButton {
+        font-size: 16px;
+        padding: 8px 16px;
+      }
+      .stopButton {
+        width: 40px;
+        height: 40px;
+      }
+      canvas {
+        width: 80px;
+        height: 80px;
+      }
     }
   </style>
 </head>
@@ -55,63 +131,183 @@
   <div class="machine">
     <h1>スロットマシーン</h1>
     <div class="reels">
-      <div class="reel" id="reel1">?</div>
-      <div class="reel" id="reel2">?</div>
-      <div class="reel" id="reel3">?</div>
+      <div class="reel-container">
+        <canvas id="reel0" width="100" height="100"></canvas>
+        <button class="stopButton" data-reel="0" disabled aria-label="Stop"></button>
+      </div>
+      <div class="reel-container">
+        <canvas id="reel1" width="100" height="100"></canvas>
+        <button class="stopButton" data-reel="1" disabled aria-label="Stop"></button>
+      </div>
+      <div class="reel-container">
+        <canvas id="reel2" width="100" height="100"></canvas>
+        <button class="stopButton" data-reel="2" disabled aria-label="Stop"></button>
+      </div>
     </div>
-    <button id="spinButton">START!</button>
     <p id="result"></p>
+    <button id="startButton">START!</button>
   </div>
 
   <script>
-    // 使用するシンボル（絵文字で表現）
-    const symbols = ['🍒', '🍋', '🔔', '🍀', '7'];
+    // タイトルの各文字をspanでラップし、個別にアニメーション適用
+    document.addEventListener('DOMContentLoaded', function() {
+      var h1 = document.querySelector('h1');
+      var text = h1.textContent;
+      h1.innerHTML = '';
+      for (var i = 0; i < text.length; i++) {
+        var span = document.createElement('span');
+        span.textContent = text[i];
+        span.style.animationDelay = (i * 0.1) + 's';
+        h1.appendChild(span);
+      }
+    });
 
-    // ランダムなシンボルを取得する関数
-    function getRandomSymbol() {
-      return symbols[Math.floor(Math.random() * symbols.length)];
+    // 設定パラメータ：リールのサイズ拡大
+    const config = {
+      symbolHeight: 100,      // シンボルの高さ(px)
+      reelWidth: 100,         // リールの幅(px)
+      reelHeight: 100,        // 表示窓の高さ(px)
+      rotationSpeed: 300,     // 回転速度(px/秒)
+      decelerationDuration: 500, // 減速時間(ms)
+      symbols: ['🍒', '🍋', '🔔', '🍀', '7']
+    };
+    const cycleLength = config.symbols.length * config.symbolHeight;
+
+    // --- オフスクリーンキャンバス（ダブルバッファ） ---
+    const offscreenCanvas = document.createElement('canvas');
+    offscreenCanvas.width = config.reelWidth;
+    offscreenCanvas.height = cycleLength * 2;
+    const offCtx = offscreenCanvas.getContext('2d');
+    offCtx.font = "60px 'Press Start 2P'";
+    offCtx.textAlign = "center";
+    offCtx.textBaseline = "middle";
+
+    // シンボルパターンを2回描画してループ可能に
+    for (let cycle = 0; cycle < 2; cycle++) {
+      config.symbols.forEach((sym, i) => {
+        const x = config.reelWidth / 2;
+        const y = cycle * cycleLength + i * config.symbolHeight + (config.symbolHeight / 2);
+        offCtx.fillText(sym, x, y);
+      });
     }
 
-    // 指定したリール要素をduration(ms)間隔でアニメーション表示し、最終的にランダムシンボルを決定
-    function animateReel(reel, duration) {
-      let interval = setInterval(() => {
-        reel.textContent = getRandomSymbol();
-      }, 100);
-      setTimeout(() => {
-        clearInterval(interval);
-        // 最終シンボルを決定
-        reel.textContent = getRandomSymbol();
-      }, duration);
+    // --- 各リールの状態管理 ---
+    const reels = [];
+    const reelCount = 3;
+    for (let i = 0; i < reelCount; i++) {
+      const canvas = document.getElementById("reel" + i);
+      const ctx = canvas.getContext("2d");
+      reels.push({
+        canvas: canvas,
+        ctx: ctx,
+        currentOffset: 0,
+        speed: config.rotationSpeed,
+        spinning: false,
+        stopping: false,
+        stopStartTime: 0,
+        startOffset: 0,
+        targetOffset: 0
+      });
     }
 
-    // スピン処理：各リールに個別のアニメーション速度を与えてスロットを回す
-    function spinReels() {
-      const reel1 = document.getElementById('reel1');
-      const reel2 = document.getElementById('reel2');
-      const reel3 = document.getElementById('reel3');
-      const result = document.getElementById('result');
-      const spinButton = document.getElementById('spinButton');
+    const startButton = document.getElementById('startButton');
+    const stopButtons = document.querySelectorAll('.stopButton');
+    const resultP = document.getElementById('result');
 
-      // ボタンを一時的に無効化
-      spinButton.disabled = true;
-      result.textContent = "";
+    // 補助関数：常に正の値の剰余を返す
+    function mod(n, m) {
+      return ((n % m) + m) % m;
+    }
 
-      animateReel(reel1, 1000);
-      animateReel(reel2, 1500);
-      animateReel(reel3, 2000);
+    // リール描画
+    function drawReel(reel) {
+      const ctx = reel.ctx;
+      ctx.clearRect(0, 0, config.reelWidth, config.reelHeight);
+      const modOffset = mod(reel.currentOffset, cycleLength);
+      ctx.drawImage(
+        offscreenCanvas,
+        0, modOffset, config.reelWidth, config.reelHeight,
+        0, 0, config.reelWidth, config.reelHeight
+      );
+    }
 
-      // 全リールのアニメーションが終了した後、勝敗を判定してボタンを再度有効化
-      setTimeout(() => {
-        if (reel1.textContent === reel2.textContent && reel2.textContent === reel3.textContent) {
-          result.textContent = "大当たり！";
-        } else {
-          result.textContent = "もう一度！";
+    // STARTボタン処理：各リール初期化＆回転開始
+    function startSpin() {
+      startButton.disabled = true;
+      resultP.textContent = "";
+      reels.forEach((reel, idx) => {
+        const randomIndex = Math.floor(Math.random() * config.symbols.length);
+        reel.currentOffset = randomIndex * config.symbolHeight;
+        drawReel(reel);
+        setTimeout(() => {
+          reel.spinning = true;
+          reel.stopping = false;
+          document.querySelector(`.stopButton[data-reel="${idx}"]`).disabled = false;
+        }, idx * 200);
+      });
+    }
+
+    // STOPボタン処理：リール停止
+    function stopReel(reelIndex) {
+      const reel = reels[reelIndex];
+      if (reel && reel.spinning && !reel.stopping) {
+        reel.stopping = true;
+        reel.stopStartTime = performance.now();
+        reel.startOffset = reel.currentOffset;
+        const remainder = mod(reel.currentOffset, config.symbolHeight);
+        reel.targetOffset = reel.currentOffset - remainder;
+        document.querySelector(`.stopButton[data-reel="${reelIndex}"]`).disabled = true;
+      }
+    }
+
+    // 各STOPボタンのイベント設定
+    stopButtons.forEach(button => {
+      button.addEventListener('click', () => {
+        stopReel(parseInt(button.getAttribute('data-reel'), 10));
+      });
+    });
+
+    startButton.addEventListener('click', startSpin);
+
+    // リールのアニメーション更新（requestAnimationFrame）
+    let lastTime = null;
+    function animate(timestamp) {
+      if (!lastTime) lastTime = timestamp;
+      const dt = (timestamp - lastTime) / 1000;
+      lastTime = timestamp;
+      
+      reels.forEach(reel => {
+        if (reel.spinning && !reel.stopping) {
+          reel.currentOffset -= reel.speed * dt;
+        } else if (reel.spinning && reel.stopping) {
+          const elapsed = timestamp - reel.stopStartTime;
+          const progress = Math.min(elapsed / config.decelerationDuration, 1);
+          const easeProgress = 1 - Math.pow(1 - progress, 2);
+          reel.currentOffset = reel.startOffset - (reel.startOffset - reel.targetOffset) * easeProgress;
+          if (progress >= 1) {
+            reel.spinning = false;
+            reel.stopping = false;
+          }
         }
-        spinButton.disabled = false;
-      }, 2200);
-    }
+        drawReel(reel);
+      });
 
-    document.getElementById('spinButton').addEventListener('click', spinReels);
+      // 全リールが停止したら最終結果を判定
+      if (reels.every(r => !r.spinning)) {
+        const finalSymbols = reels.map(r => {
+          // ここを修正：常に正のインデックスを得るために mod() を利用
+          const index = mod(Math.floor(r.currentOffset / config.symbolHeight), config.symbols.length);
+          return config.symbols[index];
+        });
+        resultP.textContent =
+          finalSymbols.every(s => s === finalSymbols[0]) ? "大当たり！" : "もう一度！";
+        startButton.disabled = false;
+        stopButtons.forEach(btn => btn.disabled = true);
+      }
+
+      requestAnimationFrame(animate);
+    }
+    requestAnimationFrame(animate);
   </script>
 </body>
 </html>

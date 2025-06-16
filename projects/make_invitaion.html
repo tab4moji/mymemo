@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>紹介状生成デモ</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        label { display: block; margin-bottom: 5px; }
+        input[type="text"], textarea { width: 80%; padding: 8px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 4px; }
+        button { padding: 10px 15px; background-color: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        button:hover { background-color: #0056b3; }
+        pre { background-color: #f4f4f4; padding: 15px; border: 1px solid #ddd; border-radius: 4px; overflow-x: auto; white-space: pre-wrap; word-wrap: break-word; }
+        .warning { color: red; font-weight: bold; margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <h1>紹介状生成デモ</h1>
+    <p class="warning">
+        **警告:** このページはデモおよびテスト目的で作成されています。デジタル署名用の**秘密鍵をブラウザのフォームで直接入力することは、実際の運用環境ではセキュリティ上の重大なリスクがあります。**本番環境では秘密鍵をサーバーサイドで厳重に管理し、署名処理はサーバー側で行うべきです。
+    </p>
+
+    <div>
+        <label for="urlInput">URL:</label>
+        <input type="text" id="urlInput" value="https://example.com/invite/token123">
+    </div>
+    <div>
+        <label for="emailInput">メールアドレス (内部でSHA-256ハッシュ化されます):</label>
+        <input type="text" id="emailInput" value="testuser@example.com">
+    </div>
+    <div>
+        <label for="aesPasswordInput">AES暗号化パスワード (復号側と一致させる必要があります):</label>
+        <input type="text" id="aesPasswordInput" value="helloworld">
+    </div>
+    <div>
+        <label for="privateKeyInput">デジタル署名用秘密鍵 (JWK形式):</label>
+        <textarea id="privateKeyInput" rows="10" cols="80" placeholder="ここにJWK形式の秘密鍵を貼り付けてください"></textarea>
+        <button onclick="generateNewKeyPair()">新しい鍵ペアを生成 (テスト用)</button>
+    </div>
+    
+    <button onclick="generateInvitation()">紹介状を生成</button>
+
+    <h2>生成された紹介状 (JSON)</h2>
+    <pre id="output"></pre>
+
+    <script src="https://cdn.jsdelivr.net/npm/pako@2.1.0/dist/pako.min.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/hi-base32@0.5.1/build/base32.min.js" defer></script>
+
+    <script>
+        // ライブラリのロード状態をチェックするフラグ
+        let isPakoLoaded = false;
+        let isBase32Loaded = false;
+
+        // CDNスクリプトがロードされたらフラグを更新
+        document.addEventListener('DOMContentLoaded', () => {
+            if (typeof pako !== 'undefined') {
+                isPakoLoaded = true;
+                console.log('pako.min.js is loaded.');
+            } else {
+                console.warn('pako.min.js not found after DOMContentLoaded. It might still be loading or failed.');
+            }
+
+            // hi-base32 は `base32` グローバル変数として利用可能
+            if (typeof base32 !== 'undefined') {
+                isBase32Loaded = true;
+                console.log('hi-base32.min.js is loaded.');
+            } else {
+                console.warn('hi-base32.min.js not found after DOMContentLoaded. It might still be loading or failed.');
+            }
+        });
+
+        // ページ全体がロードされたときに最終確認
+        window.onload = () => {
+            if (typeof pako === 'undefined') {
+                document.getElementById('output').textContent = "エラー: pakoライブラリがロードされていません。インターネット接続を確認してください。";
+                console.error("pako.min.js is NOT loaded on window.onload.");
+            }
+            if (typeof base32 === 'undefined') { // hi-base32 exposed as `base32`
+                document.getElementById('output').textContent = "エラー: base32ライブラリがロードされていません。インターネット接続を確認してください。";
+                console.error("hi-base32.min.js is NOT loaded on window.onload.");
+            }
+        };
+
+
+        // --- 補助関数 (再掲) ---
+
+        /**
+         * パスワードと塩から暗号化キーを導出する関数
+         * @param {string} password パスワード
+         * @param {Uint8Array} salt 塩
+         * @returns {Promise<CryptoKey>} 導出されたAES暗号化キー
+         */
+        function deriveEncryptionKey(password, salt) {
+            var enc = new TextEncoder();
+            return window.crypto.subtle.importKey(
+                "raw",
+                enc.encode(password),
+                { name: "PBKDF2" },
+                false,
+                ["deriveBits"]
+            )
+            .then(function(keyMaterial) {
+                return window.crypto.subtle.deriveBits(
+                    { name: "PBKDF2", salt: salt, iterations: 100000, hash: "SHA-256" },
+                    keyMaterial,
+                    256 // 256ビット (32バイト) の鍵を導出
+                );
+            })
+            .then(function(bits) {
+                return window.crypto.subtle.importKey(
+                    "raw",
+                    bits,
+                    { name: "AES-GCM" }, // AES-GCM 用の鍵としてインポート
+                    true,
+                    ["encrypt", "decrypt"] // 暗号化と復号の両方を許可
+                );
+            });
+        }
+
+        /**
+         * Web Crypto APIのArrayBufferをBase32文字列に変換
+         * @param {ArrayBuffer} buffer
+         * @returns {string}
+         */
+        function arrayBufferToBase32(buffer) {
+            // ライブラリのロードチェック
+            if (!isBase32Loaded || typeof base32 === 'undefined') {
+                throw new Error("Base32ライブラリが利用できません。");
+            }
+            // hi-base32 の encode 関数は Uint8Array を受け取る
+            return base32.encode(new Uint8Array(buffer));
+        }
+
+        /**
+         * 文字列のSHA-256ハッシュを計算する
+         * @param {string} message
+         * @returns {Promise<ArrayBuffer>} ハッシュ値のArrayBuffer
+         */
+        function sha256(message) {
+            var msgUint8 = new TextEncoder().encode(message); // encode as (utf-8) Uint8Array
+            return crypto.subtle.digest('SHA-256', msgUint8); // hash the message
+        }
+
+        // --- 鍵ペア生成 (デモ用) ---
+        async function generateNewKeyPair() {
+            try {
+                const keyPair = await window.crypto.subtle.generateKey(
+                    {
+                        name: "RSASSA-PKCS1-v1_5",
+                        modulusLength: 2048,
+                        publicExponent: new Uint8Array([0x01, 0x00, 0x01]),
+                        hash: { name: "SHA-256" },
+                    },
+                    true, // 秘密鍵をエクスポート可能にする (デモ用)
+                    ["sign", "verify"]
+                );
+
+                // 秘密鍵をJWK形式でエクスポートして表示
+                const privateKeyJwk = await window.crypto.subtle.exportKey("jwk", keyPair.privateKey);
+                document.getElementById('privateKeyInput').value = JSON.stringify(privateKeyJwk, null, 2);
+
+                // 公開鍵もJWK形式でエクスポートしてコンソールに表示
+                const publicKeyJwk = await window.crypto.subtle.exportKey("jwk", keyPair.publicKey);
+                console.log("生成された公開鍵 (JWK形式):", JSON.stringify(publicKeyJwk, null, 2));
+                alert("新しい鍵ペアが生成されました。\n秘密鍵がテキストエリアに表示され、公開鍵はコンソールにログ出力されました。");
+            } catch (e) {
+                console.error("鍵ペアの生成に失敗しました:", e);
+                alert("鍵ペアの生成に失敗しました。詳細はコンソールを確認してください。");
+            }
+        }
+
+        // --- メインの生成関数 ---
+        async function generateInvitation() {
+            const url = document.getElementById('urlInput').value;
+            const email = document.getElementById('emailInput').value; // メールアドレスとして入力
+            const aesPassword = document.getElementById('aesPasswordInput').value; // 有効化されたパスワード入力欄
+            const privateKeyJwkString = document.getElementById('privateKeyInput').value;
+            const outputElement = document.getElementById('output');
+
+            outputElement.textContent = "生成中...";
+
+            // ライブラリのロード状態を再確認
+            if (typeof pako === 'undefined' || typeof base32 === 'undefined') {
+                outputElement.textContent = "エラー: 必要なライブラリがロードされていません。インターネット接続を確認してください。";
+                console.error("Libraries pako or base32 are not loaded.");
+                return;
+            }
+
+            if (!url || !email || !aesPassword || !privateKeyJwkString) {
+                outputElement.textContent = "全てのフィールドを入力してください。";
+                return;
+            }
+
+            try {
+                // メールアドレスをハッシュ化
+                const emailHashBuffer = await sha256(email);
+                const username_hash = Array.from(new Uint8Array(emailHashBuffer))
+                                            .map(b => b.toString(16).padStart(2, '0'))
+                                            .join(''); // 16進文字列に変換
+
+                // 秘密鍵をJWK形式からCryptoKeyオブジェクトにインポート
+                const privateKeyJwk = JSON.parse(privateKeyJwkString);
+                const privateKey = await window.crypto.subtle.importKey(
+                    "jwk",
+                    privateKeyJwk,
+                    { name: "RSASSA-PKCS1-v1_5", hash: { name: "SHA-256" } },
+                    false, // エクスポート不可
+                    ["sign"]
+                );
+
+                // AES暗号化のパスワードと塩 (復号側と一致させる)
+                // パスワードは入力欄から取得
+                const salt = new TextEncoder().encode("some-static-salt-for-demo-purposes");
+
+                // 1. 署名対象の元のデータ (urlとusername_hashを結合した文字列のハッシュ)
+                const signedMessageContent = url + username_hash;
+                const hashedSignedMessage = await sha256(signedMessageContent);
+
+                // 2. 秘密鍵で署名
+                const signature = await window.crypto.subtle.sign(
+                    { name: "RSASSA-PKCS1-v1_5" },
+                    privateKey,
+                    hashedSignedMessage // ハッシュ値に対して署名
+                );
+
+                // 3. AES暗号化対象のデータ (urlとusername_hashを含むJSON)
+                const aesPlaintextJson = JSON.stringify({ url: url, username_hash: username_hash });
+                const compressedAesPlaintext = pako.deflate(aesPlaintextJson); // zlib圧縮
+
+                // 4. AES鍵の導出
+                const aesKey = await deriveEncryptionKey(aesPassword, salt); // 入力されたパスワードを使用
+
+                // 5. IVを生成 (16バイト)
+                const iv = crypto.getRandomValues(new Uint8Array(16));
+
+                // 6. AES暗号化
+                const encryptedBuffer = await crypto.subtle.encrypt(
+                    {
+                        name: "AES-GCM",
+                        iv: iv,
+                        tagLength: 128 // 認証タグは128ビット (16バイト)
+                    },
+                    aesKey,
+                    compressedAesPlaintext // 圧縮済みデータを暗号化
+                );
+
+                // 7. IVと暗号化データを結合
+                const combinedEncryptedData = new Uint8Array(iv.length + encryptedBuffer.byteLength);
+                combinedEncryptedData.set(iv, 0);
+                combinedEncryptedData.set(new Uint8Array(encryptedBuffer), iv.length);
+
+                // 8. Base32エンコード
+                const base32EncodedEncryptedData = arrayBufferToBase32(combinedEncryptedData);
+                const base32EncodedSignature = arrayBufferToBase32(signature);
+
+                // 9. 指定フォーマットのJSONを作成
+                const invitation = {
+                    encrypted_data: base32EncodedEncryptedData,
+                    signature: base32EncodedSignature
+                };
+
+                outputElement.textContent = JSON.stringify(invitation, null, 2);
+
+            } catch (e) {
+                console.error("紹介状の生成に失敗しました:", e);
+                outputElement.textContent = "エラー: 紹介状の生成に失敗しました。詳細はコンソールを確認してください。\n" + e.message;
+            }
+        }
+    </script>
+</body>
+</html>
