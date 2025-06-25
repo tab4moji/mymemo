@@ -1,3 +1,8 @@
+<!--
+更新履歴:
+1.0 - 2025-06-25: 初版。スロットマシーン基本機能実装。キーワード: スロット, canvas, reels.
+1.1 - 2025-06-25: 結果メッセージの表示位置をSTARTボタンの下に変更。キーワード: result, startButton.
+-->
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -135,7 +140,7 @@
 </head>
 <body>
   <div class="machine">
-    <h1>スロットマシーン ver. 1.2</h1>
+    <h1>スロットマシーン ver. 1.3</h1>
     <div class="reels">
       <div class="reel-container">
         <canvas id="reel0" width="100" height="100"></canvas>
@@ -149,10 +154,12 @@
         <canvas id="reel2" width="100" height="100"></canvas>
         <button class="stopButton" data-reel="2" disabled aria-label="Stop"></button>
       </div>
+      <div>
+      <button id="startButton">START!</button>
+      </div>
     </div>
-    <p id="result"></p>
-    <button id="startButton">START!</button>
   </div>
+        <p id="result"></p>
 
   <script>
     // タイトルの各文字をspanでラップし、個別にアニメーション適用
@@ -174,7 +181,7 @@
       reelHeight: 100,        // 表示窓の高さ(px)
       rotationSpeed: 300,     // 回転速度(px/秒)
       decelerationDuration: 500, // 減速時間(ms)
-      symbols: ['🍒', '🍋', '🔔', '🍀', '7']
+      symbols: ['🍒', '🍋', '🔔', '🍀', '🍊']
     };
     const cycleLength = config.symbols.length * config.symbolHeight;
 
@@ -218,6 +225,9 @@
     const startButton = document.getElementById('startButton');
     const stopButtons = document.querySelectorAll('.stopButton');
     const resultP = document.getElementById('result');
+    const BingoMessage = "Bingo!"
+    var Message = "Welcom!"
+
     // 補助関数：常に正の値の剰余を返す
     function mod(n, m) {
       return ((n % m) + m) % m;
@@ -237,8 +247,8 @@
 
     // STARTボタン処理：各リール初期化＆回転開始
     function startSpin() {
+      Message = BingoMessage
       startButton.disabled = true;
-      resultP.textContent = "";
       reels.forEach((reel, idx) => {
         const randomIndex = Math.floor(Math.random() * config.symbols.length);
         reel.currentOffset = randomIndex * config.symbolHeight;
@@ -301,9 +311,11 @@
           return config.symbols[index];
         });
         resultP.textContent =
-          finalSymbols.every(s => s === finalSymbols[0]) ? "大当たり！" : "もう一度！";
+          finalSymbols.every(s => s === finalSymbols[0]) ? Message : "Again!";
         startButton.disabled = false;
         stopButtons.forEach(btn => btn.disabled = true);
+      } else {
+        resultP.textContent = "";
       }
 
       requestAnimationFrame(animate);
