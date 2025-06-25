@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ひらがなツナゲ</title>
+  <style>
+    /* 全体スタイル */
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Hiragino Maru Gothic Pro', 'Yu Gothic UI', sans-serif;
+      background: #001f3f;
+      color: #fff;
+      text-align: center;
+    }
+    h1, h2 {
+      margin: 20px 0;
+    }
+    /* スタート画面・次ステージ画面 */
+    #startScreen, #nextStageScreen {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(0, 31, 63, 0.95);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 100;
+    }
+    #startScreen button, #nextStageScreen button {
+      padding: 10px 20px;
+      font-size: 20px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    /* ゲームコンテナ */
+    #gameContainer {
+      display: none;
+      padding-top: 10px;
+    }
+    #stageInfo {
+      font-size: 20px;
+      margin-bottom: 10px;
+    }
+    /* 盤面（牌が配置される部分） */
+    #board {
+      position: relative;
+      margin: 0 auto 20px;
+      background: transparent;
+    }
+    /* SVGオーバーレイ（接続経路表示用） */
+    #overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      pointer-events: none;
+      z-index: 50;
+    }
+    /* 牌のスタイル（縦長：幅40px×高さ54px、比率約4:3） */
+    .tile {
+      position: absolute;
+      width: 40px;
+      height: 54px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      background: linear-gradient(180deg, #ffffff 0%, #f0f0f0 100%);
+      border-radius: 8px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+      cursor: pointer;
+      user-select: none;
+      transition: background 0.2s;
+    }
+    /* 選択中の牌は、背景と文字色をさらに暗くして、文字は黒に */
+    .tile.selected {
+      background: linear-gradient(180deg, #707070 0%, #505050 100%);
+      color: #000;
+    }
+    /* クリア時の派手なメッセージ */
+    @keyframes flash {
+      0% { opacity: 1; }
+      50% { opacity: 0.5; }
+      100% { opacity: 1; }
+    }
+    #nextStageScreen h2 {
+      animation: flash 1s infinite;
+    }
+  </style>
+</head>
+<body>
+  <!-- スタート画面 -->
+  <div id="startScreen">
+    <h1>ひらがなツナゲ</h1>
+    <button id="startButton">スタート</button>
+  </div>
+
+  <!-- ゲーム画面 -->
+  <div id="gameContainer">
+    <div id="stageInfo">ステージ <span id="stageNumber"></span></div>
+    <div id="board"></div>
+  </div>
+
+  <!-- 次ステージ画面 -->
+  <div id="nextStageScreen" style="display:none;">
+    <h2>ステージクリア！</h2>
+    <button id="nextStageButton">次のステージへ</button>
+  </div>
+
+  <script>
+    /**********************
+     * ゲーム設定・グローバル変数
+     **********************/
+    let stage = 1;
+    const initialTileCount = 10;
+    const growthFactor = 1.4;
+    let gameState = null;
+    let currentW = 0, currentH = 0;
+    const CELL_WIDTH = 40;    // 牌横幅
+    const CELL_HEIGHT = 54;   // 牌縦長
+
+    // 牌表示用ひらがなマッピング（1→"あ", 2→"い", ...）
+    const tileHiragana = [
+      "あ", "い", "う", "え", "お",
+      "か", "き", "く", "け", "こ",
+      "さ", "し", "す", "せ", "そ",
+      "た", "ち", "つ", "て", "と",
+      "な", "に", "ぬ", "ね", "の",
+      "は", "ひ", "ふ", "へ", "ほ",
+      "ま", "み", "む", "め", "も",
+      "や", "ゆ", "よ", "ら", "り", "る", "れ", "ろ", "わ", "を", "ん"
+    ];
+
+    // 暗めの文字色候補（白・黄色を除く濃い色）
+    const darkTextColors = [
+      "#2c3e50",
+      "#34495e",
+      "#2d3436",
+      "#1e272e",
+      "#212121"
+    ];
+    let currentTextColor = "#000"; 
+
+    /**********************
+     * ヘルパー関数（盤面用）
+     **********************/
+    function X(p) { return p % currentW; }
+    function Y(p) { return Math.floor(p / currentW); }
+    function fromXY(x, y) { return x + y * currentW; }
+    function fromYX(y, x) { return fromXY(x, y); }
+    const range = (start, stop, step) => {
+      if (stop === undefined) { stop = start; start = 0; }
+      step = step || (stop < start ? -1 : 1);
+      const len = Math.max(0, Math.ceil((stop - start) / step));
+      return Array.from({ length: len }, (_, i) => start + step * i);
+    };
+    const pick = a => a.splice(a.length * Math.random(), 1)[0];
+
+    /**********************
+     * 通路判定・マッチング関数（従来実装）
+     **********************/
+    function move(board, p, d) {
+      return board[p + d] ? p : move(board, p + d, d);
+    }
+    function pass(board, p, q, U, V, C) {
+      const e = C(1, 0);
+      const u0 = Math.max(U(move(board, p, -e)), U(move(board, q, -e)));
+      const u1 = Math.min(U(move(board, p, +e)), U(move(board, q, +e)));
+      const v0 = Math.min(V(p), V(q)) + 1;
+      const v1 = Math.max(V(p), V(q)) - 1;
+      const us = range(u0, u1 + 1, 1);
+      const vs = range(v0, v1 + 1, 1);
+      return us.some(u => vs.every(v => board[C(u, v)] === 0));
+    }
+    function test(board, p, q) {
+      return (p !== q && board[p] === board[q] &&
+             ( pass(board, p, q, X, Y, fromXY) || pass(board, p, q, Y, X, fromYX) ));
+    }
+    function update(state, p) {
+      const { board, target, rest } = state;
+      if (board[p] <= 0) return state;
+      if (target < 0) return { ...state, target: p };
+      if (!test(board, target, p)) return { ...state, target: -1 };
+      const boardNew = board.map((v, i) => (i === p || i === target ? 0 : v));
+      return { board: boardNew, target: -1, rest: rest - 2, boardW: state.boardW, boardH: state.boardH };
+    }
+
+    /**********************
+     * 経路探索（BFSによる2ターン以内の探索）
+     **********************/
+    function findPath(board, p, q) {
+      const start = { x: X(p), y: Y(p) };
+      const goal  = { x: X(q), y: Y(q) };
+      const directions = [
+        { dx:  0, dy: -1, name: "up" },
+        { dx:  0, dy:  1, name: "down" },
+        { dx: -1, dy:  0, name: "left" },
+        { dx:  1, dy:  0, name: "right" }
+      ];
+      // BFS状態：{ x, y, dir, turns, path }
+      const queue = [];
+      const visited = {};  // key: "x,y,dir,turns"
+      queue.push({ x: start.x, y: start.y, dir: null, turns: 0, path: [ { x: start.x, y: start.y } ] });
+      visited[start.x + "," + start.y + ",null,0"] = 0;
+      
+      while (queue.length) {
+        const state = queue.shift();
+        if (state.x === goal.x && state.y === goal.y) {
+          return state.path;
+        }
+        for (const d of directions) {
+          const nx = state.x + d.dx;
+          const ny = state.y + d.dy;
+          if (nx < 0 || nx >= currentW || ny < 0 || ny >= currentH) continue;
+          // 允许访问目标点或者空セル
+          const idx = fromXY(nx, ny);
+          if (!(nx === goal.x && ny === goal.y) && board[idx] !== 0) continue;
+          const newDir = d.name;
+          const newTurns = state.dir === null || state.dir === newDir ? state.turns : state.turns + 1;
+          if (newTurns > 2) continue;
+          const key = nx + "," + ny + "," + newDir + "," + newTurns;
+          if (visited[key] !== undefined && visited[key] <= newTurns) continue;
+          visited[key] = newTurns;
+          const newPath = state.path.concat([{ x: nx, y: ny }]);
+          queue.push({ x: nx, y: ny, dir: newDir, turns: newTurns, path: newPath });
+        }
+      }
+      return null;
+    }
+
+    /**********************
+     * SVGオーバーレイによる接続経路描画
+     **********************/
+    function createOverlay() {
+      let overlay = document.getElementById("overlay");
+      if (!overlay) {
+        overlay = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+        overlay.setAttribute("id", "overlay");
+        overlay.setAttribute("width", boardDiv.offsetWidth);
+        overlay.setAttribute("height", boardDiv.offsetHeight);
+        overlay.setAttribute("style", "position:absolute;top:0;left:0;pointer-events:none;");
+        boardDiv.appendChild(overlay);
+      }
+      return overlay;
+    }
+    function clearConnectionLine() {
+      const overlay = document.getElementById("overlay");
+      if (overlay) {
+        overlay.innerHTML = "";
+      }
+    }
+    function drawConnectionPath(p1, p2) {
+      clearConnectionLine();
+      const path = findPath(gameState.board, p1, p2);
+      if (!path) return;
+      const overlay = createOverlay();
+      const svgns = "http://www.w3.org/2000/svg";
+      // 経路の各点の中心座標を計算
+      const pointsStr = path.map(point => {
+        const cx = (point.x * CELL_WIDTH) + CELL_WIDTH / 2;
+        const cy = (point.y * CELL_HEIGHT) + CELL_HEIGHT / 2;
+        return cx + "," + cy;
+      }).join(" ");
+      const polyline = document.createElementNS(svgns, "polyline");
+      polyline.setAttribute("points", pointsStr);
+      polyline.setAttribute("fill", "none");
+      polyline.setAttribute("stroke", "#FF0000");
+      polyline.setAttribute("stroke-width", "4");
+      polyline.setAttribute("stroke-dasharray", "4,4");
+      overlay.appendChild(polyline);
+    }
+
+    /**********************
+     * UI 描画
+     **********************/
+    const boardDiv = document.getElementById("board");
+    const stageInfoSpan = document.getElementById("stageNumber");
+
+    function renderBoard() {
+      boardDiv.innerHTML = "";
+      clearConnectionLine();
+      const existingOverlay = document.getElementById("overlay");
+      if (existingOverlay) existingOverlay.remove();
+      for (let y = 0; y < currentH; y++) {
+        for (let x = 0; x < currentW; x++) {
+          const p = fromXY(x, y);
+          const v = gameState.board[p];
+          if (v > 0) {
+            const tileDiv = document.createElement("div");
+            tileDiv.className = "tile";
+            tileDiv.style.left = (x * CELL_WIDTH) + "px";
+            tileDiv.style.top = (y * CELL_HEIGHT) + "px";
+            tileDiv.textContent = tileHiragana[v - 1] || "";
+            tileDiv.style.color = currentTextColor;
+            tileDiv.onclick = () => {
+              if (gameState.target < 0) {
+                gameState = { ...gameState, target: p };
+                renderBoard();
+              } else {
+                if (gameState.target === p) {
+                  gameState = { ...gameState, target: -1 };
+                  renderBoard();
+                  return;
+                }
+                if (test(gameState.board, gameState.target, p)) {
+                  drawConnectionPath(gameState.target, p);
+                  setTimeout(() => {
+                    gameState = update(gameState, p);
+                    clearConnectionLine();
+                    renderBoard();
+                    if (gameState.rest === 0) {
+                      document.getElementById("nextStageScreen").style.display = "flex";
+                    }
+                  }, 500);
+                } else {
+                  gameState = { ...gameState, target: -1 };
+                  renderBoard();
+                }
+              }
+            };
+            if (gameState.target === p) {
+              tileDiv.classList.add("selected");
+            }
+            boardDiv.appendChild(tileDiv);
+          }
+        }
+      }
+      boardDiv.style.width = (currentW * CELL_WIDTH) + "px";
+      boardDiv.style.height = (currentH * CELL_HEIGHT) + "px";
+    }
+
+    /**********************
+     * 盤面生成およびステージ開始処理
+     **********************/
+    function createBoard(tileCount) {
+      const innerCols = Math.ceil(Math.sqrt(tileCount));
+      const innerRows = Math.ceil(tileCount / innerCols);
+      const boardW = innerCols + 4;
+      const boardH = innerRows + 4;
+      currentW = boardW;
+      currentH = boardH;
+      const tilesArray = [];
+      const tileTypes = tileCount / 2;
+      for (let i = 0; i < tileTypes; i++) {
+        tilesArray.push(i + 1);
+        tilesArray.push(i + 1);
+      }
+      const board = range(currentW * currentH).map(p => {
+        const d = Math.min(X(p), Y(p), currentW - 1 - X(p), currentH - 1 - Y(p));
+        if (d === 0) return -1;
+        else if (d === 1) return 0;
+        else return (tilesArray.length > 0 ? pick(tilesArray) : 0);
+      });
+      return { board, target: -1, rest: tileCount, boardW: currentW, boardH: currentH };
+    }
+    
+    function startStage() {
+      // ステージごとに暗い文字色をランダム選択
+      currentTextColor = darkTextColors[Math.floor(Math.random() * darkTextColors.length)];
+      let tileCount = Math.round(initialTileCount * Math.pow(growthFactor, stage - 1));
+      if (tileCount % 2 !== 0) tileCount++;
+      gameState = createBoard(tileCount);
+      stageInfoSpan.textContent = stage;
+      renderBoard();
+    }
+
+    /**********************
+     * イベント設定
+     **********************/
+    document.getElementById("startButton").onclick = () => {
+      document.getElementById("startScreen").style.display = "none";
+      document.getElementById("gameContainer").style.display = "block";
+      startStage();
+    };
+    document.getElementById("nextStageButton").onclick = () => {
+      stage++;
+      document.getElementById("nextStageScreen").style.display = "none";
+      startStage();
+    };
+  </script>
+</body>
+</html>
