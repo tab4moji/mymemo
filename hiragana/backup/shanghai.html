@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>トランプソリティア</title>
+    <style>
+        /* CSS スタイル (変更なし) */
+        :root {
+            --card-width: 8vw;
+            --card-height: calc(var(--card-width) * 1.4);
+            --board-width: calc(var(--card-width) * 10);
+            --board-height: calc(var(--card-height) * 8);
+        }
+
+        body {
+            font-family: sans-serif;
+            background-color: #0b4f32;
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            user-select: none;
+        }
+
+        #game-container {
+            position: relative;
+            width: var(--board-width);
+            height: var(--board-height);
+            max-width: 800px;
+            max-height: calc(800px / (10 / 8));
+        }
+
+        #game-board {
+            position: relative;
+            width: 100%;
+            height: 100%;
+        }
+
+        .card {
+            position: absolute;
+            width: var(--card-width);
+            height: var(--card-height);
+            background-color: #fff;
+            border: 1px solid #333;
+            border-radius: 5%;
+            box-shadow: 2px 2px 5px rgba(0,0,0,0.3);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: calc(var(--card-width) / 2);
+            font-weight: bold;
+            transition: transform 0.2s, box-shadow 0.2s, opacity 0.3s;
+            transform-style: preserve-3d;
+        }
+
+        .card[data-color="red"] { color: #d00; }
+        .card[data-color="black"] { color: #000; }
+
+        .card.selectable {
+            cursor: pointer;
+            box-shadow: 0 0 15px 5px #ff0, 2px 2px 5px rgba(0,0,0,0.3);
+        }
+
+        .card.selected {
+            transform: translateY(-10px) scale(1.05);
+            box-shadow: 0 0 20px 8px #0af, 2px 2px 5px rgba(0,0,0,0.3);
+        }
+
+        .card.removed {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        #message-area {
+            margin-top: 20px;
+            font-size: 1.5em;
+            font-weight: bold;
+            text-align: center;
+            height: 1.5em;
+        }
+
+        @media (max-width: 600px) {
+            :root {
+                --card-width: 12vw;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <h1>トランプソリティア</h1>
+    <div id="game-container">
+        <div id="game-board"></div>
+    </div>
+    <div id="message-area"></div>
+
+<script>
+/*
+ * 更新履歴
+ *
+ * (過去の履歴は変更なし)
+ * #4 2025-06-30:
+ * - isCardSelectable関数のバグを修正。2x2のカードモデルにおける左右の隣接判定を厳密化。
+ * - 重要なキーワード: isCardSelectable, バグ修正, 隣接判定
+ */
+
+(function() {
+    'use strict';
+    
+    document.addEventListener('DOMContentLoaded', () => {
+        const config = {
+            layout: [
+                { z: 0, x: 0, y: 0, width: 8, height: 6 },
+                { z: 1, x: 2, y: 2, width: 3, height: 2 },
+            ],
+            cardSize: {
+                widthRatio: 1.0,
+                heightRatio: 1.0,
+            }
+        };
+        main(config);
+    });
+
+    // 他の定数やグローバル変数 (変更なし)
+    const SUITS = { spade: '♠', heart: '♥', diamond: '♦', club: '♣', joker: 'J' };
+    const RANKS = { 1: 'A', 11: 'J', 12: 'Q', 13: 'K' };
+    let gameState = {};
+
+    // 他の関数 (main, setupGame, generateStructuralLayout, etc.) は変更なし
+    function main(config) {
+        setupGame(config);
+    }
+    
+    function setupGame(config) {
+        gameState = {
+            cards: [],
+            boardMap: [],
+            selectedCard: null,
+            gameStatus: 'playing',
+            pairsLeft: 27,
+        };
+
+        const { cards, boardMap } = generateStructuralLayout(config.layout);
+        gameState.cards = cards;
+        gameState.boardMap = boardMap;
+        
+        const solveProcedure = createSolveProcedure(boardMap, cards);
+        if (!solveProcedure) {
+            console.error("致命的エラー: クリア手順の生成に失敗しました。レイアウト定義を確認してください。");
+            document.getElementById('message-area').textContent = "エラー: 盤面を生成できませんでした。";
+            return;
+        }
+
+        assignCardsContent(cards, solveProcedure);
+        renderBoard(config.cardSize);
+        updateSelectableStatus();
+        updateMessage("ペアを見つけてください");
+    }
+
+    function generateStructuralLayout(layoutConfig) {
+        const cards = [];
+        const boardMap = [];
+        let cardId = 1;
+
+        // boardMapの最大サイズを計算
+        let maxX = 0, maxY = 0;
+        for (const layer of layoutConfig) {
+            maxX = Math.max(maxX, (layer.x + layer.width) * 2);
+            maxY = Math.max(maxY, (layer.y + layer.height) * 2);
+        }
+
+        for (const layer of layoutConfig) {
+            const z = layer.z;
+            if (!boardMap[z]) {
+                boardMap[z] = Array.from({ length: maxY }, () => Array(maxX).fill(null));
+            }
+            for (let y = layer.y; y < layer.y + layer.height; y++) {
+                for (let x = layer.x; x < layer.x + layer.width; x++) {
+                    const newCard = {
+                        id: cardId,
+                        coords: { x: x * 2, y: y * 2, z }, // グリッド座標系に変換
+                        suit: null, rank: null, color: null,
+                        isRemoved: false, isSelectable: false
+                    };
+                    cards.push(newCard);
+                    
+                    for (let dy = 0; dy < 2; dy++) {
+                        for (let dx = 0; dx < 2; dx++) {
+                            boardMap[z][y * 2 + dy][x * 2 + dx] = cardId;
+                        }
+                    }
+                    cardId++;
+                }
+            }
+        }
+        return { cards, boardMap };
+    }
+
+    function createSolveProcedure(initialBoardMap, cards) {
+        const tempBoardMap = JSON.parse(JSON.stringify(initialBoardMap));
+        const tempCards = JSON.parse(JSON.stringify(cards));
+        const solveProcedure = [];
+        let cardsLeft = tempCards.length;
+        while (cardsLeft > 0) {
+            const selectableIds = findSelectableCardIds(tempBoardMap, tempCards);
+            if (selectableIds.length < 2) { return null; }
+            for (let i = selectableIds.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [selectableIds[i], selectableIds[j]] = [selectableIds[j], selectableIds[i]];
+            }
+            const pair = [selectableIds.pop(), selectableIds.pop()];
+            solveProcedure.push(pair);
+            for (const id of pair) {
+                const card = tempCards.find(c => c.id === id);
+                card.isRemoved = true;
+                for (let dy = 0; dy < 2; dy++) {
+                    for (let dx = 0; dx < 2; dx++) {
+                        tempBoardMap[card.coords.z][card.coords.y + dy][card.coords.x + dx] = null;
+                    }
+                }
+            }
+            cardsLeft -= 2;
+        }
+        return solveProcedure;
+    }
+
+    function assignCardsContent(cards, solveProcedure) {
+        const logicalPairs = [];
+        for (let i = 1; i <= 13; i++) {
+            logicalPairs.push([{ suit: 'heart', rank: i, color: 'red' }, { suit: 'diamond', rank: i, color: 'red' }]);
+            logicalPairs.push([{ suit: 'spade', rank: i, color: 'black' }, { suit: 'club', rank: i, color: 'black' }]);
+        }
+        logicalPairs.push([{ suit: 'joker', rank: 0, color: 'black' }, { suit: 'joker', rank: 0, color: 'red' }]);
+        for (let i = logicalPairs.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [logicalPairs[i], logicalPairs[j]] = [logicalPairs[j], logicalPairs[i]];
+        }
+        for (const idPair of solveProcedure) {
+            const logicalPair = logicalPairs.pop();
+            const card1 = cards.find(c => c.id === idPair[0]);
+            const card2 = cards.find(c => c.id === idPair[1]);
+            Object.assign(card1, logicalPair[0]);
+            Object.assign(card2, logicalPair[1]);
+        }
+    }
+
+    function onCardClick(cardId) {
+        if (gameState.gameStatus !== 'playing') return;
+        const clickedCard = gameState.cards.find(c => c.id === cardId);
+        if (!clickedCard || !clickedCard.isSelectable) return;
+        if (!gameState.selectedCard) {
+            gameState.selectedCard = clickedCard;
+            document.getElementById(`card-${cardId}`).classList.add('selected');
+        } else if (gameState.selectedCard.id === clickedCard.id) {
+            document.getElementById(`card-${gameState.selectedCard.id}`).classList.remove('selected');
+            gameState.selectedCard = null;
+        } else {
+            const card1 = gameState.selectedCard;
+            const card2 = clickedCard;
+            if (isPair(card1, card2)) {
+                removePair(card1, card2);
+                gameState.selectedCard = null;
+                updateSelectableStatus();
+                checkGameEnd();
+            } else {
+                updateMessage("ペアではありません！");
+                document.getElementById(`card-${card1.id}`).classList.remove('selected');
+                gameState.selectedCard = null;
+                setTimeout(() => {
+                    if (gameState.gameStatus === 'playing') updateMessage("ペアを見つけてください");
+                }, 1500);
+            }
+        }
+    }
+
+    function isPair(card1, card2) {
+        let result = false;
+        if (card1.suit === 'joker' && card2.suit === 'joker') { result = true; }
+        else if (card1.color === card2.color && card1.rank === card2.rank) { result = true; }
+        return result;
+    }
+
+    function removePair(card1, card2) {
+        card1.isRemoved = true;
+        card2.isRemoved = true;
+        const cardEl1 = document.getElementById(`card-${card1.id}`);
+        const cardEl2 = document.getElementById(`card-${card2.id}`);
+        cardEl1.classList.add('removed');
+        cardEl2.classList.add('removed');
+        cardEl1.classList.remove('selectable', 'selected');
+        cardEl2.classList.remove('selectable', 'selected');
+        for (const card of [card1, card2]) {
+            for (let dy = 0; dy < 2; dy++) {
+                for (let dx = 0; dx < 2; dx++) {
+                    gameState.boardMap[card.coords.z][card.coords.y + dy][card.coords.x + dx] = null;
+                }
+            }
+        }
+        gameState.pairsLeft--;
+    }
+
+    function updateSelectableStatus() {
+        gameState.cards.forEach(card => {
+            if (card.isRemoved) return;
+            const wasSelectable = card.isSelectable;
+            card.isSelectable = isCardSelectable(card, gameState.boardMap);
+            const cardEl = document.getElementById(`card-${card.id}`);
+            if (card.isSelectable && !wasSelectable) {
+                cardEl.classList.add('selectable');
+            } else if (!card.isSelectable && wasSelectable) {
+                cardEl.classList.remove('selectable');
+            }
+        });
+    }
+
+    // ### ここからが修正箇所 ###
+    function isCardSelectable(card, boardMap) {
+        if (card.isRemoved) return false;
+        
+        const { x, y, z } = card.coords;
+        const currentLayer = boardMap[z];
+        const upperLayer = boardMap[z + 1];
+
+        // 条件1: 上にカードが乗っていないか
+        if (upperLayer) {
+            for (let dy = 0; dy < 2; dy++) {
+                for (let dx = 0; dx < 2; dx++) {
+                    if (upperLayer[y + dy] && upperLayer[y + dy][x + dx]) {
+                        return false; // 上にカードがあるので選択不可
+                    }
+                }
+            }
+        }
+
+        // 条件2: 左右のどちらかが空いているか
+        // 左側が空いているかを判定 (x-1列の2マスが両方空か)
+        const isLeftOpen = (x === 0) || (currentLayer[y][x - 1] === null && currentLayer[y + 1][x - 1] === null);
+
+        // 右側が空いているかを判定 (x+2列の2マスが両方空か)
+        const isRightOpen = (x + 2 >= currentLayer[0].length) || (currentLayer[y][x + 2] === null && currentLayer[y + 1][x + 2] === null);
+        
+        return isLeftOpen || isRightOpen;
+    }
+    // ### ここまでが修正箇所 ###
+
+    function findSelectableCardIds(boardMap, cards) {
+        const selectableIds = [];
+        for (const card of cards) {
+            if (!card.isRemoved && isCardSelectable(card, boardMap)) {
+                selectableIds.push(card.id);
+            }
+        }
+        return selectableIds;
+    }
+
+    function checkGameEnd() {
+        if (gameState.pairsLeft === 0) {
+            gameState.gameStatus = 'cleared';
+            updateMessage("クリア！おめでとう！");
+            return;
+        }
+        const selectableCards = gameState.cards.filter(c => c.isSelectable);
+        const possiblePairs = new Map();
+        let foundPair = false;
+        for (const card of selectableCards) {
+            const key = card.suit === 'joker' ? 'joker' : `${card.color}-${card.rank}`;
+            if (possiblePairs.has(key)) {
+                foundPair = true;
+                break;
+            }
+            possiblePairs.set(key, true);
+        }
+        if (!foundPair) {
+            gameState.gameStatus = 'stuck';
+            updateMessage("手詰まりです...");
+        } else {
+             updateMessage(`${gameState.pairsLeft} ペア残り`);
+        }
+    }
+
+    function renderBoard(cardSize) {
+        const boardEl = document.getElementById('game-board');
+        boardEl.innerHTML = '';
+        gameState.cards.forEach(card => {
+            const cardEl = document.createElement('div');
+            cardEl.id = `card-${card.id}`;
+            cardEl.className = 'card';
+            const cardRank = RANKS[card.rank] || (card.suit === 'joker' ? '' : card.rank);
+            const cardSuit = SUITS[card.suit];
+            cardEl.innerHTML = `${cardRank}<br>${cardSuit}`;
+            cardEl.dataset.color = card.color;
+            const xOffset = card.coords.z * 0.5;
+            const yOffset = card.coords.z * 0.5;
+            const left = card.coords.x * (cardSize.widthRatio / 2) + xOffset;
+            const top = card.coords.y * (cardSize.heightRatio / 2) + yOffset;
+            cardEl.style.left = `calc(var(--card-width) * ${left})`;
+            cardEl.style.top = `calc(var(--card-height) * ${top})`;
+            cardEl.style.zIndex = card.coords.z * 1000 + card.coords.y * 10 + card.coords.x;
+            cardEl.addEventListener('click', () => onCardClick(card.id));
+            boardEl.appendChild(cardEl);
+        });
+    }
+
+    function updateMessage(text) {
+        document.getElementById('message-area').textContent = text;
+    }
+
+})();
+</script>
+
+</body>
+</html>

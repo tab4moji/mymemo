@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>クリア保証付き HTML5 カードソリティア</title>
+  <style>
+    /* 全体 */
+    body {
+      font-family: sans-serif;
+      text-align: center;
+      margin: 0;
+      padding: 0;
+      background: #f0f0f0;
+    }
+    h1 {
+      margin: 1em 0;
+    }
+    /* ボード */
+    #board {
+      position: relative;
+      width: 1024px;   /* 要調整 */
+      height: 768px;   /* 要調整 */
+      margin: 0 auto 1em;
+      background: #006600;
+      border: 4px solid #004400;
+      box-sizing: content-box;
+    }
+    /* カード */
+    .card {
+      position: absolute;
+      width: 80px;     /* 要調整 (GRID_CELL*2) */
+      height: 112px;   /* 要調整 (GRID_CELL*2.8) */
+      border-radius: 4px;
+      box-shadow: 2px 2px 5px rgba(0,0,0,0.5);
+      background-size: cover;
+      cursor: pointer;
+      transition: transform 0.2s, opacity 0.2s;
+    }
+    .card.selectable {
+      transform: scale(1.1);
+      z-index: 999; /* 前面に */
+    }
+    .card.removed {
+      opacity: 0;
+      pointer-events: none;
+    }
+    /* リセットボタン */
+    #resetBtn {
+      padding: 0.5em 1em;
+      font-size: 1em;
+      border: none;
+      border-radius: 4px;
+      background: #0077cc;
+      color: #fff;
+      cursor: pointer;
+    }
+    #resetBtn:hover {
+      background: #005fa3;
+    }
+  </style>
+</head>
+<body>
+  <h1>クリア保証付き HTML5 カードソリティア</h1>
+  <div id="board"></div>
+  <button id="resetBtn">リセット</button>
+
+  <script>
+  // —————————————————————————————————————————————
+  // 定数・構成
+  // —————————————————————————————————————————————
+  const GRID_CELL   = 40;    // 1 グリッドのピクセルサイズ
+  const CARD_CW     = GRID_CELL * 2;
+  const CARD_CH     = GRID_CELL * 2.8; // 見た目に合わせ少し縦長
+  const COLS        = 25;    // グリッド横マス数
+  const ROWS        = 16;    // グリッド縦マス数
+  const LAYERS      = 5;     // 最大重ね数
+  const TOTAL_CARDS = 54;    // トランプ 27 ペア
+
+  let boardMap;   // 3D 配列 [z][y][x]
+  let cards = []; // Card オブジェクトの配列
+
+  // —————————————————————————————————————————————
+  // Card クラス
+  // —————————————————————————————————————————————
+  class Card {
+    constructor(id, x, y, z, suit, rank, color, imgUrl) {
+      this.id        = id;
+      this.coords    = { x, y, z };
+      this.suit      = suit;
+      this.rank      = rank;
+      this.color     = color;
+      this.isRemoved = false;
+      this.isSelectable = false;
+      this.imgUrl    = imgUrl;
+      this.el        = this._createElement();
+      this.updatePosition();
+      this.el.addEventListener('click', () => this.onClick());
+    }
+
+    _createElement() {
+      const d = document.createElement('div');
+      d.classList.add('card');
+      d.style.width  = CARD_CW + 'px';
+      d.style.height = CARD_CH + 'px';
+      d.style.backgroundImage = `url(${this.imgUrl})`;
+      document.getElementById('board').appendChild(d);
+      return d;
+    }
+
+    updatePosition() {
+      const { x, y, z } = this.coords;
+      this.el.style.left = `${x * GRID_CELL}px`;
+      this.el.style.top  = `${y * GRID_CELL - z * 5}px`;
+      this.el.style.zIndex = z * 10;
+    }
+
+    setSelectable(flag) {
+      this.isSelectable = flag;
+      this.el.classList.toggle('selectable', flag);
+    }
+
+    remove() {
+      this.isRemoved = true;
+      this.el.classList.add('removed');
+      const { x,y,z } = this.coords;
+      [[0,0],[0,1],[1,0],[1,1]].forEach(([dy,dx]) => {
+        boardMap[z][y+dy][x+dx] = null;
+      });
+    }
+
+    onClick() {
+      if (!this.isSelectable) return;
+      Game.trySelect(this);
+    }
+  }
+
+  // —————————————————————————————————————————————
+  // Game 名前空間
+  // —————————————————————————————————————————————
+  const Game = {
+    selected: [],
+
+    init() {
+      this.clear();
+      this.buildBoardMap();
+      const structure = this.phase1_structureMap();
+      const solution  = this.phase2_simulateSolve(structure);
+      this.phase3_assignPairs(structure, solution);
+      this.updateSelectableAll();
+    },
+
+    clear() {
+      document.getElementById('board').innerHTML = '';
+      cards = [];
+      this.selected = [];
+    },
+
+    buildBoardMap() {
+      boardMap = [];
+      for (let z=0; z<LAYERS; z++) {
+        boardMap[z] = [];
+        for (let y=0; y<ROWS; y++) {
+          boardMap[z][y] = Array(COLS).fill(null);
+        }
+      }
+    },
+
+    phase1_structureMap() {
+      const struct = [];
+      for (let id=1; id<=TOTAL_CARDS; id++) {
+        const x = ((id-1)*2) % (COLS-1);
+        const y = Math.floor(((id-1)*2) / (COLS-1)) * 2;
+        struct.push({ id, x, y, z: 0 });
+        [[0,0],[0,1],[1,0],[1,1]].forEach(([dy,dx]) => {
+          boardMap[0][y+dy][x+dx] = id;
+        });
+      }
+      return struct;
+    },
+
+    phase2_simulateSolve(struct) {
+      const mapCopy = JSON.parse(JSON.stringify(boardMap));
+      const steps   = [];
+      for (let turn=0; turn<TOTAL_CARDS/2; turn++) {
+        const avail = struct.filter(c => this._isSelectableByMap(c, mapCopy)).map(c => c.id);
+        const a = avail.splice(Math.floor(Math.random()*avail.length),1)[0];
+        const b = avail[Math.floor(Math.random()*avail.length)];
+        steps.push([a,b]);
+        struct.filter(c => c.id===a||c.id===b).forEach(c => {
+          [[0,0],[0,1],[1,0],[1,1]].forEach(([dy,dx]) => {
+            mapCopy[c.z][c.y+dy][c.x+dx] = null;
+          });
+        });
+      }
+      return steps;
+    },
+
+    phase3_assignPairs(struct, steps) {
+      const deck = [];
+      const suits = ['heart','diamond','club','spade'];
+      for (let rank=1; rank<=13; rank++) {
+        deck.push({suit:'heart', rank}, {suit:'diamond', rank});
+        if (deck.length >= TOTAL_CARDS) break;
+        deck.push({suit:'club', rank}, {suit:'spade', rank});
+        if (deck.length >= TOTAL_CARDS) break;
+      }
+      deck.length = TOTAL_CARDS;
+      shuffle(deck);
+
+      steps.forEach((pair, idx) => {
+        const [idA,idB] = pair;
+        const cA = struct.find(c=>c.id===idA);
+        const cB = struct.find(c=>c.id===idB);
+        const tA = deck[2*idx];
+        const tB = deck[2*idx+1];
+        cards.push(new Card(idA, cA.x, cA.y, cA.z, tA.suit, tA.rank, colorOf(tA.suit), imgUrl(tA)));
+        cards.push(new Card(idB, cB.x, cB.y, cB.z, tB.suit, tB.rank, colorOf(tB.suit), imgUrl(tB)));
+      });
+    },
+
+    updateSelectableAll() {
+      cards.forEach(c => {
+        if (c.isRemoved) return c.setSelectable(false);
+        c.setSelectable(this._isCardSelectable(c));
+      });
+    },
+
+    trySelect(card) {
+      this.selected.push(card);
+      if (this.selected.length < 2) return;
+      const [a,b] = this.selected;
+      if (a.suit===b.suit && a.rank===b.rank) {
+        a.remove(); b.remove();
+      }
+      this.selected = [];
+      this.updateSelectableAll();
+      if (this._checkDeadlock()) {
+        setTimeout(()=>alert('詰み！'), 50);
+      }
+    },
+
+    _isCardSelectable(card) {
+      const { x,y,z } = card.coords;
+      if (z+1 < LAYERS) {
+        for (let dy=0; dy<=1; dy++) for (let dx=0; dx<=1; dx++) {
+          if (boardMap[z+1][y+dy][x+dx] !== null) return false;
+        }
+      }
+      const leftOpen  = (x===0) || (boardMap[z][y][x-1]===null && boardMap[z][y+1][x-1]===null);
+      const rightOpen = (x+2>=COLS) || (boardMap[z][y][x+2]===null && boardMap[z][y+1][x+2]===null);
+      return leftOpen || rightOpen;
+    },
+
+    _isSelectableByMap(c, map) {
+      const { x,y,z } = c;
+      if (z+1 < LAYERS) {
+        for (let dy=0; dy<=1; dy++) for (let dx=0; dx<=1; dx++) {
+          if (map[z+1][y+dy][x+dx] !== null) return false;
+        }
+      }
+      const left  = (x===0) || (map[z][y][x-1]===null && map[z][y+1][x-1]===null);
+      const right = (x+2>=COLS) || (map[z][y][x+2]===null && map[z][y+1][x+2]===null);
+      return left || right;
+    },
+
+    _checkDeadlock() {
+      const avail = cards.filter(c=>c.isSelectable && !c.isRemoved);
+      const map   = new Map();
+      for (const c of avail) {
+        const key = \`\${c.color}-\${c.rank}\`;
+        if (map.has(key)) return false;
+        map.set(key, c.id);
+      }
+      return avail.length>0;
+    }
+  };
+
+  // —————————————————————————————————————————————
+  // ユーティリティ
+  // —————————————————————————————————————————————
+  function shuffle(arr) {
+    for (let i=arr.length-1; i>0; i--) {
+      const j = Math.floor(Math.random()*(i+1));
+      [arr[i],arr[j]]=[arr[j],arr[i]];
+    }
+  }
+  function colorOf(suit) {
+    return (suit==='heart'||suit==='diamond')?'red':'black';
+  }
+  function imgUrl(card) {
+    // カード画像の URL を返す
+    // 例: images/heart_1.png, images/spade_13.png
+    return \`images/\${card.suit}_\${card.rank}.png\`;
+  }
+
+  // —————————————————————————————————————————————
+  // 初期化
+  // —————————————————————————————————————————————
+  document.getElementById('resetBtn').addEventListener('click', ()=> Game.init());
+  window.addEventListener('load', ()=> Game.init());
+  </script>
+</body>
+</html>

@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>汎用ソリティアエンジン (円形レイアウト)</title>
+    <style>
+        /* CSS スタイル (変更なし) */
+        :root {
+            --card-width: 6vw;
+            --card-height: calc(var(--card-width) * 1.4);
+            --board-width: calc(var(--card-width) * 16);
+            --board-height: calc(var(--card-height) * 12);
+        }
+        body { font-family: sans-serif; background-color: #0b4f32; color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; margin: 0; user-select: none; }
+        #game-container { position: relative; width: var(--board-width); height: var(--board-height); max-width: 1000px; max-height: calc(1000px / (16 / 12)); }
+        #game-board { position: relative; width: 100%; height: 100%; }
+        .card { position: absolute; width: var(--card-width); height: var(--card-height); background-color: #fff; border: 1px solid #333; border-radius: 5%; box-shadow: 2px 2px 5px rgba(0,0,0,0.3); display: flex; justify-content: center; align-items: center; font-size: calc(var(--card-width) / 2); font-weight: bold; transition: transform 0.2s, box-shadow 0.2s, opacity 0.3s; transform-style: preserve-3d; }
+        .card[data-color="red"] { color: #d00; }
+        .card[data-color="black"] { color: #000; }
+        .card.selectable { cursor: pointer; box-shadow: 0 0 15px 5px #ff0, 2px 2px 5px rgba(0,0,0,0.3); }
+        .card.selected { transform: translateY(-10px) scale(1.05); box-shadow: 0 0 20px 8px #0af, 2px 2px 5px rgba(0,0,0,0.3); }
+        .card.removed { opacity: 0; pointer-events: none; }
+        #message-area { margin-top: 20px; font-size: 1.5em; font-weight: bold; text-align: center; height: 1.5em; }
+        @media (max-width: 600px) { :root { --card-width: 10vw; } }
+    </style>
+</head>
+<body>
+
+    <h1 id="game-title">汎用ソリティアエンジン</h1>
+    <div id="game-container">
+        <div id="game-board"></div>
+    </div>
+    <div id="message-area"></div>
+
+<script>
+/*
+ * 更新履歴
+ *
+ * #1 - #12: (変更なし)
+ * #13 2025-06-30:
+ * - 最終テストとして、baseShapeを半径4の円形に変更。
+ * - これにより、エンジンが任意の形状のレイアウト定義を、コード変更なしに処理できることを証明。
+ * - 重要なキーワード: 最終テスト, 円形レイアウト, 汎用性証明
+ */
+
+(function() {
+    'use strict';
+    
+    function generateProceduralLayout(baseShape) {
+        const fullLayoutDef = [baseShape];
+        let currentLayerDef = baseShape;
+
+        while (true) {
+            const nextLayerDef = [];
+            let hasCardInNextLayer = false;
+            const prevHeight = currentLayerDef.length;
+            const prevWidth = prevHeight > 0 ? currentLayerDef[0].length : 0;
+
+            for (let y = 0; y < prevHeight - 1; y++) {
+                nextLayerDef[y] = [];
+                for (let x = 0; x < prevWidth - 1; x++) {
+                    const canPlace = currentLayerDef[y][x] && currentLayerDef[y][x+1] &&
+                                     currentLayerDef[y+1][x] && currentLayerDef[y+1][x+1];
+                    nextLayerDef[y][x] = canPlace;
+                    if (canPlace) hasCardInNextLayer = true;
+                }
+            }
+            if (!hasCardInNextLayer) break;
+            fullLayoutDef.push(nextLayerDef);
+            currentLayerDef = nextLayerDef;
+        }
+        return fullLayoutDef;
+    }
+    
+    function generateStructuralLayout(layoutDef) {
+        const cards = [];
+        let cardId = 1;
+
+        const baseLayer = layoutDef[0] || [];
+        const baseHeight = baseLayer.length;
+        const baseWidth = baseHeight > 0 ? baseLayer[0].length : 0;
+        const maxLayers = layoutDef.length;
+        const totalGridWidth = baseWidth * 2 + maxLayers - 1;
+        const totalGridHeight = baseHeight * 2 + maxLayers - 1;
+        const boardMap = Array.from({ length: maxLayers }, () => 
+            Array.from({ length: totalGridHeight }, () => Array(totalGridWidth).fill(null))
+        );
+
+        layoutDef.forEach((layer, z) => {
+            layer.forEach((row, y) => {
+                row.forEach((hasCard, x) => {
+                    if (hasCard) {
+                        const gridX = x * 2 + z;
+                        const gridY = y * 2 + z;
+                        const newCard = { id: cardId++, coords: { x: gridX, y: gridY, z }, isRemoved: false, isSelectable: false };
+                        cards.push(newCard);
+                        for (let dy = 0; dy < 2; dy++) {
+                            for (let dx = 0; dx < 2; dx++) {
+                                boardMap[z][gridY + dy][gridX + dx] = newCard.id;
+                            }
+                        }
+                    }
+                });
+            });
+        });
+        
+        if (cards.length % 2 !== 0) {
+            const cardToRemove = cards.pop();
+            const {x, y, z} = cardToRemove.coords;
+            for (let dy = 0; dy < 2; dy++) {
+                for (let dx = 0; dx < 2; dx++) {
+                    boardMap[z][y + dy][x + dx] = null;
+                }
+            }
+        }
+        
+        return { cards, boardMap };
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        // ### ここからが修正箇所 ###
+        // 半径4の円形をbaseShapeとして定義
+        const baseShape = [
+            [false, false, false, false, true, false, false, false, false],
+            [false, false, true, true, true, true, true, false, false],
+            [false, true, true, true, true, true, true, true, false],
+            [false, true, true, true, true, true, true, true, false],
+            [true, true, true, true, true, true, true, true, true],
+            [false, true, true, true, true, true, true, true, false],
+            [false, true, true, true, true, true, true, true, false],
+            [false, false, true, true, true, true, true, false, false],
+            [false, false, false, false, true, false, false, false, false]
+        ];
+        // ### ここまでが修正箇所 ###
+        
+        const proceduralLayout = generateProceduralLayout(baseShape);
+        const { cards, boardMap } = generateStructuralLayout(proceduralLayout);
+        
+        const requiredPairs = cards.length / 2;
+        const basePairCount = 27;
+        const requiredSets = Math.ceil(requiredPairs / basePairCount);
+        
+        const config = {
+            title: "円形レイアウト・ソリティア",
+            initialData: { cards, boardMap },
+            content: {
+                basePairs: [
+                    ...Array.from({length: 13}, (_, i) => [{type: 'card', rank: i + 1, suit: 'heart', color: 'red'}, {type: 'card', rank: i + 1, suit: 'diamond', color: 'red'}]),
+                    ...Array.from({length: 13}, (_, i) => [{type: 'card', rank: i + 1, suit: 'spade', color: 'black'}, {type: 'card', rank: i + 1, suit: 'club', color: 'black'}]),
+                    [{type: 'joker', rank: 0, suit: 'joker', color: 'black'}, {type: 'joker', rank: 0, suit: 'joker', color: 'red'}]
+                ],
+                sets: requiredSets,
+            },
+            display: {
+                renderer: (card) => {
+                    const RANKS = { 1: 'A', 11: 'J', 12: 'Q', 13: 'K' };
+                    const SUITS = { spade: '♠', heart: '♥', diamond: '♦', club: '♣', joker: 'J' };
+                    const rank = RANKS[card.rank] || (card.rank === 0 ? '' : card.rank);
+                    const suit = SUITS[card.suit];
+                    return rank || suit ? `${rank}<br>${suit}` : '';
+                }
+            }
+        };
+        main(config);
+    });
+
+    let gameState = {};
+
+    function main(config) { document.getElementById('game-title').textContent = config.title; setupGame(config); }
+    function setupGame(config) { const { cards, boardMap } = config.initialData; gameState = { cards: cards, boardMap: boardMap, selectedCards: [], gameStatus: 'playing', pairsLeft: cards.length / 2 }; const solveProcedure = createSolveProcedure(boardMap, cards); if (!solveProcedure) { console.error("クリア手順の生成に失敗しました。"); return; } const logicalPairs = generateContentSet(config.content, gameState.pairsLeft); if (!logicalPairs) { console.error("コンテンツのペア数が足りません。"); return; } assignCardsContent(cards, solveProcedure, logicalPairs); renderBoard(config.display); updateSelectableStatus(); updateMessage("ペアを見つけてください"); }
+    function generateContentSet(contentConfig, requiredPairs) { const { basePairs, sets } = contentConfig; const allPairs = []; for (let i = 0; i < sets; i++) { allPairs.push(...JSON.parse(JSON.stringify(basePairs))); } if (allPairs.length < requiredPairs) { return null; } for (let i = allPairs.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1));[allPairs[i], allPairs[j]] = [allPairs[j], allPairs[i]]; } return allPairs.slice(0, requiredPairs); }
+    function renderBoard(displayConfig) { const { renderer } = displayConfig; const boardEl = document.getElementById('game-board'); boardEl.innerHTML = ''; gameState.cards.forEach(card => { const cardEl = document.createElement('div'); cardEl.id = `card-${card.id}`; cardEl.className = 'card'; cardEl.innerHTML = renderer(card); if(card.color) cardEl.dataset.color = card.color; const left = card.coords.x / 2; const top = card.coords.y / 2; cardEl.style.left = `calc(var(--card-width) * ${left})`; cardEl.style.top = `calc(var(--card-height) * ${top})`; cardEl.style.zIndex = card.coords.z * 1000 + card.coords.y * 10; cardEl.addEventListener('click', () => onCardClick(card.id)); boardEl.appendChild(cardEl); }); }
+    function isCardSelectable(card, boardMap) { if (card.isRemoved) return false; const { x, y, z } = card.coords; const currentLayer = boardMap[z]; const upperLayer = boardMap[z + 1]; if (upperLayer) { for (let dy = -1; dy < 2; dy++) { for (let dx = -1; dx < 2; dx++) { const checkY = y + dy; const checkX = x + dx; const upperCardId = (upperLayer[checkY] && upperLayer[checkY][checkX]) ? upperLayer[checkY][checkX] : null; if (upperCardId) { const upperCard = gameState.cards.find(c => c.id === upperCardId); if(upperCard){ const x_dist = Math.abs((upperCard.coords.x + 1) - (x + 1)); const y_dist = Math.abs((upperCard.coords.y + 1) - (y + 1)); if (x_dist < 2 && y_dist < 2) return false; } } } } } const isLeftOpen = (x < 1) || (currentLayer[y][x - 1] === null && currentLayer[y + 1][x - 1] === null); const isRightOpen = (x + 2 >= currentLayer[0].length) || (currentLayer[y][x + 2] === null && currentLayer[y + 1][x + 2] === null); return isLeftOpen || isRightOpen; }
+    // 残りの関数は変更なし
+    function assignCardsContent(cards, solveProcedure, logicalPairs) { for (const idPair of solveProcedure) { const logicalPair = logicalPairs.pop(); if (!logicalPair) { console.error("論理ペアの数が足りません。"); break; } const card1 = cards.find(c => c.id === idPair[0]); const card2 = cards.find(c => c.id === idPair[1]); Object.assign(card1, logicalPair[0]); Object.assign(card2, logicalPair[1]); } }
+    function isPair(card1, card2) { if (!card1 || !card2) return false; if (card1.type === 'joker' && card2.type === 'joker') return true; if (card1.color === card2.color && card1.rank === card2.rank) return true; if(card1.char && card1.char === card2.char) return true; return false; }
+    function createSolveProcedure(initialBoardMap, cards) { const tempBoardMap = JSON.parse(JSON.stringify(initialBoardMap)); const tempCards = JSON.parse(JSON.stringify(cards)); const solveProcedure = []; let cardsLeft = tempCards.length; while (cardsLeft > 0) { const selectableIds = findSelectableCardIds(tempBoardMap, tempCards); if (selectableIds.length < 2) { return null; } for (let i = selectableIds.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1));[selectableIds[i], selectableIds[j]] = [selectableIds[j], selectableIds[i]]; } const pair = [selectableIds.pop(), selectableIds.pop()]; solveProcedure.push(pair); for (const id of pair) { const card = tempCards.find(c => c.id === id); card.isRemoved = true; for (let dy = 0; dy < 2; dy++) { for (let dx = 0; dx < 2; dx++) { const finalY = Math.floor(card.coords.y + dy); const finalX = Math.floor(card.coords.x + dx); tempBoardMap[card.coords.z][finalY][finalX] = null; } } } cardsLeft -= 2; } return solveProcedure; }
+    function onCardClick(cardId) { if (gameState.gameStatus !== 'playing') return; const clickedCard = gameState.cards.find(c => c.id === cardId); if (!clickedCard || !clickedCard.isSelectable) return; if (gameState.selectedCards.length === 0) { gameState.selectedCards.push(clickedCard); document.getElementById(`card-${cardId}`).classList.add('selected'); } else if (gameState.selectedCards[0].id === clickedCard.id) { document.getElementById(`card-${cardId}`).classList.remove('selected'); gameState.selectedCards = []; } else { gameState.selectedCards.push(clickedCard); if (isPair(gameState.selectedCards[0], gameState.selectedCards[1])) { removePair(gameState.selectedCards); updateSelectableStatus(); checkGameEnd(); } else { updateMessage("ペアではありません！"); setTimeout(() => { if (gameState.gameStatus === 'playing') updateMessage("ペアを見つけてください"); }, 1500); } gameState.selectedCards.forEach(c => document.getElementById(`card-${c.id}`).classList.remove('selected')); gameState.selectedCards = []; } }
+    function removePair(cards) { for (const card of cards) { card.isRemoved = true; const cardEl = document.getElementById(`card-${card.id}`); cardEl.classList.add('removed'); cardEl.classList.remove('selectable', 'selected'); for (let dy = 0; dy < 2; dy++) { for (let dx = 0; dx < 2; dx++) { const finalY = Math.floor(card.coords.y + dy); const finalX = Math.floor(card.coords.x + dx); gameState.boardMap[card.coords.z][finalY][finalX] = null; } } } gameState.pairsLeft--; }
+    function updateSelectableStatus() { gameState.cards.forEach(card => { if (card.isRemoved) return; const wasSelectable = card.isSelectable; card.isSelectable = isCardSelectable(card, gameState.boardMap); const cardEl = document.getElementById(`card-${card.id}`); if (card.isSelectable && !wasSelectable) { cardEl.classList.add('selectable'); } else if (!card.isSelectable && wasSelectable) { cardEl.classList.remove('selectable'); } }); }
+    function findSelectableCardIds(boardMap, cards) { return cards.filter(c => !c.isRemoved && isCardSelectable(c, boardMap)).map(c => c.id); }
+    function checkGameEnd() { if (gameState.pairsLeft === 0) { gameState.gameStatus = 'cleared'; updateMessage("クリア！おめでとう！"); return; } const selectableCards = gameState.cards.filter(c => c.isSelectable); const possiblePairs = new Map(); let foundPair = false; for (const card of selectableCards) { const key = card.type === 'joker' ? 'joker' : (card.char ? card.char : `${card.color}-${card.rank}`); if (possiblePairs.has(key)) { foundPair = true; break; } possiblePairs.set(key, true); } if (!foundPair) { gameState.gameStatus = 'stuck'; updateMessage("手詰まりです..."); } else { updateMessage(`${gameState.pairsLeft} ペア残り`); } }
+    function updateMessage(text) { document.getElementById('message-area').textContent = text; }
+})();
+</script>
+
+</body>
+</html>
