@@ -217,7 +217,7 @@
         const logicalPairs = generateContentSet(content, requiredPairs);
         if(!logicalPairs) return;
         assignCardsContent(cards, createDummySolveProcedure(cards), logicalPairs);
-        const display = { renderer: (card) => { const RANKS = { 1: 'A', 11: 'J', 12: 'Q', 13: 'K' }; const SUITS = { spade: '♠', heart: '♥', diamond: '♦', club: '♣', joker: 'J' }; const rank = RANKS[card.rank] || (card.rank === 0 ? '' : card.rank); const suit = SUITS[card.suit]; return rank || suit ? `${rank}<br>${suit}` : ''; } };
+        const display = { renderer: (card) => { const RANKS = { 1: 'A', 11: 'J', 12: 'Q', 13: 'K' }; const SUITS = { spade: '♠', heart: '♥', diamond: '♦', club: '♣', joker: '🤡' }; const rank = RANKS[card.rank] || (card.rank === 0 ? '' : card.rank); const suit = SUITS[card.suit]; return rank || suit ? `${rank}<br>${suit}` : ''; } };
         renderBoard(cards, display, 'start-background-board');
         setBoardSizeAndPosition(cards, 'start-background-board');
     }
@@ -236,7 +236,7 @@
             title: `レベル ${level}`,
             initialData: { cards, boardMap },
             content: { sets: requiredSets, basePairs: [ ...Array.from({length: 13}, (_, i) => [{type: 'card', rank: i + 1, suit: 'heart', color: 'red'}, {type: 'card', rank: i + 1, suit: 'diamond', color: 'red'}]), ...Array.from({length: 13}, (_, i) => [{type: 'card', rank: i + 1, suit: 'spade', color: 'black'}, {type: 'card', rank: i + 1, suit: 'club', color: 'black'}]), [{type: 'joker', rank: 0, suit: 'joker', color: 'black'}, {type: 'joker', rank: 0, suit: 'joker', color: 'red'}] ] },
-            display: { renderer: (card) => { const RANKS = { 1: 'A', 11: 'J', 12: 'Q', 13: 'K' }; const SUITS = { spade: '♠', heart: '♥', diamond: '♦', club: '♣', joker: 'J' }; const rank = RANKS[card.rank] || (card.rank === 0 ? '' : card.rank); const suit = SUITS[card.suit]; return rank || suit ? `${rank}<br>${suit}` : ''; } }
+            display: { renderer: (card) => { const RANKS = { 1: 'A', 11: 'J', 12: 'Q', 13: 'K' }; const SUITS = { spade: '♠', heart: '♥', diamond: '♦', club: '♣', joker: '🤡' }; const rank = RANKS[card.rank] || (card.rank === 0 ? '' : card.rank); const suit = SUITS[card.suit]; return rank || suit ? `${rank}<br>${suit}` : ''; } }
         };
         main(config);
     }
