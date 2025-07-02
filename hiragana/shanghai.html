@@ -103,15 +103,16 @@
 /**
  * 更新履歴
  * (中略)
- * 8. 2025-06-19: 盤面レイアウトの再現性確保
- *    - レベル番号を乱数生成器のシードとして使用することで、各レベルで常に同じ盤面が生成されるように改造。
- *    - これにより、リロードしても同じレイアウトでゲームを再開できるようになった。
- *    - キーワード: random seed, reproducibility, XorShift32, level seed
- *
  * 9. 2025-06-19: スタックオーバーフローエラーの修正
  *    - `startGame`関数内の無限再帰が原因で発生していた`Maximum call stack size exceeded`エラーを修正。
  *    - 再帰呼び出しを`do-while`ループに変更し、盤面生成のリトライ処理を安全な方法に改善した。
  *    - キーワード: stack overflow, maximum call stack size exceeded, recursion, infinite loop, do-while
+ *
+ * 10. 2025-06-19: クリア保証ロジックの強化
+ *    - 設計書に基づき、絶対にクリア不可能な盤面が生成されないようにアルゴリズムを修正。
+ *    - 盤面生成ループ(`startGame`内)の条件に「クリア手順が見つかること」を追加。
+ *    - これにより、提示されるすべての盤面に最低1つのクリア手順が存在することが保証される。
+ *    - キーワード: solvable, clear guarantee, `createSolveProcedure`, `startGame`, `setupGame`
  */
 (function() {
     'use strict';
@@ -334,19 +335,18 @@
         setBoardSizeAndPosition(cards, 'start-background-board');
     }
 
-    // --- ここから改造箇所 ---
+    // --- ここから改造箇所 (startGame関数) ---
     function startGame(level) {
         setCookie('currentLevel', level, 365);
         document.getElementById('start-screen').classList.add('hidden');
         document.getElementById('game-view').classList.remove('hidden');
 
-        let cards, boardMap, levelRNG;
+        let cards, boardMap, levelRNG, solveProcedure;
         let attempt = 0;
-        const MAX_RETRY = 50; // 無限ループを避けるための上限
+        const MAX_RETRY = 50;
 
-        // カードの枚数が10枚以上になるまで盤面生成を繰り返す
+        // カードが10枚以上で、かつクリア手順が見つかるまで盤面生成を繰り返す
         do {
-            // リトライのたびにシードを「レベル番号 + 試行回数」で変更する
             const seed = level + attempt;
             levelRNG = new XorShift32(seed);
 
@@ -357,14 +357,22 @@
             cards = layoutResult.cards;
             boardMap = layoutResult.boardMap;
 
+            // カードが最低枚数に満たない場合は、クリア手順のチェックをせずに次の試行へ
+            if (cards.length < 10) {
+                attempt++;
+                continue;
+            }
+
+            // クリア手順を生成してみる
+            solveProcedure = createSolveProcedure(boardMap, cards, levelRNG);
+
             attempt++;
-            // 最大試行回数を超えた場合はエラーとして処理を中断
             if (attempt > MAX_RETRY) {
-                console.error(`盤面生成に失敗。レベル${level}で${MAX_RETRY}回リトライしましたが、十分なカードを生成できませんでした。`);
+                console.error(`盤面生成に失敗。レベル${level}で${MAX_RETRY}回リトライしましたが、条件を満たす盤面を生成できませんでした。`);
                 updateMessage("エラー：盤面を生成できません。リロードしてください。");
                 return;
             }
-        } while (cards.length < 10);
+        } while (cards.length < 10 || !solveProcedure);
         
         const requiredPairs = cards.length / 2;
         
@@ -390,7 +398,8 @@
                     return rank || suit ? `${rank}<br>${suit}` : '';
                 }
             },
-            rng: levelRNG // ループで生成された最終的な乱数生成器を使用
+            rng: levelRNG,
+            solveProcedure: solveProcedure // 生成に成功したクリア手順を渡す
         };
         main(config);
     }
@@ -415,29 +424,33 @@
         setupGame(config);
     }
 
+    // --- ここから改造箇所 (setupGame関数) ---
     function setupGame(config) {
         const { cards, boardMap } = config.initialData;
-        const { rng } = config;
+        const { rng, solveProcedure } = config; // クリア保証済みの手順を受け取る
 
         gameManager.gameState = { cards, boardMap, selectedCards: [], gameStatus: 'playing', pairsLeft: cards.length / 2 };
         
-        const solveProcedure = createSolveProcedure(boardMap, cards, rng);
+        // solveProcedureはstartGameで生成済みなので、ここでは再生成やチェックは不要
         if (!solveProcedure) {
-            console.error("クリア手順の生成に失敗しました。リトライします。");
-            startGame(gameManager.currentLevel);
+            console.error("致命的エラー: setupGameにクリア手順が渡されませんでした。");
+            updateMessage("エラーが発生しました。");
             return;
         }
+
         const logicalPairs = generateContentSet(config.content, gameManager.gameState.pairsLeft, rng);
         if (!logicalPairs) {
             console.error("コンテンツのペア数が足りません。");
             return;
         }
+
         assignCardsContent(cards, solveProcedure, logicalPairs);
         renderBoard(cards, config.display, 'game-board');
         setBoardSizeAndPosition(cards, 'game-board');
         updateSelectableStatus();
         updateMessage("ペアを見つけてください");
     }
+    // --- ここまで改造箇所 ---
 
     function renderBoard(cards, displayConfig, targetElementId) {
         const { renderer } = displayConfig;
@@ -537,7 +550,6 @@
                 return procedure.reverse();
             }
         }
-        console.error("クリア手順の生成に失敗しました（最大試行回数超過）");
         return null;
     }
     
