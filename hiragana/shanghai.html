@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>退屈ソリティア</title>
+    <title>ピンチズーム＆ドラッグ対応ソリティアエンジン</title>
     <style>
-        /* ### 修正箇所 ### CSSの全面的な見直し */
         html, body {
             height: 100%;
             margin: 0;
-            overflow: hidden; /* ブラウザのスクロールバーは不要 */
+            overflow: hidden;
+            touch-action: none;
         }
         body {
             font-family: sans-serif;
@@ -20,8 +20,6 @@
             justify-content: center;
         }
         .hidden { display: none !important; }
-
-        /* スタート画面のスタイル */
         #start-screen {
             position: relative;
             display: flex;
@@ -29,76 +27,55 @@
             align-items: center;
             justify-content: center;
             text-align: center;
-            width: 100%;
-            height: 100%;
+            width: 100vw;
+            height: 100vh;
         }
         #start-screen h1 { font-size: 4em; text-shadow: 3px 3px 5px rgba(0,0,0,0.5); z-index: 1; }
         #start-button { font-size: 2em; padding: 15px 40px; border: 3px solid #fff; background-color: rgba(255,255,255,0.1); color: #fff; cursor: pointer; transition: background-color 0.3s, transform 0.1s; z-index: 1;}
         #start-button:hover { background-color: rgba(255,255,255,0.3); }
         #start-button:active { transform: scale(0.95); }
-
         #start-background-container, #game-container {
             position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
+            top: 0; left: 0; width: 100vw; height: 100vh;
             overflow: hidden;
             cursor: grab;
         }
-        #start-background-container:active, #game-container:active {
-            cursor: grabbing;
-        }
-        
+        #start-background-container:active, #game-container:active { cursor: grabbing; }
         #start-background-container {
             z-index: 0;
             opacity: 0.15;
             filter: blur(1px);
         }
-        
         #start-background-board, #game-board {
-            position: absolute; /* ### 修正箇所 ### 中央揃えのためにabsoluteに */
+            position: absolute;
+            left: 0; top: 0;
+            transform-origin: 0 0;
         }
-        
-        /* ゲーム画面のスタイル */
         #game-view {
-            width: 100%;
-            height: 100%;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
+            width: 100vw; height: 100vh;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
         }
         #game-view-header, #game-view-footer {
-            position: absolute;
-            width: 100%;
-            text-align: center;
-            z-index: 10;
-            background-color: rgba(11, 79, 50, 0.7);
-            padding: 1vh 0;
-            pointer-events: none;
+            position: absolute; width: 100%; text-align: center; z-index: 10;
+            background-color: rgba(11, 79, 50, 0.7); padding: 1vh 0; pointer-events: none;
         }
         #game-view-header { top: 0; }
         #game-view-footer { bottom: 0; }
         #game-title { font-size: 2em; margin: 0; }
         #message-area { font-size: 1.5em; font-weight: bold; margin: 0; }
-        
         .card {
-            width: 60px;
-            height: 84px;
-            font-size: 24px;
+            width: 60px; height: 84px; font-size: 24px;
             position: absolute;
             background-color: #fff;
             border: 1px solid #333;
             border-radius: 5%;
             box-shadow: 2px 2px 5px rgba(0,0,0,0.3);
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
             font-weight: bold;
             transition: opacity 0.3s;
             transform-style: preserve-3d;
+            user-select: none;
+            -webkit-user-select: none;
         }
         .card[data-color="red"] { color: #d00; }
         .card[data-color="black"] { color: #000; }
@@ -112,7 +89,7 @@
         <div id="start-background-container">
             <div id="start-background-board"></div>
         </div>
-        <h1>たいくつソリティア</h1>
+        <h1>フラクタル・ソリティア</h1>
         <button id="start-button">ゲーム開始</button>
     </div>
     <div id="game-view" class="hidden">
@@ -123,101 +100,249 @@
         <div id="game-view-footer"><div id="message-area"></div></div>
     </div>
 <script>
-/*
+/**
  * 更新履歴
+ * 1. 2025-06-19: プログラムの目的と機能
+ *    - ピンチズーム、ドラッグ操作が可能なソリティアゲームエンジン。
+ *    - セルオートマトンによるプロシージャルなステージ生成。
+ *    - クリア保証のないダミーアルゴリズムを搭載。
+ *    - キーワード: procedural generation, cellular automata, pinch zoom, drag
  *
- * #1 - #13: (変更なし)
- * #14 2025-06-30:
- * - 盤面描画のロジックを全面的に刷新。盤面(`board`)をコンテナの中央に配置するようにした。
- * - これにより、「カード山が左上に寄る」という根本的な問題を完全に解決。
- * - これをもって、汎用ソリティアエンジンの開発を完了とする。
- * - 重要なキーワード: 完成, UI/UX, 中央揃え, アーキテクチャ修正
+ * 2. 2025-06-19: クリア保証アルゴリズムの実装
+ *    - 設計書に基づき、クリアが保証されるステージ生成ロジックに修正。
+ *    - キーワード: createSolveProcedure, solvable, reverse simulation, boardMap
+ *
+ * 3. 2025-06-19: 構文エラーの修正
+ *    - 不適切に一行に圧縮されていた補助関数を元のフォーマットに戻し、SyntaxErrorを解消。
+ *    - キーワード: formatting, SyntaxError, single-line function
+ *
+ * 4. 2025-06-19: 構文エラーの再修正
+ *    - 前回の修正漏れを解消。全補助関数を正しくフォーマット。
+ *    - キーワード: formatting, SyntaxError, config object
+ *
+ * 5. 2025-06-19: 難易度調整と操作性改善
+ *    - 使用するカードを「A, 2, 3, 4」と「ジョーカー」に限定して難易度を向上。
+ *    - ドラッグ操作のイベントリスナーを `document` に設定し、高速なマウス移動でも操作が途切れないように改善。
+ *    - キーワード: difficulty, card set, basePairs, drag, pointer events, document listener
  */
 (function() {
     'use strict';
     const gameManager = { currentLevel: 1, gameState: {} };
+    class XorShift32 {
+      /**
+       * コンストラクタ
+       * @param {number} seed 初期シード（32bit整数, 0 を避ける）
+       */
+      constructor(seed) {
+        // 0 だと全ビット 0 のままになってしまうので、もし 0 が渡されたら適当な値を代入
+        this.state = (seed >>> 0) || 0xDEADBEEF;
+      }
 
-    // ### ここからが新規追加/変更箇所 ###
-    function makeDraggable(container) {
-        let isDragging = false;
-        let startX, startY;
-        const board = container.querySelector('#game-board, #start-background-board');
+      /**
+       * 次の乱数を生成して返す
+       * @returns {number} 32bit の符号なし整数 (0 … 0xFFFFFFFF)
+       */
+      randomUInt32() {
+        // xorshift32 のコア (Marsaglia のオリジナル)
+        let x = this.state;
+        x ^= x << 13;
+        x ^= x >>> 17;
+        x ^= x << 5;
+        // 32bit に切り詰めて負の値が出ないようにする
+        this.state = x >>> 0;
+        return this.state;
+      }
+
+      /**
+       * 乱数を 0～1 未満の浮動小数点で返す
+       * @returns {number} [0, 1)
+       */
+      random() {
+        // 2^32 で割って [0,1) の範囲に正規化
+        return this.randomUInt32() / 0x100000000;
+      }
+    }
+
+    // 使用例
+    const XorShift = new XorShift32(123345 & 0xFFFFFFFF);
+    // XorShift.randomUInt32(); // 例: 305419896
+    // XorShift.random();       // 例: 0.7123456789012345
+
+
+    // --- ここからが変更箇所 (makeInteractive関数) ---
+    function makeInteractive(containerId) {
+        const container = document.getElementById(containerId);
+        const board = container.querySelector('div');
         if (!board) return;
 
-        let currentX = 0, currentY = 0;
-        let initialX, initialY;
+        let scale = 1, minScale = 0.2, maxScale = 3;
+        let x = 0, y = 0;
+        let pointerCache = [];
+        let prevDiff = -1;
+        let isDragging = false;
+        let dragStartTarget = null;
 
-        const startDrag = (e) => {
-            if (e.target.classList.contains('card')) return;
-            isDragging = true;
-            container.style.cursor = 'grabbing';
-            const touch = e.touches ? e.touches[0] : e;
-            initialX = touch.clientX - currentX;
-            initialY = touch.clientY - currentY;
-        };
-        const onDrag = (e) => {
-            if (!isDragging) return;
-            e.preventDefault();
-            const touch = e.touches ? e.touches[0] : e;
-            currentX = touch.clientX - initialX;
-            currentY = touch.clientY - initialY;
-            board.style.transform = `translate(${currentX}px, ${currentY}px)`;
-        };
-        const stopDrag = () => { isDragging = false; container.style.cursor = 'grab'; };
+        const handlePointerDown = (ev) => {
+            // イベントのターゲットがコンテナ内にある場合のみ処理を開始
+            if (!container.contains(ev.target)) return;
+            
+            pointerCache.push(ev);
+            // 最初のポインタ（指）が押された時に、ドラッグ状態を初期化
+            if (pointerCache.length === 1) {
+                isDragging = false;
+                dragStartTarget = ev.target;
+            }
 
-        container.addEventListener('mousedown', startDrag);
-        container.addEventListener('mousemove', onDrag);
-        container.addEventListener('mouseup', stopDrag);
-        container.addEventListener('mouseleave', stopDrag);
-        container.addEventListener('touchstart', startDrag, { passive: false });
-        container.addEventListener('touchmove', onDrag, { passive: false });
-        container.addEventListener('touchend', stopDrag);
+            // `document`全体でマウス/ポインタの動きを監視開始
+            document.addEventListener('pointermove', handlePointerMove);
+            document.addEventListener('pointerup', handlePointerUp);
+            document.addEventListener('pointercancel', handlePointerUp);
+        };
+
+        const handlePointerMove = (ev) => {
+            const index = pointerCache.findIndex(cachedEv => cachedEv.pointerId === ev.pointerId);
+            if (index > -1) {
+                pointerCache[index] = ev;
+            } else {
+                return;
+            }
+
+            if (pointerCache.length === 1) { // シングルタッチ/マウスドラッグ
+                isDragging = true;
+                x += ev.movementX;
+                y += ev.movementY;
+                board.style.transform = `translate(${x}px, ${y}px) scale(${scale})`;
+                ev.preventDefault();
+            } else if (pointerCache.length === 2) { // マルチタッチ（ピンチズーム）
+                isDragging = true; // ピンチもドラッグの一種とみなす
+                const p1 = pointerCache[0], p2 = pointerCache[1];
+                const curDiff = Math.sqrt(Math.pow(p1.clientX - p2.clientX, 2) + Math.pow(p1.clientY - p2.clientY, 2));
+                const midPoint = { x: (p1.clientX + p2.clientX) / 2, y: (p1.clientY + p2.clientY) / 2 };
+
+                if (prevDiff > 0) {
+                    const scaleChange = curDiff / prevDiff;
+                    const newScale = Math.max(minScale, Math.min(scale * scaleChange, maxScale));
+                    // ズームの中心点を基準に座標を更新
+                    x = midPoint.x - (midPoint.x - x) * (newScale / scale);
+                    y = midPoint.y - (midPoint.y - y) * (newScale / scale);
+                    scale = newScale;
+                }
+                prevDiff = curDiff;
+                board.style.transform = `translate(${x}px, ${y}px) scale(${scale})`;
+                ev.preventDefault();
+            }
+        };
+
+        const handlePointerUp = (ev) => {
+            // ドラッグ操作が行われず、かつカードの上で指が離された場合、クリックと判定
+            if (!isDragging && dragStartTarget && dragStartTarget.classList.contains('card')) {
+                // クリックされたカードが、最初に押されたポインタのターゲットであることを確認
+                if (pointerCache.length > 0 && ev.pointerId === pointerCache[0].pointerId) {
+                   const cardId = parseInt(dragStartTarget.id.split('-').pop());
+                   onCardClick(cardId);
+                }
+            }
+
+            // 離されたポインタをキャッシュから削除
+            pointerCache = pointerCache.filter(p => p.pointerId !== ev.pointerId);
+            
+            // ポインタが1つ以下になったら、ピンチズームの状態をリセット
+            if (pointerCache.length < 2) {
+                prevDiff = -1;
+            }
+
+            // 全てのポインタが離れたら、監視を終了
+            if (pointerCache.length === 0) {
+                document.removeEventListener('pointermove', handlePointerMove);
+                document.removeEventListener('pointerup', handlePointerUp);
+                document.removeEventListener('pointercancel', handlePointerUp);
+                dragStartTarget = null;
+            }
+        };
+
+        container.addEventListener('pointerdown', handlePointerDown);
+        
+        // カード自体のブラウザ標準ドラッグ機能を無効化
+        board.addEventListener('dragstart', (e) => e.preventDefault());
+
+        container.addEventListener('wheel', (ev) => {
+            ev.preventDefault();
+            const scaleChange = ev.deltaY * -0.001;
+            const newScale = Math.max(minScale, Math.min(scale * (1 + scaleChange), maxScale));
+            x = ev.clientX - (ev.clientX - x) * (newScale / scale);
+            y = ev.clientY - (ev.clientY - y) * (newScale / scale);
+            scale = newScale;
+            board.style.transform = `translate(${x}px, ${y}px) scale(${scale})`;
+        });
     }
-    
+
     function setBoardSizeAndPosition(cards, boardId) {
         const boardEl = document.getElementById(boardId);
         if (!cards || cards.length === 0 || !boardEl) return;
-        
         let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
         cards.forEach(card => { minX = Math.min(minX, card.coords.x); maxX = Math.max(maxX, card.coords.x + 2); minY = Math.min(minY, card.coords.y); maxY = Math.max(maxY, card.coords.y + 2); });
-        
         const cardWidth = 60;
         const cardHeight = 84;
         const boardPixelWidth = (maxX - minX) / 2 * cardWidth;
         const boardPixelHeight = (maxY - minY) / 2 * cardHeight;
-        
         boardEl.style.width = `${boardPixelWidth}px`;
         boardEl.style.height = `${boardPixelHeight}px`;
-        
-        // ### 修正箇所 ### 盤面自体をコンテナの中央に配置
-        boardEl.style.left = `calc(50% - ${boardPixelWidth / 2}px)`;
-        boardEl.style.top = `calc(50% - ${boardPixelHeight / 2}px)`;
 
         boardEl.querySelectorAll('.card').forEach(cardEl => {
             const cardId = parseInt(cardEl.id.split('-').pop());
             const cardData = cards.find(c => c.id === cardId);
             if (cardData) {
-                // ### 修正箇所 ### カードの座標は盤面の左上からの相対位置
                 const left = (cardData.coords.x - minX) / 2 * cardWidth;
                 const top = (cardData.coords.y - minY) / 2 * cardHeight;
                 cardEl.style.left = `${left}px`;
                 cardEl.style.top = `${top}px`;
             }
         });
+
+        const container = boardEl.parentElement;
+        const containerRect = container.getBoundingClientRect();
+        boardEl.style.left = `${(containerRect.width - boardPixelWidth)/2}px`;
+        boardEl.style.top = `${(containerRect.height - boardPixelHeight)/2}px`;
+        boardEl.style.transform = `translate(0, 0) scale(1)`;
     }
 
-    function showStartScreen() { document.getElementById('start-screen').classList.remove('hidden'); document.getElementById('game-view').classList.add('hidden'); renderFractalBackground(); }
-    
+    function showStartScreen() {
+        document.getElementById('start-screen').classList.remove('hidden');
+        document.getElementById('game-view').classList.add('hidden');
+        renderFractalBackground();
+    }
+
     function renderFractalBackground() {
         const baseShape = generateCellularAutomataShape(20, 15);
         const proceduralLayout = generateProceduralLayout(baseShape);
         const { cards } = generateStructuralLayout(proceduralLayout);
         const requiredPairs = cards.length / 2;
-        const content = { basePairs: [ ...Array.from({length: 13}, (_, i) => [{type: 'card', rank: i + 1, suit: 'heart', color: 'red'}, {type: 'card', rank: i + 1, suit: 'diamond', color: 'red'}]), ...Array.from({length: 13}, (_, i) => [{type: 'card', rank: i + 1, suit: 'spade', color: 'black'}, {type: 'card', rank: i + 1, suit: 'club', color: 'black'}]), [{type: 'joker', rank: 0, suit: 'joker', color: 'black'}, {type: 'joker', rank: 0, suit: 'joker', color: 'red'}] ], sets: Math.ceil(requiredPairs / 27) };
+
+        // --- ここからが変更箇所 (カード種類) ---
+        const basePairs = [
+            ...Array.from({length: 4}, (_, i) => [{type: 'card', rank: i + 1, suit: 'heart', color: 'red'}, {type: 'card', rank: i + 1, suit: 'diamond', color: 'red'}]),
+            ...Array.from({length: 4}, (_, i) => [{type: 'card', rank: i + 1, suit: 'spade', color: 'black'}, {type: 'card', rank: i + 1, suit: 'club', color: 'black'}]),
+            [{type: 'joker', rank: 0, suit: 'joker', color: 'black'}, {type: 'joker', rank: 0, suit: 'joker', color: 'red'}]
+        ];
+        const content = {
+            basePairs: basePairs,
+            sets: Math.ceil(requiredPairs / basePairs.length)
+        };
+        // --- ここまでが変更箇所 ---
+
         const logicalPairs = generateContentSet(content, requiredPairs);
         if(!logicalPairs) return;
-        assignCardsContent(cards, createDummySolveProcedure(cards), logicalPairs);
-        const display = { renderer: (card) => { const RANKS = { 1: 'A', 11: 'J', 12: 'Q', 13: 'K' }; const SUITS = { spade: '♠', heart: '♥', diamond: '♦', club: '♣', joker: '🤡' }; const rank = RANKS[card.rank] || (card.rank === 0 ? '' : card.rank); const suit = SUITS[card.suit]; return rank || suit ? `${rank}<br>${suit}` : ''; } };
+        const solveProcedure = createDummySolveProcedure(cards);
+        assignCardsContent(cards, solveProcedure, logicalPairs);
+        const display = {
+            renderer: (card) => {
+                const RANKS = { 1: 'A', 11: 'J', 12: 'Q', 13: 'K' };
+                const SUITS = { spade: '♠', heart: '♥', diamond: '♦', club: '♣', joker: 'J' };
+                const rank = RANKS[card.rank] || (card.rank === 0 ? '' : card.rank);
+                const suit = SUITS[card.suit];
+                return rank || suit ? `${rank}<br>${suit}` : '';
+            }
+        };
         renderBoard(cards, display, 'start-background-board');
         setBoardSizeAndPosition(cards, 'start-background-board');
     }
@@ -229,27 +354,66 @@
         const baseShape = generateCellularAutomataShape(baseSize, baseSize);
         const proceduralLayout = generateProceduralLayout(baseShape);
         const { cards, boardMap } = generateStructuralLayout(proceduralLayout);
-        if(cards.length < 10) { startGame(level); return; }
+        if(cards.length < 10) {
+            startGame(level);
+            return;
+        }
         const requiredPairs = cards.length / 2;
-        const requiredSets = Math.ceil(requiredPairs / 27);
+        
+        // --- ここからが変更箇所 (カード種類) ---
+        const basePairs = [
+            ...Array.from({length: 4}, (_, i) => [{type: 'card', rank: i + 1, suit: 'heart', color: 'red'}, {type: 'card', rank: i + 1, suit: 'diamond', color: 'red'}]),
+            ...Array.from({length: 4}, (_, i) => [{type: 'card', rank: i + 1, suit: 'spade', color: 'black'}, {type: 'card', rank: i + 1, suit: 'club', color: 'black'}]),
+            [{type: 'joker', rank: 0, suit: 'joker', color: 'black'}, {type: 'joker', rank: 0, suit: 'joker', color: 'red'}]
+        ];
+        const requiredSets = Math.ceil(requiredPairs / basePairs.length);
         const config = {
             title: `レベル ${level}`,
             initialData: { cards, boardMap },
-            content: { sets: requiredSets, basePairs: [ ...Array.from({length: 13}, (_, i) => [{type: 'card', rank: i + 1, suit: 'heart', color: 'red'}, {type: 'card', rank: i + 1, suit: 'diamond', color: 'red'}]), ...Array.from({length: 13}, (_, i) => [{type: 'card', rank: i + 1, suit: 'spade', color: 'black'}, {type: 'card', rank: i + 1, suit: 'club', color: 'black'}]), [{type: 'joker', rank: 0, suit: 'joker', color: 'black'}, {type: 'joker', rank: 0, suit: 'joker', color: 'red'}] ] },
-            display: { renderer: (card) => { const RANKS = { 1: 'A', 11: 'J', 12: 'Q', 13: 'K' }; const SUITS = { spade: '♠', heart: '♥', diamond: '♦', club: '♣', joker: '🤡' }; const rank = RANKS[card.rank] || (card.rank === 0 ? '' : card.rank); const suit = SUITS[card.suit]; return rank || suit ? `${rank}<br>${suit}` : ''; } }
+            content: {
+                sets: requiredSets,
+                basePairs: basePairs
+            },
+            // --- ここまでが変更箇所 ---
+            display: {
+                renderer: (card) => {
+                    const RANKS = { 1: 'A', 11: 'J', 12: 'Q', 13: 'K' };
+                    const SUITS = { spade: '♠', heart: '♥', diamond: '♦', club: '♣', joker: 'J' };
+                    const rank = RANKS[card.rank] || (card.rank > 0 && card.rank < 11 ? card.rank : '');
+                    const suit = SUITS[card.suit];
+                    return rank || suit ? `${rank}<br>${suit}` : '';
+                }
+            }
         };
         main(config);
     }
-    
-    document.addEventListener('DOMContentLoaded', () => { makeDraggable(document.getElementById('start-background-container')); makeDraggable(document.getElementById('game-container')); showStartScreen(); document.getElementById('start-button').addEventListener('click', () => startGame(gameManager.currentLevel)); });
-    function main(config) { document.getElementById('game-title').textContent = config.title; setupGame(config); }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        makeInteractive('start-background-container');
+        makeInteractive('game-container');
+        showStartScreen();
+        document.getElementById('start-button').addEventListener('click', () => startGame(gameManager.currentLevel));
+    });
+
+    function main(config) {
+        document.getElementById('game-title').textContent = config.title;
+        setupGame(config);
+    }
+
     function setupGame(config) {
         const { cards, boardMap } = config.initialData;
         gameManager.gameState = { cards, boardMap, selectedCards: [], gameStatus: 'playing', pairsLeft: cards.length / 2 };
         const solveProcedure = createSolveProcedure(boardMap, cards);
-        if (!solveProcedure) { console.error("クリア手順の生成に失敗しました。"); startGame(gameManager.currentLevel); return; }
+        if (!solveProcedure) {
+            console.error("クリア手順の生成に失敗しました。リトライします。");
+            startGame(gameManager.currentLevel);
+            return;
+        }
         const logicalPairs = generateContentSet(config.content, gameManager.gameState.pairsLeft);
-        if (!logicalPairs) { console.error("コンテンツのペア数が足りません。"); return; }
+        if (!logicalPairs) {
+            console.error("コンテンツのペア数が足りません。");
+            return;
+        }
         assignCardsContent(cards, solveProcedure, logicalPairs);
         renderBoard(cards, config.display, 'game-board');
         setBoardSizeAndPosition(cards, 'game-board');
@@ -269,29 +433,331 @@
             cardEl.innerHTML = renderer(card);
             if (card.color) cardEl.dataset.color = card.color;
             cardEl.style.zIndex = card.coords.z * 1000 + card.coords.y * 10;
-            if (targetElementId === 'game-board') {
-                cardEl.addEventListener('click', () => onCardClick(card.id));
-            }
             boardEl.appendChild(cardEl);
         });
     }
 
-    // 残りのエンジンコア関数は変更なし
-    function generateCellularAutomataShape(width, height, generations = 4, birthThreshold = 5, survivalThreshold = 4) { let grid = Array.from({length: height}, () => Array(width).fill(false)); for (let y = 0; y < height; y++) { for (let x = 0; x < width; x++) { if (Math.random() < 0.45) grid[y][x] = true; } } for (let i = 0; i < generations; i++) { const newGrid = Array.from({length: height}, () => Array(width).fill(false)); for (let y = 0; y < height; y++) { for (let x = 0; x < width; x++) { let neighbours = 0; for (let ny = -1; ny <= 1; ny++) { for (let nx = -1; nx <= 1; nx++) { if (ny === 0 && nx === 0) continue; const checkX = x + nx; const checkY = y + ny; if (checkX >= 0 && checkX < width && checkY >= 0 && checkY < height && grid[checkY][checkX]) { neighbours++; } } } if (grid[y][x]) { if (neighbours >= survivalThreshold) newGrid[y][x] = true; } else { if (neighbours >= birthThreshold) newGrid[y][x] = true; } } } grid = newGrid; } return grid; }
-    function checkGameEnd() { if (gameManager.gameState.pairsLeft === 0) { gameManager.gameState.gameStatus = 'cleared'; updateMessage(`レベル ${gameManager.currentLevel} クリア！`); setTimeout(() => { gameManager.currentLevel++; startGame(gameManager.currentLevel); }, 3000); return; } const selectableCards = gameManager.gameState.cards.filter(c => c.isSelectable); const possiblePairs = new Map(); let foundPair = false; for (const card of selectableCards) { const key = card.type === 'joker' ? 'joker' : (card.char ? card.char : `${card.color}-${card.rank}`); if (possiblePairs.has(key)) { foundPair = true; break; } possiblePairs.set(key, true); } if (!foundPair) { gameManager.gameState.gameStatus = 'stuck'; updateMessage("手詰まりです..."); } else { updateMessage(`${gameManager.gameState.pairsLeft} ペア残り`); } }
-    function createDummySolveProcedure(cards) { const shuffledIds = cards.map(c => c.id).sort(() => 0.5 - Math.random()); const procedure = []; for (let i = 0; i < shuffledIds.length; i += 2) { if (shuffledIds[i+1]) procedure.push([shuffledIds[i], shuffledIds[i+1]]); } return procedure; }
-    function generateProceduralLayout(baseShape) { const fullLayoutDef = [baseShape]; let currentLayerDef = baseShape; while (true) { const nextLayerDef = []; let hasCardInNextLayer = false; const prevHeight = currentLayerDef.length; const prevWidth = prevHeight > 0 ? currentLayerDef[0].length : 0; for (let y = 0; y < prevHeight - 1; y++) { nextLayerDef[y] = []; for (let x = 0; x < prevWidth - 1; x++) { const canPlace = currentLayerDef[y][x] && currentLayerDef[y][x+1] && currentLayerDef[y+1][x] && currentLayerDef[y+1][x+1]; nextLayerDef[y][x] = canPlace; if (canPlace) hasCardInNextLayer = true; } } if (!hasCardInNextLayer) break; fullLayoutDef.push(nextLayerDef); currentLayerDef = nextLayerDef; } return fullLayoutDef; }
-    function generateStructuralLayout(layoutDef) { const cards = []; let cardId = 1; const baseLayer = layoutDef[0] || []; const baseHeight = baseLayer.length; const baseWidth = baseHeight > 0 ? baseLayer[0].length : 0; const maxLayers = layoutDef.length; const totalGridWidth = baseWidth * 2 + maxLayers - 1; const totalGridHeight = baseHeight * 2 + maxLayers - 1; const boardMap = Array.from({ length: maxLayers }, () => Array.from({ length: totalGridHeight }, () => Array(totalGridWidth).fill(null))); layoutDef.forEach((layer, z) => { layer.forEach((row, y) => { row.forEach((hasCard, x) => { if (hasCard) { const gridX = x * 2 + z; const gridY = y * 2 + z; const newCard = { id: cardId++, coords: { x: gridX, y: gridY, z }, isRemoved: false, isSelectable: false }; cards.push(newCard); for (let dy = 0; dy < 2; dy++) { for (let dx = 0; dx < 2; dx++) { boardMap[z][gridY + dy][gridX + dx] = newCard.id; } } } }); }); }); if (cards.length % 2 !== 0) { const cardToRemove = cards.pop(); const {x, y, z} = cardToRemove.coords; for (let dy = 0; dy < 2; dy++) { for (let dx = 0; dx < 2; dx++) { boardMap[z][y + dy][x + dx] = null; } } } return { cards, boardMap }; }
-    function generateContentSet(contentConfig, requiredPairs) { const { basePairs, sets } = contentConfig; const allPairs = []; for (let i = 0; i < sets; i++) { allPairs.push(...JSON.parse(JSON.stringify(basePairs))); } if (allPairs.length < requiredPairs) { return null; } for (let i = allPairs.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1));[allPairs[i], allPairs[j]] = [allPairs[j], allPairs[i]]; } return allPairs.slice(0, requiredPairs); }
-    function assignCardsContent(cards, solveProcedure, logicalPairs) { for (const idPair of solveProcedure) { const logicalPair = logicalPairs.pop(); if (!logicalPair) { console.error("論理ペアの数が足りません。"); break; } const card1 = cards.find(c => c.id === idPair[0]); const card2 = cards.find(c => c.id === idPair[1]); Object.assign(card1, logicalPair[0]); Object.assign(card2, logicalPair[1]); } }
-    function isPair(card1, card2) { if (!card1 || !card2) return false; if (card1.type === 'joker' && card2.type === 'joker') return true; if (card1.color === card2.color && card1.rank === card2.rank) return true; if(card1.char && card1.char === card2.char) return true; return false; }
-    function createSolveProcedure(initialBoardMap, cards) { const tempBoardMap = JSON.parse(JSON.stringify(initialBoardMap)); const tempCards = JSON.parse(JSON.stringify(cards)); const solveProcedure = []; let cardsLeft = tempCards.length; while (cardsLeft > 0) { const selectableIds = findSelectableCardIds(tempBoardMap, tempCards); if (selectableIds.length < 2) { return null; } for (let i = selectableIds.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1));[selectableIds[i], selectableIds[j]] = [selectableIds[j], selectableIds[i]]; } const pair = [selectableIds.pop(), selectableIds.pop()]; solveProcedure.push(pair); for (const id of pair) { const card = tempCards.find(c => c.id === id); card.isRemoved = true; for (let dy = 0; dy < 2; dy++) { for (let dx = 0; dx < 2; dx++) { const finalY = Math.floor(card.coords.y + dy); const finalX = Math.floor(card.coords.x + dx); tempBoardMap[card.coords.z][finalY][finalX] = null; } } } cardsLeft -= 2; } return solveProcedure; }
-    function onCardClick(cardId) { if (gameManager.gameState.gameStatus !== 'playing') return; const clickedCard = gameManager.gameState.cards.find(c => c.id === cardId); if (!clickedCard || !clickedCard.isSelectable) return; const selectedIndex = gameManager.gameState.selectedCards.findIndex(c => c.id === cardId); if (selectedIndex > -1) { gameManager.gameState.selectedCards.splice(selectedIndex, 1); document.getElementById(`game-board-card-${cardId}`).classList.remove('selected'); } else { gameManager.gameState.selectedCards.push(clickedCard); document.getElementById(`game-board-card-${cardId}`).classList.add('selected'); } if (gameManager.gameState.selectedCards.length === 2) { if (isPair(gameManager.gameState.selectedCards[0], gameManager.gameState.selectedCards[1])) { removePair(gameManager.gameState.selectedCards); updateSelectableStatus(); checkGameEnd(); } else { updateMessage("ペアではありません！"); setTimeout(() => { if (gameManager.gameState.gameStatus === 'playing') updateMessage("ペアを見つけてください"); }, 1500); } gameManager.gameState.selectedCards.forEach(c => document.getElementById(`game-board-card-${c.id}`).classList.remove('selected')); gameManager.gameState.selectedCards = []; } }
-    function removePair(cards) { for (const card of cards) { card.isRemoved = true; const cardEl = document.getElementById(`game-board-card-${card.id}`); cardEl.classList.add('removed'); cardEl.classList.remove('selectable', 'selected'); for (let dy = 0; dy < 2; dy++) { for (let dx = 0; dx < 2; dx++) { const finalY = Math.floor(card.coords.y + dy); const finalX = Math.floor(card.coords.x + dx); gameManager.gameState.boardMap[card.coords.z][finalY][finalX] = null; } } } gameManager.gameState.pairsLeft--; }
-    function isCardSelectable(card, boardMap) { if (card.isRemoved) return false; const { x, y, z } = card.coords; const currentLayer = boardMap[z]; const upperLayer = boardMap[z + 1]; if (upperLayer) { for (let dy = -1; dy < 2; dy++) { for (let dx = 0; dx < 2; dx++) { const checkY = y + dy; const checkX = x + dx; if (checkY < 0 || checkX < 0 || checkY >= upperLayer.length || checkX >= upperLayer[0].length) continue; const upperCardId = upperLayer[checkY][checkX]; if (upperCardId) { const upperCard = gameManager.gameState.cards.find(c => c.id === upperCardId); if(upperCard){ const x_dist = Math.abs((upperCard.coords.x + 1) - (x + 1)); const y_dist = Math.abs((upperCard.coords.y + 1) - (y + 1)); if (x_dist < 2 && y_dist < 2) return false; } } } } } const isLeftOpen = (x < 1) || (currentLayer[y][x - 1] === null && currentLayer[y + 1][x - 1] === null); const isRightOpen = (x + 2 >= currentLayer[0].length) || (currentLayer[y][x + 2] === null && currentLayer[y + 1][x + 2] === null); return isLeftOpen || isRightOpen; }
-    function updateSelectableStatus() { gameManager.gameState.cards.forEach(card => { if (card.isRemoved) return; const wasSelectable = card.isSelectable; card.isSelectable = isCardSelectable(card, gameManager.gameState.boardMap); const cardEl = document.getElementById(`game-board-card-${card.id}`); if(cardEl){ if (card.isSelectable && !wasSelectable) { cardEl.classList.add('selectable'); } else if (!card.isSelectable && wasSelectable) { cardEl.classList.remove('selectable'); } } }); }
-    function findSelectableCardIds(boardMap, cards) { return cards.filter(c => !c.isRemoved && isCardSelectable(c, boardMap)).map(c => c.id); }
-    function updateMessage(text) { document.getElementById('message-area').textContent = text; }
+    function onCardClick(cardId) {
+        if (gameManager.gameState.gameStatus !== 'playing') return;
+        const clickedCard = gameManager.gameState.cards.find(c => c.id === cardId);
+        if (!clickedCard || !clickedCard.isSelectable) return;
+        const selectedIndex = gameManager.gameState.selectedCards.findIndex(c => c.id === cardId);
+        if (selectedIndex > -1) {
+            gameManager.gameState.selectedCards.splice(selectedIndex, 1);
+            document.querySelector(`#game-board-card-${cardId}`).classList.remove('selected');
+        } else {
+            gameManager.gameState.selectedCards.push(clickedCard);
+            document.querySelector(`#game-board-card-${cardId}`).classList.add('selected');
+        }
+        if (gameManager.gameState.selectedCards.length === 2) {
+            if (isPair(gameManager.gameState.selectedCards[0], gameManager.gameState.selectedCards[1])) {
+                removePair(gameManager.gameState.selectedCards);
+                updateSelectableStatus();
+                checkGameEnd();
+            } else {
+                updateMessage("ペアではありません！");
+                setTimeout(() => { if (gameManager.gameState.gameStatus === 'playing') updateMessage("ペアを見つけてください"); }, 1500);
+            }
+            gameManager.gameState.selectedCards.forEach(c => document.querySelector(`#game-board-card-${c.id}`)?.classList.remove('selected'));
+            gameManager.gameState.selectedCards = [];
+        }
+    }
+
+    function createSolveProcedure(initialBoardMap, initialCards) {
+        const MAX_ATTEMPTS = 10;
+        const isSelectableInSimulation = (card, boardMap) => {
+            if (card.isRemoved) return false;
+            const { x, y, z } = card.coords;
+            const maxZ = boardMap.length - 1;
+            if (z < maxZ) {
+                const upperLayer = boardMap[z + 1];
+                for (let dy = 0; dy < 2; dy++) {
+                    for (let dx = 0; dx < 2; dx++) {
+                        if (upperLayer[y + dy] && upperLayer[y + dy][x + dx] !== null) {
+                            return false;
+                        }
+                    }
+                }
+            }
+            const currentLayer = boardMap[z];
+            const boardWidth = currentLayer[0].length;
+            const isLeftOpen = (x === 0) || (currentLayer[y][x - 1] === null && currentLayer[y + 1][x - 1] === null);
+            const isRightOpen = (x + 2 >= boardWidth) || (currentLayer[y][x + 2] === null && currentLayer[y + 1][x + 2] === null);
+            return isLeftOpen || isRightOpen;
+        };
+        for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+            let tempBoardMap = JSON.parse(JSON.stringify(initialBoardMap));
+            let tempCards = JSON.parse(JSON.stringify(initialCards));
+            const procedure = [];
+            let remainingCards = tempCards.length;
+            let possible = true;
+            while (remainingCards > 0) {
+                const selectableCards = tempCards.filter(card => !card.isRemoved && isSelectableInSimulation(card, tempBoardMap));
+                if (selectableCards.length < 2) {
+                    possible = false;
+                    break;
+                }
+                for (let i = selectableCards.length - 1; i > 0; i--) {
+                    const j = Math.floor(XorShift.random() * (i + 1));
+                    [selectableCards[i], selectableCards[j]] = [selectableCards[j], selectableCards[i]];
+                }
+                const pair = [selectableCards[0], selectableCards[1]];
+                procedure.push([pair[0].id, pair[1].id]);
+                for (const card of pair) {
+                    const cardInSim = tempCards.find(c => c.id === card.id);
+                    cardInSim.isRemoved = true;
+                    const { x, y, z } = card.coords;
+                    for (let dy = 0; dy < 2; dy++) {
+                        for (let dx = 0; dx < 2; dx++) {
+                            tempBoardMap[z][y + dy][x + dx] = null;
+                        }
+                    }
+                }
+                remainingCards -= 2;
+            }
+            if (possible && remainingCards === 0) {
+                return procedure.reverse();
+            }
+        }
+        console.error("クリア手順の生成に失敗しました（最大試行回数超過）");
+        return null;
+    }
+    
+    function createDummySolveProcedure(cards) {
+        const shuffledIds = cards.map(c => c.id).sort(() => 0.5 - XorShift.random());
+        const procedure = [];
+        for (let i = 0; i < shuffledIds.length; i += 2) {
+            if (shuffledIds[i+1]) procedure.push([shuffledIds[i], shuffledIds[i+1]]);
+        }
+        return procedure;
+    }
+
+    function generateCellularAutomataShape(width, height, generations = 4, birthThreshold = 5, survivalThreshold = 4) {
+        let grid = Array.from({length: height}, () => Array(width).fill(false));
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+                if (XorShift.random() < 0.45) grid[y][x] = true;
+            }
+        }
+        for (let i = 0; i < generations; i++) {
+            const newGrid = Array.from({length: height}, () => Array(width).fill(false));
+            for (let y = 0; y < height; y++) {
+                for (let x = 0; x < width; x++) {
+                    let neighbours = 0;
+                    for (let ny = -1; ny <= 1; ny++) {
+                        for (let nx = -1; nx <= 1; nx++) {
+                            if (ny === 0 && nx === 0) continue;
+                            const checkX = x + nx;
+                            const checkY = y + ny;
+                            if (checkX >= 0 && checkX < width && checkY >= 0 && checkY < height && grid[checkY][checkX]) {
+                                neighbours++;
+                            }
+                        }
+                    }
+                    if (grid[y][x]) {
+                        if (neighbours >= survivalThreshold) newGrid[y][x] = true;
+                    } else {
+                        if (neighbours >= birthThreshold) newGrid[y][x] = true;
+                    }
+                }
+            }
+            grid = newGrid;
+        }
+        return grid;
+    }
+
+    function checkGameEnd() {
+        if (gameManager.gameState.pairsLeft === 0) {
+            gameManager.gameState.gameStatus = 'cleared';
+            updateMessage(`レベル ${gameManager.currentLevel} クリア！`);
+            setTimeout(() => {
+                gameManager.currentLevel++;
+                startGame(gameManager.currentLevel);
+            }, 3000);
+            return;
+        }
+        const selectableCards = gameManager.gameState.cards.filter(c => c.isSelectable);
+        const possiblePairs = new Map();
+        let foundPair = false;
+        for (const card of selectableCards) {
+            const key = card.type === 'joker' ? 'joker' : (card.char ? card.char : `${card.color}-${card.rank}`);
+            if (possiblePairs.has(key)) {
+                foundPair = true;
+                break;
+            }
+            possiblePairs.set(key, true);
+        }
+        if (!foundPair) {
+            gameManager.gameState.gameStatus = 'stuck';
+            updateMessage("手詰まりです...");
+        } else {
+            updateMessage(`${gameManager.gameState.pairsLeft} ペア残り`);
+        }
+    }
+
+    function generateProceduralLayout(baseShape) {
+        const fullLayoutDef = [baseShape];
+        let currentLayerDef = baseShape;
+        while (true) {
+            const nextLayerDef = [];
+            let hasCardInNextLayer = false;
+            const prevHeight = currentLayerDef.length;
+            const prevWidth = prevHeight > 0 ? currentLayerDef[0].length : 0;
+            for (let y = 0; y < prevHeight - 1; y++) {
+                nextLayerDef[y] = [];
+                for (let x = 0; x < prevWidth - 1; x++) {
+                    const canPlace = currentLayerDef[y][x] && currentLayerDef[y][x+1] && currentLayerDef[y+1][x] && currentLayerDef[y+1][x+1];
+                    nextLayerDef[y][x] = canPlace;
+                    if (canPlace) hasCardInNextLayer = true;
+                }
+            }
+            if (!hasCardInNextLayer) break;
+            fullLayoutDef.push(nextLayerDef);
+            currentLayerDef = nextLayerDef;
+        }
+        return fullLayoutDef;
+    }
+
+    function generateStructuralLayout(layoutDef) {
+        const cards = [];
+        let cardId = 1;
+        const baseLayer = layoutDef[0] || [];
+        const baseHeight = baseLayer.length;
+        const baseWidth = baseHeight > 0 ? baseLayer[0].length : 0;
+        const maxLayers = layoutDef.length;
+        const totalGridWidth = baseWidth * 2 + maxLayers - 1;
+        const totalGridHeight = baseHeight * 2 + maxLayers - 1;
+        const boardMap = Array.from({ length: maxLayers }, () => Array.from({ length: totalGridHeight }, () => Array(totalGridWidth).fill(null)));
+        layoutDef.forEach((layer, z) => {
+            layer.forEach((row, y) => {
+                row.forEach((hasCard, x) => {
+                    if (hasCard) {
+                        const gridX = x * 2 + z;
+                        const gridY = y * 2 + z;
+                        const newCard = { id: cardId++, coords: { x: gridX, y: gridY, z }, isRemoved: false, isSelectable: false };
+                        cards.push(newCard);
+                        for (let dy = 0; dy < 2; dy++) {
+                            for (let dx = 0; dx < 2; dx++) {
+                                boardMap[z][gridY + dy][gridX + dx] = newCard.id;
+                            }
+                        }
+                    }
+                });
+            });
+        });
+        if (cards.length % 2 !== 0) {
+            const cardToRemove = cards.pop();
+            const {x, y, z} = cardToRemove.coords;
+            for (let dy = 0; dy < 2; dy++) {
+                for (let dx = 0; dx < 2; dx++) {
+                    boardMap[z][y + dy][x + dx] = null;
+                }
+            }
+        }
+        return { cards, boardMap };
+    }
+
+    function generateContentSet(contentConfig, requiredPairs) {
+        const { basePairs, sets } = contentConfig;
+        const allPairs = [];
+        for (let i = 0; i < sets; i++) {
+            allPairs.push(...JSON.parse(JSON.stringify(basePairs)));
+        }
+        if (allPairs.length < requiredPairs) {
+            return null;
+        }
+        for (let i = allPairs.length - 1; i > 0; i--) {
+            const j = Math.floor(XorShift.random() * (i + 1));
+            [allPairs[i], allPairs[j]] = [allPairs[j], allPairs[i]];
+        }
+        return allPairs.slice(0, requiredPairs);
+    }
+
+    function assignCardsContent(cards, solveProcedure, logicalPairs) {
+        for (const idPair of solveProcedure) {
+            const logicalPair = logicalPairs.pop();
+            if (!logicalPair) {
+                console.error("論理ペアの数が足りません。");
+                break;
+            }
+            const card1 = cards.find(c => c.id === idPair[0]);
+            const card2 = cards.find(c => c.id === idPair[1]);
+            if(card1 && card2) {
+                Object.assign(card1, logicalPair[0]);
+                Object.assign(card2, logicalPair[1]);
+            } else {
+                console.error("IDに対応するカードが見つかりません:", idPair);
+            }
+        }
+    }
+
+    function isPair(card1, card2) {
+        if (!card1 || !card2) return false;
+        if (card1.type === 'joker' && card2.type === 'joker') return true;
+        if (card1.color === card2.color && card1.rank === card2.rank) return true;
+        if(card1.char && card1.char === card2.char) return true;
+        return false;
+    }
+
+    function updateSelectableStatus() {
+        gameManager.gameState.cards.forEach(card => {
+            if (card.isRemoved) return;
+            const wasSelectable = card.isSelectable;
+            card.isSelectable = isCardSelectable(card, gameManager.gameState.boardMap);
+            const cardEl = document.getElementById(`game-board-card-${card.id}`);
+            if(cardEl){
+                if (card.isSelectable && !wasSelectable) {
+                    cardEl.classList.add('selectable');
+                } else if (!card.isSelectable && wasSelectable) {
+                    cardEl.classList.remove('selectable');
+                }
+            }
+        });
+    }
+
+    function isCardSelectable(card, boardMap) {
+        if (card.isRemoved) return false;
+        const { x, y, z } = card.coords;
+        const currentLayer = boardMap[z];
+        const upperLayer = boardMap[z + 1];
+        if (upperLayer) {
+            for (let dy = 0; dy < 2; dy++) {
+                for (let dx = 0; dx < 2; dx++) {
+                    const checkY = y + dy;
+                    const checkX = x + dx;
+                    if (upperLayer[checkY] && upperLayer[checkY][checkX] !== null) {
+                        return false;
+                    }
+                }
+            }
+        }
+        const isLeftOpen = (x < 1) || (currentLayer[y][x - 1] === null && currentLayer[y + 1][x - 1] === null);
+        const isRightOpen = (x + 2 >= currentLayer[0].length) || (currentLayer[y][x + 2] === null && currentLayer[y + 1][x + 2] === null);
+        return isLeftOpen || isRightOpen;
+    }
+
+    function updateMessage(text) {
+        document.getElementById('message-area').textContent = text;
+    }
+
+    function removePair(cards) {
+        for (const card of cards) {
+            card.isRemoved = true;
+            const cardEl = document.getElementById(`game-board-card-${card.id}`);
+            cardEl.classList.add('removed');
+            cardEl.classList.remove('selectable', 'selected');
+            for (let dy = 0; dy < 2; dy++) {
+                for (let dx = 0; dx < 2; dx++) {
+                    const finalY = Math.floor(card.coords.y + dy);
+                    const finalX = Math.floor(card.coords.x + dx);
+                    if (gameManager.gameState.boardMap[card.coords.z] && gameManager.gameState.boardMap[card.coords.z][finalY]) {
+                        gameManager.gameState.boardMap[card.coords.z][finalY][finalX] = null;
+                    }
+                }
+            }
+        }
+        gameManager.gameState.pairsLeft--;
+    }
 })();
 </script>
 </body>
