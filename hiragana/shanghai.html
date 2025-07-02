@@ -124,50 +124,15 @@
  *    - 使用するカードを「A, 2, 3, 4」と「ジョーカー」に限定して難易度を向上。
  *    - ドラッグ操作のイベントリスナーを `document` に設定し、高速なマウス移動でも操作が途切れないように改善。
  *    - キーワード: difficulty, card set, basePairs, drag, pointer events, document listener
+ *
+ * 6. 2025-06-19: スマートフォンでのタップ操作の修正
+ *    - タップとドラッグを区別するための閾値（遊び）を導入。
+ *    - 指の移動距離がわずかな場合はタップ、一定距離を超えたらドラッグとして認識するように修正。
+ *    - キーワード: touch, tap, drag threshold, pointer events, mobile usability
  */
 (function() {
     'use strict';
     const gameManager = { currentLevel: 1, gameState: {} };
-    class XorShift32 {
-      /**
-       * コンストラクタ
-       * @param {number} seed 初期シード（32bit整数, 0 を避ける）
-       */
-      constructor(seed) {
-        // 0 だと全ビット 0 のままになってしまうので、もし 0 が渡されたら適当な値を代入
-        this.state = (seed >>> 0) || 0xDEADBEEF;
-      }
-
-      /**
-       * 次の乱数を生成して返す
-       * @returns {number} 32bit の符号なし整数 (0 … 0xFFFFFFFF)
-       */
-      randomUInt32() {
-        // xorshift32 のコア (Marsaglia のオリジナル)
-        let x = this.state;
-        x ^= x << 13;
-        x ^= x >>> 17;
-        x ^= x << 5;
-        // 32bit に切り詰めて負の値が出ないようにする
-        this.state = x >>> 0;
-        return this.state;
-      }
-
-      /**
-       * 乱数を 0～1 未満の浮動小数点で返す
-       * @returns {number} [0, 1)
-       */
-      random() {
-        // 2^32 で割って [0,1) の範囲に正規化
-        return this.randomUInt32() / 0x100000000;
-      }
-    }
-
-    // 使用例
-    const XorShift = new XorShift32(123345 & 0xFFFFFFFF);
-    // XorShift.randomUInt32(); // 例: 305419896
-    // XorShift.random();       // 例: 0.7123456789012345
-
 
     // --- ここからが変更箇所 (makeInteractive関数) ---
     function makeInteractive(containerId) {
@@ -181,19 +146,25 @@
         let prevDiff = -1;
         let isDragging = false;
         let dragStartTarget = null;
+        
+        // タップとドラッグを区別するための閾値（ピクセル単位）
+        const DRAG_THRESHOLD = 5;
+        let startX = 0, startY = 0;
+
 
         const handlePointerDown = (ev) => {
-            // イベントのターゲットがコンテナ内にある場合のみ処理を開始
             if (!container.contains(ev.target)) return;
             
             pointerCache.push(ev);
-            // 最初のポインタ（指）が押された時に、ドラッグ状態を初期化
+            
             if (pointerCache.length === 1) {
                 isDragging = false;
                 dragStartTarget = ev.target;
+                // ドラッグ開始座標を記録
+                startX = ev.clientX;
+                startY = ev.clientY;
             }
 
-            // `document`全体でマウス/ポインタの動きを監視開始
             document.addEventListener('pointermove', handlePointerMove);
             document.addEventListener('pointerup', handlePointerUp);
             document.addEventListener('pointercancel', handlePointerUp);
@@ -207,14 +178,26 @@
                 return;
             }
 
-            if (pointerCache.length === 1) { // シングルタッチ/マウスドラッグ
-                isDragging = true;
-                x += ev.movementX;
-                y += ev.movementY;
-                board.style.transform = `translate(${x}px, ${y}px) scale(${scale})`;
+            if (pointerCache.length === 1) {
+                // ドラッグ判定
+                if (!isDragging) {
+                    const dx = ev.clientX - startX;
+                    const dy = ev.clientY - startY;
+                    if (Math.sqrt(dx * dx + dy * dy) > DRAG_THRESHOLD) {
+                        isDragging = true;
+                    }
+                }
+                
+                // ドラッグ状態の場合のみ盤面を移動
+                if (isDragging) {
+                    x += ev.movementX;
+                    y += ev.movementY;
+                    board.style.transform = `translate(${x}px, ${y}px) scale(${scale})`;
+                }
                 ev.preventDefault();
-            } else if (pointerCache.length === 2) { // マルチタッチ（ピンチズーム）
-                isDragging = true; // ピンチもドラッグの一種とみなす
+
+            } else if (pointerCache.length === 2) {
+                isDragging = true; // ピンチ操作は常にドラッグと見なす
                 const p1 = pointerCache[0], p2 = pointerCache[1];
                 const curDiff = Math.sqrt(Math.pow(p1.clientX - p2.clientX, 2) + Math.pow(p1.clientY - p2.clientY, 2));
                 const midPoint = { x: (p1.clientX + p2.clientX) / 2, y: (p1.clientY + p2.clientY) / 2 };
@@ -222,7 +205,6 @@
                 if (prevDiff > 0) {
                     const scaleChange = curDiff / prevDiff;
                     const newScale = Math.max(minScale, Math.min(scale * scaleChange, maxScale));
-                    // ズームの中心点を基準に座標を更新
                     x = midPoint.x - (midPoint.x - x) * (newScale / scale);
                     y = midPoint.y - (midPoint.y - y) * (newScale / scale);
                     scale = newScale;
@@ -234,35 +216,30 @@
         };
 
         const handlePointerUp = (ev) => {
-            // ドラッグ操作が行われず、かつカードの上で指が離された場合、クリックと判定
             if (!isDragging && dragStartTarget && dragStartTarget.classList.contains('card')) {
-                // クリックされたカードが、最初に押されたポインタのターゲットであることを確認
-                if (pointerCache.length > 0 && ev.pointerId === pointerCache[0].pointerId) {
+                if (pointerCache.length > 0 && ev.pointerId === pointerCache.find(p => p.pointerId === ev.pointerId)?.pointerId) {
                    const cardId = parseInt(dragStartTarget.id.split('-').pop());
                    onCardClick(cardId);
                 }
             }
 
-            // 離されたポインタをキャッシュから削除
             pointerCache = pointerCache.filter(p => p.pointerId !== ev.pointerId);
             
-            // ポインタが1つ以下になったら、ピンチズームの状態をリセット
             if (pointerCache.length < 2) {
                 prevDiff = -1;
             }
 
-            // 全てのポインタが離れたら、監視を終了
             if (pointerCache.length === 0) {
                 document.removeEventListener('pointermove', handlePointerMove);
                 document.removeEventListener('pointerup', handlePointerUp);
                 document.removeEventListener('pointercancel', handlePointerUp);
                 dragStartTarget = null;
+                isDragging = false;
             }
         };
 
         container.addEventListener('pointerdown', handlePointerDown);
         
-        // カード自体のブラウザ標準ドラッグ機能を無効化
         board.addEventListener('dragstart', (e) => e.preventDefault());
 
         container.addEventListener('wheel', (ev) => {
@@ -318,7 +295,6 @@
         const { cards } = generateStructuralLayout(proceduralLayout);
         const requiredPairs = cards.length / 2;
 
-        // --- ここからが変更箇所 (カード種類) ---
         const basePairs = [
             ...Array.from({length: 4}, (_, i) => [{type: 'card', rank: i + 1, suit: 'heart', color: 'red'}, {type: 'card', rank: i + 1, suit: 'diamond', color: 'red'}]),
             ...Array.from({length: 4}, (_, i) => [{type: 'card', rank: i + 1, suit: 'spade', color: 'black'}, {type: 'card', rank: i + 1, suit: 'club', color: 'black'}]),
@@ -328,7 +304,6 @@
             basePairs: basePairs,
             sets: Math.ceil(requiredPairs / basePairs.length)
         };
-        // --- ここまでが変更箇所 ---
 
         const logicalPairs = generateContentSet(content, requiredPairs);
         if(!logicalPairs) return;
@@ -338,7 +313,7 @@
             renderer: (card) => {
                 const RANKS = { 1: 'A', 11: 'J', 12: 'Q', 13: 'K' };
                 const SUITS = { spade: '♠', heart: '♥', diamond: '♦', club: '♣', joker: 'J' };
-                const rank = RANKS[card.rank] || (card.rank === 0 ? '' : card.rank);
+                const rank = RANKS[card.rank] || (card.rank > 0 && card.rank < 11 ? card.rank : '');
                 const suit = SUITS[card.suit];
                 return rank || suit ? `${rank}<br>${suit}` : '';
             }
@@ -360,7 +335,6 @@
         }
         const requiredPairs = cards.length / 2;
         
-        // --- ここからが変更箇所 (カード種類) ---
         const basePairs = [
             ...Array.from({length: 4}, (_, i) => [{type: 'card', rank: i + 1, suit: 'heart', color: 'red'}, {type: 'card', rank: i + 1, suit: 'diamond', color: 'red'}]),
             ...Array.from({length: 4}, (_, i) => [{type: 'card', rank: i + 1, suit: 'spade', color: 'black'}, {type: 'card', rank: i + 1, suit: 'club', color: 'black'}]),
@@ -374,7 +348,6 @@
                 sets: requiredSets,
                 basePairs: basePairs
             },
-            // --- ここまでが変更箇所 ---
             display: {
                 renderer: (card) => {
                     const RANKS = { 1: 'A', 11: 'J', 12: 'Q', 13: 'K' };
@@ -498,7 +471,7 @@
                     break;
                 }
                 for (let i = selectableCards.length - 1; i > 0; i--) {
-                    const j = Math.floor(XorShift.random() * (i + 1));
+                    const j = Math.floor(Math.random() * (i + 1));
                     [selectableCards[i], selectableCards[j]] = [selectableCards[j], selectableCards[i]];
                 }
                 const pair = [selectableCards[0], selectableCards[1]];
@@ -524,7 +497,7 @@
     }
     
     function createDummySolveProcedure(cards) {
-        const shuffledIds = cards.map(c => c.id).sort(() => 0.5 - XorShift.random());
+        const shuffledIds = cards.map(c => c.id).sort(() => 0.5 - Math.random());
         const procedure = [];
         for (let i = 0; i < shuffledIds.length; i += 2) {
             if (shuffledIds[i+1]) procedure.push([shuffledIds[i], shuffledIds[i+1]]);
@@ -536,7 +509,7 @@
         let grid = Array.from({length: height}, () => Array(width).fill(false));
         for (let y = 0; y < height; y++) {
             for (let x = 0; x < width; x++) {
-                if (XorShift.random() < 0.45) grid[y][x] = true;
+                if (Math.random() < 0.45) grid[y][x] = true;
             }
         }
         for (let i = 0; i < generations; i++) {
@@ -667,7 +640,7 @@
             return null;
         }
         for (let i = allPairs.length - 1; i > 0; i--) {
-            const j = Math.floor(XorShift.random() * (i + 1));
+            const j = Math.floor(Math.random() * (i + 1));
             [allPairs[i], allPairs[j]] = [allPairs[j], allPairs[i]];
         }
         return allPairs.slice(0, requiredPairs);
