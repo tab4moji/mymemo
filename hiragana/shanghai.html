@@ -20,8 +20,9 @@
             justify-content: center;
         }
         .hidden { display: none !important; }
-        #start-screen {
-            position: relative;
+        #start-screen, #level-select-screen {
+            position: absolute;
+            top: 0; left: 0;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -29,11 +30,12 @@
             text-align: center;
             width: 100vw;
             height: 100vh;
+            background-color: rgba(11, 79, 50, 0.8);
         }
         #start-screen h1 { font-size: 4em; text-shadow: 3px 3px 5px rgba(0,0,0,0.5); z-index: 1; }
-        #start-button { font-size: 2em; padding: 15px 40px; border: 3px solid #fff; background-color: rgba(255,255,255,0.1); color: #fff; cursor: pointer; transition: background-color 0.3s, transform 0.1s; z-index: 1;}
-        #start-button:hover { background-color: rgba(255,255,255,0.3); }
-        #start-button:active { transform: scale(0.95); }
+        .start-menu-button { font-size: 2em; padding: 15px 40px; margin: 15px; width: 300px; border: 3px solid #fff; background-color: rgba(255,255,255,0.1); color: #fff; cursor: pointer; transition: background-color 0.3s, transform 0.1s; z-index: 1;}
+        .start-menu-button:hover { background-color: rgba(255,255,255,0.3); }
+        .start-menu-button:active { transform: scale(0.95); }
         #start-background-container, #game-container {
             position: absolute;
             top: 0; left: 0; width: 100vw; height: 100vh;
@@ -41,16 +43,16 @@
             cursor: grab;
         }
         #start-background-container:active, #game-container:active { cursor: grabbing; }
-        #start-background-container {
-            z-index: 0;
-            opacity: 0.15;
-            filter: blur(1px);
-        }
-        #start-background-board, #game-board {
-            position: absolute;
-            left: 0; top: 0;
-            transform-origin: 0 0;
-        }
+        #start-background-container { z-index: 0; opacity: 0.15; filter: blur(1px); }
+        #start-background-board, #game-board { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+        #level-select-screen { z-index: 20; }
+        #level-select-header { position: absolute; top: 5vh; font-size: 3em; }
+        #level-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 20px; padding: 20px; width: 80vw; max-width: 800px; height: 70vh; overflow-y: auto; background: rgba(0,0,0,0.2); border-radius: 10px; }
+        .level-button { font-size: 1.8em; padding: 20px; border: 2px solid #fff; background-color: rgba(255,255,255,0.2); color: #fff; cursor: pointer; transition: background-color 0.3s; border-radius: 8px; }
+        .level-button.locked { background-color: rgba(0,0,0,0.3); color: #888; border-color: #555; cursor: not-allowed; }
+        .level-button.unlocked:hover { background-color: rgba(255,255,255,0.4); }
+        #back-to-start-button { position: absolute; bottom: 5vh; font-size: 1.5em; }
+
         #game-view {
             width: 100vw; height: 100vh;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -85,13 +87,23 @@
     </style>
 </head>
 <body>
+    <!-- --- 改造点: スタート画面のUI --- -->
     <div id="start-screen">
         <div id="start-background-container">
             <div id="start-background-board"></div>
         </div>
         <h1>フラクタル・ソリティア</h1>
-        <button id="start-button">ゲーム開始</button>
+        <button id="continue-button" class="start-menu-button">続きから始める</button>
+        <button id="level-select-button" class="start-menu-button">レベルを選択</button>
     </div>
+
+    <!-- --- 改造点: レベル選択画面の追加 --- -->
+    <div id="level-select-screen" class="hidden">
+        <h2 id="level-select-header">レベル選択</h2>
+        <div id="level-grid"></div>
+        <button id="back-to-start-button" class="start-menu-button">戻る</button>
+    </div>
+
     <div id="game-view" class="hidden">
         <div id="game-container">
             <div id="game-board"></div>
@@ -103,16 +115,15 @@
 /**
  * 更新履歴
  * (中略)
- * 9. 2025-06-19: スタックオーバーフローエラーの修正
- *    - `startGame`関数内の無限再帰が原因で発生していた`Maximum call stack size exceeded`エラーを修正。
- *    - 再帰呼び出しを`do-while`ループに変更し、盤面生成のリトライ処理を安全な方法に改善した。
- *    - キーワード: stack overflow, maximum call stack size exceeded, recursion, infinite loop, do-while
- *
  * 10. 2025-06-19: クリア保証ロジックの強化
  *    - 設計書に基づき、絶対にクリア不可能な盤面が生成されないようにアルゴリズムを修正。
- *    - 盤面生成ループ(`startGame`内)の条件に「クリア手順が見つかること」を追加。
- *    - これにより、提示されるすべての盤面に最低1つのクリア手順が存在することが保証される。
- *    - キーワード: solvable, clear guarantee, `createSolveProcedure`, `startGame`, `setupGame`
+ *    - キーワード: solvable, clear guarantee, createSolveProcedure, startGame, setupGame
+ * 
+ * 11. 2025-06-19: レベル選択機能の実装
+ *    - 過去にクリアしたレベルを選択してプレイできる機能を追加。
+ *    - 到達した最高レベル(`highestUnlockedLevel`)をクッキーに保存するように変更。
+ *    - スタート画面に「続きから始める」「レベルを選択」ボタンを設置。
+ *    - キーワード: level select, highestUnlockedLevel, cookie, UI
  */
 (function() {
     'use strict';
@@ -140,7 +151,9 @@
         return null;
     }
 
-    const gameManager = { currentLevel: 1, gameState: {} };
+    // --- 改造点: gameManagerにhighestUnlockedLevelを追加 ---
+    const gameManager = { currentLevel: 1, highestUnlockedLevel: 1, gameState: {} };
+    const MAX_LEVELS = 50; // ゲームの全レベル数
 
     class XorShift32 {
       constructor(seed) {
@@ -294,13 +307,38 @@
         boardEl.style.top = `${(containerRect.height - boardPixelHeight)/2}px`;
         boardEl.style.transform = `translate(0, 0) scale(1)`;
     }
-
+    
+    // --- 改造点: レベル選択画面の表示ロジック ---
     function showStartScreen() {
         document.getElementById('start-screen').classList.remove('hidden');
+        document.getElementById('level-select-screen').classList.add('hidden');
         document.getElementById('game-view').classList.add('hidden');
         renderFractalBackground();
     }
     
+    function showLevelSelectScreen() {
+        document.getElementById('start-screen').classList.add('hidden');
+        document.getElementById('level-select-screen').classList.remove('hidden');
+        renderLevelSelect();
+    }
+    
+    function renderLevelSelect() {
+        const grid = document.getElementById('level-grid');
+        grid.innerHTML = ''; // グリッドをクリア
+        for (let i = 1; i <= MAX_LEVELS; i++) {
+            const button = document.createElement('button');
+            button.textContent = i;
+            if (i <= gameManager.highestUnlockedLevel) {
+                button.className = 'level-button unlocked';
+                button.onclick = () => startGame(i);
+            } else {
+                button.className = 'level-button locked';
+            }
+            grid.appendChild(button);
+        }
+    }
+
+
     function renderFractalBackground() {
         const rng = new XorShift32(Date.now());
         const baseShape = generateCellularAutomataShape(20, 15, rng);
@@ -335,17 +373,18 @@
         setBoardSizeAndPosition(cards, 'start-background-board');
     }
 
-    // --- ここから改造箇所 (startGame関数) ---
     function startGame(level) {
+        // --- 改造点: ゲーム開始時にcurrentLevelを更新し保存 ---
+        gameManager.currentLevel = level;
         setCookie('currentLevel', level, 365);
         document.getElementById('start-screen').classList.add('hidden');
+        document.getElementById('level-select-screen').classList.add('hidden');
         document.getElementById('game-view').classList.remove('hidden');
 
         let cards, boardMap, levelRNG, solveProcedure;
         let attempt = 0;
         const MAX_RETRY = 50;
 
-        // カードが10枚以上で、かつクリア手順が見つかるまで盤面生成を繰り返す
         do {
             const seed = level + attempt;
             levelRNG = new XorShift32(seed);
@@ -357,18 +396,15 @@
             cards = layoutResult.cards;
             boardMap = layoutResult.boardMap;
 
-            // カードが最低枚数に満たない場合は、クリア手順のチェックをせずに次の試行へ
             if (cards.length < 10) {
                 attempt++;
                 continue;
             }
 
-            // クリア手順を生成してみる
             solveProcedure = createSolveProcedure(boardMap, cards, levelRNG);
-
             attempt++;
             if (attempt > MAX_RETRY) {
-                console.error(`盤面生成に失敗。レベル${level}で${MAX_RETRY}回リトライしましたが、条件を満たす盤面を生成できませんでした。`);
+                console.error(`盤面生成に失敗。レベル${level}で${MAX_RETRY}回リトライしました。`);
                 updateMessage("エラー：盤面を生成できません。リロードしてください。");
                 return;
             }
@@ -399,24 +435,27 @@
                 }
             },
             rng: levelRNG,
-            solveProcedure: solveProcedure // 生成に成功したクリア手順を渡す
+            solveProcedure: solveProcedure
         };
         main(config);
     }
-    // --- ここまで改造箇所 ---
-
+    
+    // --- 改造点: DOMContentLoadedで全データを読み込み、イベントリスナーを設定 ---
     document.addEventListener('DOMContentLoaded', () => {
-        const savedLevel = getCookie('currentLevel');
-        if (savedLevel) {
-            const level = parseInt(savedLevel, 10);
-            if (!isNaN(level) && level > 0) {
-                gameManager.currentLevel = level;
-            }
-        }
+        const savedLevel = parseInt(getCookie('currentLevel'), 10);
+        if (savedLevel > 0) gameManager.currentLevel = savedLevel;
+        
+        const savedHighestLevel = parseInt(getCookie('highestUnlockedLevel'), 10);
+        if (savedHighestLevel > 0) gameManager.highestUnlockedLevel = savedHighestLevel;
+
         makeInteractive('start-background-container');
         makeInteractive('game-container');
+        
+        document.getElementById('continue-button').addEventListener('click', () => startGame(gameManager.currentLevel));
+        document.getElementById('level-select-button').addEventListener('click', showLevelSelectScreen);
+        document.getElementById('back-to-start-button').addEventListener('click', showStartScreen);
+
         showStartScreen();
-        document.getElementById('start-button').addEventListener('click', () => startGame(gameManager.currentLevel));
     });
 
     function main(config) {
@@ -424,14 +463,12 @@
         setupGame(config);
     }
 
-    // --- ここから改造箇所 (setupGame関数) ---
     function setupGame(config) {
         const { cards, boardMap } = config.initialData;
-        const { rng, solveProcedure } = config; // クリア保証済みの手順を受け取る
+        const { rng, solveProcedure } = config;
 
         gameManager.gameState = { cards, boardMap, selectedCards: [], gameStatus: 'playing', pairsLeft: cards.length / 2 };
         
-        // solveProcedureはstartGameで生成済みなので、ここでは再生成やチェックは不要
         if (!solveProcedure) {
             console.error("致命的エラー: setupGameにクリア手順が渡されませんでした。");
             updateMessage("エラーが発生しました。");
@@ -450,7 +487,6 @@
         updateSelectableStatus();
         updateMessage("ペアを見つけてください");
     }
-    // --- ここまで改造箇所 ---
 
     function renderBoard(cards, displayConfig, targetElementId) {
         const { renderer } = displayConfig;
@@ -595,14 +631,19 @@
         }
         return grid;
     }
-
+    
+    // --- 改造点: ゲームクリア時のデータ更新処理 ---
     function checkGameEnd() {
         if (gameManager.gameState.pairsLeft === 0) {
             gameManager.gameState.gameStatus = 'cleared';
             updateMessage(`レベル ${gameManager.currentLevel} クリア！`);
             setTimeout(() => {
-                gameManager.currentLevel++;
-                startGame(gameManager.currentLevel);
+                const nextLevel = gameManager.currentLevel + 1;
+                if (nextLevel > gameManager.highestUnlockedLevel) {
+                    gameManager.highestUnlockedLevel = nextLevel;
+                    setCookie('highestUnlockedLevel', gameManager.highestUnlockedLevel, 365);
+                }
+                startGame(nextLevel);
             }, 3000);
             return;
         }
