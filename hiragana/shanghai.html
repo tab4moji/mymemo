@@ -129,9 +129,55 @@
  *    - タップとドラッグを区別するための閾値（遊び）を導入。
  *    - 指の移動距離がわずかな場合はタップ、一定距離を超えたらドラッグとして認識するように修正。
  *    - キーワード: touch, tap, drag threshold, pointer events, mobile usability
+ *
+ * 7. 2025-06-19: レベル状態の永続化
+ *    - クッキーを使用して現在のレベルを保存する機能を追加。
+ *    - ページをリロードしても、最後にプレイしていたレベルから再開できるように修正。
+ *    - キーワード: cookie, persistent state, setCookie, getCookie, currentLevel
  */
 (function() {
     'use strict';
+
+    // --- ここから改造で追加したコード ---
+
+    /**
+     * 指定された名前と値でクッキーを設定する。
+     * @param {string} name クッキーの名前
+     * @param {string|number} value クッキーの値
+     * @param {number} days 有効期限（日数）
+     */
+    function setCookie(name, value, days) {
+        let expires = "";
+        if (days) {
+            const date = new Date();
+            date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
+            expires = "; expires=" + date.toUTCString();
+        }
+        // SameSite=Lax を指定してセキュリティを考慮
+        document.cookie = name + "=" + (value || "") + expires + "; path=/; SameSite=Lax";
+    }
+
+    /**
+     * 指定された名前のクッキーの値を取得する。
+     * @param {string} name 取得するクッキーの名前
+     * @returns {string|null} クッキーの値。存在しない場合はnullを返す。
+     */
+    function getCookie(name) {
+        const nameEQ = name + "=";
+        const ca = document.cookie.split(';');
+        for(let i = 0; i < ca.length; i++) {
+            let c = ca[i];
+            // 先頭の空白を削除
+            while (c.charAt(0) === ' ') c = c.substring(1, c.length);
+            if (c.indexOf(nameEQ) === 0) {
+                return c.substring(nameEQ.length, c.length);
+            }
+        }
+        return null;
+    }
+
+    // --- ここまで改造で追加したコード ---
+
     const gameManager = { currentLevel: 1, gameState: {} };
 
     class XorShift32 {
@@ -168,12 +214,9 @@
         return this.nextUInt32() / 0x100000000;
       }
     }
-
-    // 使用例
     const XorShift = new XorShift32(12345 & 0xFFFFFFFF);
 
 
-    // --- ここからが変更箇所 (makeInteractive関数) ---
     function makeInteractive(containerId) {
         const container = document.getElementById(containerId);
         const board = container.querySelector('div');
@@ -186,24 +229,18 @@
         let isDragging = false;
         let dragStartTarget = null;
         
-        // タップとドラッグを区別するための閾値（ピクセル単位）
         const DRAG_THRESHOLD = 5;
         let startX = 0, startY = 0;
-
-
+        
         const handlePointerDown = (ev) => {
             if (!container.contains(ev.target)) return;
-            
             pointerCache.push(ev);
-            
             if (pointerCache.length === 1) {
                 isDragging = false;
                 dragStartTarget = ev.target;
-                // ドラッグ開始座標を記録
                 startX = ev.clientX;
                 startY = ev.clientY;
             }
-
             document.addEventListener('pointermove', handlePointerMove);
             document.addEventListener('pointerup', handlePointerUp);
             document.addEventListener('pointercancel', handlePointerUp);
@@ -218,7 +255,6 @@
             }
 
             if (pointerCache.length === 1) {
-                // ドラッグ判定
                 if (!isDragging) {
                     const dx = ev.clientX - startX;
                     const dy = ev.clientY - startY;
@@ -227,7 +263,6 @@
                     }
                 }
                 
-                // ドラッグ状態の場合のみ盤面を移動
                 if (isDragging) {
                     x += ev.movementX;
                     y += ev.movementY;
@@ -236,7 +271,7 @@
                 ev.preventDefault();
 
             } else if (pointerCache.length === 2) {
-                isDragging = true; // ピンチ操作は常にドラッグと見なす
+                isDragging = true;
                 const p1 = pointerCache[0], p2 = pointerCache[1];
                 const curDiff = Math.sqrt(Math.pow(p1.clientX - p2.clientX, 2) + Math.pow(p1.clientY - p2.clientY, 2));
                 const midPoint = { x: (p1.clientX + p2.clientX) / 2, y: (p1.clientY + p2.clientY) / 2 };
@@ -261,13 +296,10 @@
                    onCardClick(cardId);
                 }
             }
-
             pointerCache = pointerCache.filter(p => p.pointerId !== ev.pointerId);
-            
             if (pointerCache.length < 2) {
                 prevDiff = -1;
             }
-
             if (pointerCache.length === 0) {
                 document.removeEventListener('pointermove', handlePointerMove);
                 document.removeEventListener('pointerup', handlePointerUp);
@@ -278,9 +310,7 @@
         };
 
         container.addEventListener('pointerdown', handlePointerDown);
-        
         board.addEventListener('dragstart', (e) => e.preventDefault());
-
         container.addEventListener('wheel', (ev) => {
             ev.preventDefault();
             const scaleChange = ev.deltaY * -0.001;
@@ -361,7 +391,11 @@
         setBoardSizeAndPosition(cards, 'start-background-board');
     }
 
+    // --- `startGame` 関数を改造 ---
     function startGame(level) {
+        // 改造点: ゲーム開始時に現在のレベルをクッキーに保存する
+        setCookie('currentLevel', level, 365); // 1年間有効なクッキーとして保存
+
         document.getElementById('start-screen').classList.add('hidden');
         document.getElementById('game-view').classList.remove('hidden');
         const baseSize = 5 + level;
@@ -400,7 +434,18 @@
         main(config);
     }
 
+    // --- `DOMContentLoaded` イベントリスナーを改造 ---
     document.addEventListener('DOMContentLoaded', () => {
+        // 改造点: ページ読み込み時にクッキーからレベルを読み込む
+        const savedLevel = getCookie('currentLevel');
+        if (savedLevel) {
+            // クッキーに保存されたレベルがあれば、gameManagerに設定する
+            const level = parseInt(savedLevel, 10);
+            if (!isNaN(level) && level > 0) {
+                gameManager.currentLevel = level;
+            }
+        }
+
         makeInteractive('start-background-container');
         makeInteractive('game-container');
         showStartScreen();
@@ -474,7 +519,7 @@
             gameManager.gameState.selectedCards = [];
         }
     }
-
+    
     function createSolveProcedure(initialBoardMap, initialCards) {
         const MAX_ATTEMPTS = 10;
         const isSelectableInSimulation = (card, boardMap) => {
@@ -543,7 +588,7 @@
         }
         return procedure;
     }
-
+    
     function generateCellularAutomataShape(width, height, generations = 4, birthThreshold = 5, survivalThreshold = 4) {
         let grid = Array.from({length: height}, () => Array(width).fill(false));
         for (let y = 0; y < height; y++) {
@@ -668,7 +713,7 @@
         }
         return { cards, boardMap };
     }
-
+    
     function generateContentSet(contentConfig, requiredPairs) {
         const { basePairs, sets } = contentConfig;
         const allPairs = [];
@@ -747,7 +792,7 @@
         const isRightOpen = (x + 2 >= currentLayer[0].length) || (currentLayer[y][x + 2] === null && currentLayer[y + 1][x + 2] === null);
         return isLeftOpen || isRightOpen;
     }
-
+    
     function updateMessage(text) {
         document.getElementById('message-area').textContent = text;
     }
