@@ -102,50 +102,20 @@
 <script>
 /**
  * 更新履歴
- * 1. 2025-06-19: プログラムの目的と機能
- *    - ピンチズーム、ドラッグ操作が可能なソリティアゲームエンジン。
- *    - セルオートマトンによるプロシージャルなステージ生成。
- *    - クリア保証のないダミーアルゴリズムを搭載。
- *    - キーワード: procedural generation, cellular automata, pinch zoom, drag
+ * (中略)
+ * 8. 2025-06-19: 盤面レイアウトの再現性確保
+ *    - レベル番号を乱数生成器のシードとして使用することで、各レベルで常に同じ盤面が生成されるように改造。
+ *    - これにより、リロードしても同じレイアウトでゲームを再開できるようになった。
+ *    - キーワード: random seed, reproducibility, XorShift32, level seed
  *
- * 2. 2025-06-19: クリア保証アルゴリズムの実装
- *    - 設計書に基づき、クリアが保証されるステージ生成ロジックに修正。
- *    - キーワード: createSolveProcedure, solvable, reverse simulation, boardMap
- *
- * 3. 2025-06-19: 構文エラーの修正
- *    - 不適切に一行に圧縮されていた補助関数を元のフォーマットに戻し、SyntaxErrorを解消。
- *    - キーワード: formatting, SyntaxError, single-line function
- *
- * 4. 2025-06-19: 構文エラーの再修正
- *    - 前回の修正漏れを解消。全補助関数を正しくフォーマット。
- *    - キーワード: formatting, SyntaxError, config object
- *
- * 5. 2025-06-19: 難易度調整と操作性改善
- *    - 使用するカードを「A, 2, 3, 4」と「ジョーカー」に限定して難易度を向上。
- *    - ドラッグ操作のイベントリスナーを `document` に設定し、高速なマウス移動でも操作が途切れないように改善。
- *    - キーワード: difficulty, card set, basePairs, drag, pointer events, document listener
- *
- * 6. 2025-06-19: スマートフォンでのタップ操作の修正
- *    - タップとドラッグを区別するための閾値（遊び）を導入。
- *    - 指の移動距離がわずかな場合はタップ、一定距離を超えたらドラッグとして認識するように修正。
- *    - キーワード: touch, tap, drag threshold, pointer events, mobile usability
- *
- * 7. 2025-06-19: レベル状態の永続化
- *    - クッキーを使用して現在のレベルを保存する機能を追加。
- *    - ページをリロードしても、最後にプレイしていたレベルから再開できるように修正。
- *    - キーワード: cookie, persistent state, setCookie, getCookie, currentLevel
+ * 9. 2025-06-19: スタックオーバーフローエラーの修正
+ *    - `startGame`関数内の無限再帰が原因で発生していた`Maximum call stack size exceeded`エラーを修正。
+ *    - 再帰呼び出しを`do-while`ループに変更し、盤面生成のリトライ処理を安全な方法に改善した。
+ *    - キーワード: stack overflow, maximum call stack size exceeded, recursion, infinite loop, do-while
  */
 (function() {
     'use strict';
 
-    // --- ここから改造で追加したコード ---
-
-    /**
-     * 指定された名前と値でクッキーを設定する。
-     * @param {string} name クッキーの名前
-     * @param {string|number} value クッキーの値
-     * @param {number} days 有効期限（日数）
-     */
     function setCookie(name, value, days) {
         let expires = "";
         if (days) {
@@ -153,21 +123,14 @@
             date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
             expires = "; expires=" + date.toUTCString();
         }
-        // SameSite=Lax を指定してセキュリティを考慮
         document.cookie = name + "=" + (value || "") + expires + "; path=/; SameSite=Lax";
     }
 
-    /**
-     * 指定された名前のクッキーの値を取得する。
-     * @param {string} name 取得するクッキーの名前
-     * @returns {string|null} クッキーの値。存在しない場合はnullを返す。
-     */
     function getCookie(name) {
         const nameEQ = name + "=";
         const ca = document.cookie.split(';');
         for(let i = 0; i < ca.length; i++) {
             let c = ca[i];
-            // 先頭の空白を削除
             while (c.charAt(0) === ' ') c = c.substring(1, c.length);
             if (c.indexOf(nameEQ) === 0) {
                 return c.substring(nameEQ.length, c.length);
@@ -176,45 +139,24 @@
         return null;
     }
 
-    // --- ここまで改造で追加したコード ---
-
     const gameManager = { currentLevel: 1, gameState: {} };
 
     class XorShift32 {
-      /**
-       * コンストラクタ
-       * @param {number} seed 初期シード（32bit整数, 0 を避ける）
-       */
       constructor(seed) {
-        // 0 だと全ビット 0 のままになってしまうので、もし 0 が渡されたら適当な値を代入
         this.state = (seed >>> 0) || 0xDEADBEEF;
       }
-
-      /**
-       * 次の乱数を生成して返す
-       * @returns {number} 32bit の符号なし整数 (0 … 0xFFFFFFFF)
-       */
       nextUInt32() {
-        // xorshift32 のコア (Marsaglia のオリジナル)
         let x = this.state;
         x ^= x << 13;
         x ^= x >>> 17;
         x ^= x << 5;
-        // 32bit に切り詰めて負の値が出ないようにする
         this.state = x >>> 0;
         return this.state;
       }
-
-      /**
-       * 乱数を 0～1 未満の浮動小数点で返す
-       * @returns {number} [0, 1)
-       */
       random() {
-        // 2^32 で割って [0,1) の範囲に正規化
         return this.nextUInt32() / 0x100000000;
       }
     }
-    const XorShift = new XorShift32(12345 & 0xFFFFFFFF);
 
 
     function makeInteractive(containerId) {
@@ -357,9 +299,10 @@
         document.getElementById('game-view').classList.add('hidden');
         renderFractalBackground();
     }
-
+    
     function renderFractalBackground() {
-        const baseShape = generateCellularAutomataShape(20, 15);
+        const rng = new XorShift32(Date.now());
+        const baseShape = generateCellularAutomataShape(20, 15, rng);
         const proceduralLayout = generateProceduralLayout(baseShape);
         const { cards } = generateStructuralLayout(proceduralLayout);
         const requiredPairs = cards.length / 2;
@@ -374,9 +317,9 @@
             sets: Math.ceil(requiredPairs / basePairs.length)
         };
 
-        const logicalPairs = generateContentSet(content, requiredPairs);
+        const logicalPairs = generateContentSet(content, requiredPairs, rng);
         if(!logicalPairs) return;
-        const solveProcedure = createDummySolveProcedure(cards);
+        const solveProcedure = createDummySolveProcedure(cards, rng);
         assignCardsContent(cards, solveProcedure, logicalPairs);
         const display = {
             renderer: (card) => {
@@ -391,21 +334,38 @@
         setBoardSizeAndPosition(cards, 'start-background-board');
     }
 
-    // --- `startGame` 関数を改造 ---
+    // --- ここから改造箇所 ---
     function startGame(level) {
-        // 改造点: ゲーム開始時に現在のレベルをクッキーに保存する
-        setCookie('currentLevel', level, 365); // 1年間有効なクッキーとして保存
-
+        setCookie('currentLevel', level, 365);
         document.getElementById('start-screen').classList.add('hidden');
         document.getElementById('game-view').classList.remove('hidden');
-        const baseSize = 5 + level;
-        const baseShape = generateCellularAutomataShape(baseSize, baseSize);
-        const proceduralLayout = generateProceduralLayout(baseShape);
-        const { cards, boardMap } = generateStructuralLayout(proceduralLayout);
-        if(cards.length < 10) {
-            startGame(level);
-            return;
-        }
+
+        let cards, boardMap, levelRNG;
+        let attempt = 0;
+        const MAX_RETRY = 50; // 無限ループを避けるための上限
+
+        // カードの枚数が10枚以上になるまで盤面生成を繰り返す
+        do {
+            // リトライのたびにシードを「レベル番号 + 試行回数」で変更する
+            const seed = level + attempt;
+            levelRNG = new XorShift32(seed);
+
+            const baseSize = 5 + level;
+            const baseShape = generateCellularAutomataShape(baseSize, baseSize, levelRNG);
+            const proceduralLayout = generateProceduralLayout(baseShape);
+            const layoutResult = generateStructuralLayout(proceduralLayout);
+            cards = layoutResult.cards;
+            boardMap = layoutResult.boardMap;
+
+            attempt++;
+            // 最大試行回数を超えた場合はエラーとして処理を中断
+            if (attempt > MAX_RETRY) {
+                console.error(`盤面生成に失敗。レベル${level}で${MAX_RETRY}回リトライしましたが、十分なカードを生成できませんでした。`);
+                updateMessage("エラー：盤面を生成できません。リロードしてください。");
+                return;
+            }
+        } while (cards.length < 10);
+        
         const requiredPairs = cards.length / 2;
         
         const basePairs = [
@@ -429,23 +389,21 @@
                     const suit = SUITS[card.suit];
                     return rank || suit ? `${rank}<br>${suit}` : '';
                 }
-            }
+            },
+            rng: levelRNG // ループで生成された最終的な乱数生成器を使用
         };
         main(config);
     }
+    // --- ここまで改造箇所 ---
 
-    // --- `DOMContentLoaded` イベントリスナーを改造 ---
     document.addEventListener('DOMContentLoaded', () => {
-        // 改造点: ページ読み込み時にクッキーからレベルを読み込む
         const savedLevel = getCookie('currentLevel');
         if (savedLevel) {
-            // クッキーに保存されたレベルがあれば、gameManagerに設定する
             const level = parseInt(savedLevel, 10);
             if (!isNaN(level) && level > 0) {
                 gameManager.currentLevel = level;
             }
         }
-
         makeInteractive('start-background-container');
         makeInteractive('game-container');
         showStartScreen();
@@ -459,14 +417,17 @@
 
     function setupGame(config) {
         const { cards, boardMap } = config.initialData;
+        const { rng } = config;
+
         gameManager.gameState = { cards, boardMap, selectedCards: [], gameStatus: 'playing', pairsLeft: cards.length / 2 };
-        const solveProcedure = createSolveProcedure(boardMap, cards);
+        
+        const solveProcedure = createSolveProcedure(boardMap, cards, rng);
         if (!solveProcedure) {
             console.error("クリア手順の生成に失敗しました。リトライします。");
             startGame(gameManager.currentLevel);
             return;
         }
-        const logicalPairs = generateContentSet(config.content, gameManager.gameState.pairsLeft);
+        const logicalPairs = generateContentSet(config.content, gameManager.gameState.pairsLeft, rng);
         if (!logicalPairs) {
             console.error("コンテンツのペア数が足りません。");
             return;
@@ -501,10 +462,10 @@
         const selectedIndex = gameManager.gameState.selectedCards.findIndex(c => c.id === cardId);
         if (selectedIndex > -1) {
             gameManager.gameState.selectedCards.splice(selectedIndex, 1);
-            document.querySelector(`#game-board-card-${cardId}`).classList.remove('selected');
+            document.querySelector(`#game-board-card-${cardId}`)?.classList.remove('selected');
         } else {
             gameManager.gameState.selectedCards.push(clickedCard);
-            document.querySelector(`#game-board-card-${cardId}`).classList.add('selected');
+            document.querySelector(`#game-board-card-${cardId}`)?.classList.add('selected');
         }
         if (gameManager.gameState.selectedCards.length === 2) {
             if (isPair(gameManager.gameState.selectedCards[0], gameManager.gameState.selectedCards[1])) {
@@ -520,7 +481,7 @@
         }
     }
     
-    function createSolveProcedure(initialBoardMap, initialCards) {
+    function createSolveProcedure(initialBoardMap, initialCards, rng) {
         const MAX_ATTEMPTS = 10;
         const isSelectableInSimulation = (card, boardMap) => {
             if (card.isRemoved) return false;
@@ -555,7 +516,7 @@
                     break;
                 }
                 for (let i = selectableCards.length - 1; i > 0; i--) {
-                    const j = Math.floor(XorShift.random() * (i + 1));
+                    const j = Math.floor(rng.random() * (i + 1));
                     [selectableCards[i], selectableCards[j]] = [selectableCards[j], selectableCards[i]];
                 }
                 const pair = [selectableCards[0], selectableCards[1]];
@@ -580,8 +541,8 @@
         return null;
     }
     
-    function createDummySolveProcedure(cards) {
-        const shuffledIds = cards.map(c => c.id).sort(() => 0.5 - XorShift.random());
+    function createDummySolveProcedure(cards, rng) {
+        const shuffledIds = cards.map(c => c.id).sort(() => 0.5 - rng.random());
         const procedure = [];
         for (let i = 0; i < shuffledIds.length; i += 2) {
             if (shuffledIds[i+1]) procedure.push([shuffledIds[i], shuffledIds[i+1]]);
@@ -589,11 +550,11 @@
         return procedure;
     }
     
-    function generateCellularAutomataShape(width, height, generations = 4, birthThreshold = 5, survivalThreshold = 4) {
+    function generateCellularAutomataShape(width, height, rng, generations = 4, birthThreshold = 5, survivalThreshold = 4) {
         let grid = Array.from({length: height}, () => Array(width).fill(false));
         for (let y = 0; y < height; y++) {
             for (let x = 0; x < width; x++) {
-                if (XorShift.random() < 0.45) grid[y][x] = true;
+                if (rng.random() < 0.45) grid[y][x] = true;
             }
         }
         for (let i = 0; i < generations; i++) {
@@ -714,7 +675,7 @@
         return { cards, boardMap };
     }
     
-    function generateContentSet(contentConfig, requiredPairs) {
+    function generateContentSet(contentConfig, requiredPairs, rng) {
         const { basePairs, sets } = contentConfig;
         const allPairs = [];
         for (let i = 0; i < sets; i++) {
@@ -724,7 +685,7 @@
             return null;
         }
         for (let i = allPairs.length - 1; i > 0; i--) {
-            const j = Math.floor(XorShift.random() * (i + 1));
+            const j = Math.floor(rng.random() * (i + 1));
             [allPairs[i], allPairs[j]] = [allPairs[j], allPairs[i]];
         }
         return allPairs.slice(0, requiredPairs);
