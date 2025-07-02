@@ -134,6 +134,45 @@
     'use strict';
     const gameManager = { currentLevel: 1, gameState: {} };
 
+    class XorShift32 {
+      /**
+       * コンストラクタ
+       * @param {number} seed 初期シード（32bit整数, 0 を避ける）
+       */
+      constructor(seed) {
+        // 0 だと全ビット 0 のままになってしまうので、もし 0 が渡されたら適当な値を代入
+        this.state = (seed >>> 0) || 0xDEADBEEF;
+      }
+
+      /**
+       * 次の乱数を生成して返す
+       * @returns {number} 32bit の符号なし整数 (0 … 0xFFFFFFFF)
+       */
+      nextUInt32() {
+        // xorshift32 のコア (Marsaglia のオリジナル)
+        let x = this.state;
+        x ^= x << 13;
+        x ^= x >>> 17;
+        x ^= x << 5;
+        // 32bit に切り詰めて負の値が出ないようにする
+        this.state = x >>> 0;
+        return this.state;
+      }
+
+      /**
+       * 乱数を 0～1 未満の浮動小数点で返す
+       * @returns {number} [0, 1)
+       */
+      random() {
+        // 2^32 で割って [0,1) の範囲に正規化
+        return this.nextUInt32() / 0x100000000;
+      }
+    }
+
+    // 使用例
+    const XorShift = new XorShift32(12345 & 0xFFFFFFFF);
+
+
     // --- ここからが変更箇所 (makeInteractive関数) ---
     function makeInteractive(containerId) {
         const container = document.getElementById(containerId);
@@ -311,8 +350,8 @@
         assignCardsContent(cards, solveProcedure, logicalPairs);
         const display = {
             renderer: (card) => {
-                const RANKS = { 1: 'A', 11: 'J', 12: 'Q', 13: 'K' };
-                const SUITS = { spade: '♠', heart: '♥', diamond: '♦', club: '♣', joker: 'J' };
+                const RANKS = { 0: '🤡', 1: 'A', 11: 'J', 12: 'Q', 13: 'K' };
+                const SUITS = { spade: '♠', heart: '♥', diamond: '♦', club: '♣', joker: '🌛' };
                 const rank = RANKS[card.rank] || (card.rank > 0 && card.rank < 11 ? card.rank : '');
                 const suit = SUITS[card.suit];
                 return rank || suit ? `${rank}<br>${suit}` : '';
@@ -350,8 +389,8 @@
             },
             display: {
                 renderer: (card) => {
-                    const RANKS = { 1: 'A', 11: 'J', 12: 'Q', 13: 'K' };
-                    const SUITS = { spade: '♠', heart: '♥', diamond: '♦', club: '♣', joker: 'J' };
+                    const RANKS = { 0: '🤡', 1: 'A', 11: 'J', 12: 'Q', 13: 'K' };
+                    const SUITS = { spade: '♠', heart: '♥', diamond: '♦', club: '♣', joker: '🌛' };
                     const rank = RANKS[card.rank] || (card.rank > 0 && card.rank < 11 ? card.rank : '');
                     const suit = SUITS[card.suit];
                     return rank || suit ? `${rank}<br>${suit}` : '';
@@ -471,7 +510,7 @@
                     break;
                 }
                 for (let i = selectableCards.length - 1; i > 0; i--) {
-                    const j = Math.floor(Math.random() * (i + 1));
+                    const j = Math.floor(XorShift.random() * (i + 1));
                     [selectableCards[i], selectableCards[j]] = [selectableCards[j], selectableCards[i]];
                 }
                 const pair = [selectableCards[0], selectableCards[1]];
@@ -497,7 +536,7 @@
     }
     
     function createDummySolveProcedure(cards) {
-        const shuffledIds = cards.map(c => c.id).sort(() => 0.5 - Math.random());
+        const shuffledIds = cards.map(c => c.id).sort(() => 0.5 - XorShift.random());
         const procedure = [];
         for (let i = 0; i < shuffledIds.length; i += 2) {
             if (shuffledIds[i+1]) procedure.push([shuffledIds[i], shuffledIds[i+1]]);
@@ -509,7 +548,7 @@
         let grid = Array.from({length: height}, () => Array(width).fill(false));
         for (let y = 0; y < height; y++) {
             for (let x = 0; x < width; x++) {
-                if (Math.random() < 0.45) grid[y][x] = true;
+                if (XorShift.random() < 0.45) grid[y][x] = true;
             }
         }
         for (let i = 0; i < generations; i++) {
@@ -640,7 +679,7 @@
             return null;
         }
         for (let i = allPairs.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
+            const j = Math.floor(XorShift.random() * (i + 1));
             [allPairs[i], allPairs[j]] = [allPairs[j], allPairs[i]];
         }
         return allPairs.slice(0, requiredPairs);
