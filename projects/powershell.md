@@ -6,36 +6,42 @@
 Set-PSReadLineKeyHandler -Key "Ctrl+m" -Function AcceptLine
 ```
 
+他も。
+
+```pwsh
+Set-PSReadLineKeyHandler -Key "Ctrl+m" -Function AcceptLine
+Set-PSReadLineKeyHandler -Key "Ctrl+a" -Function BeginningOfLine
+Set-PSReadLineKeyHandler -Key "Ctrl+k" -Function KillLine
+Set-PSReadLineKeyHandler -Key "Ctrl+e" -Function EndOfLine
+Set-PSReadLineKeyHandler -Key "Ctrl+u" -Function BackwardKillLine
+```
+
 ### TAB補完
 
 コマンドライン補完はタブキーじゃなくて右矢印キー。
 でも無理やりTAB補完したい。
 
 ```pwsh
-Set-PSReadLineKeyHandler -Key Tab -ScriptBlock {
+$TabFunc = {
     param($key, $arg)
 
-    # 現在の入力状況を取得
     $line = $null
     $cursor = $null
     [Microsoft.PowerShell.PSConsoleReadLine]::GetBufferState([ref]$line, [ref]$cursor)
 
-    # カーソルが行末にある場合、まず予測の受け入れ(右矢印の動作)を試みる
     if ($cursor -eq $line.Length) {
         $prevLine = $line
         [Microsoft.PowerShell.PSConsoleReadLine]::AcceptSuggestion()
-        
         [Microsoft.PowerShell.PSConsoleReadLine]::GetBufferState([ref]$line, [ref]$cursor)
-        
-        # 予測を受け入れて行が変化したなら終了、変化してなければ通常の補完へ
-        if ($prevLine -ne $line) {
-            return
-        }
+
+        if ($prevLine -ne $line) { return }
     }
 
-    # 予測がない、または行末でない場合は通常のTab補完を実行
-    [Microsoft.PowerShell.PSConsoleReadLine]::TabCompleteNext()
+    [Microsoft.PowerShell.PSConsoleReadLine]::MenuComplete()
 }
+
+Set-PSReadLineKeyHandler -Key Tab -ScriptBlock $TabFunc
+Set-PSReadLineKeyHandler -Key "Ctrl+i" -ScriptBlock $TabFunc
 ```
 
 ### Administratorなのかどうか
