@@ -1,5 +1,11 @@
 ## シェルを便利にしたい
 
+### 俺が考えた最強の timeout
+
+```bash
+alias timeout='timeout --foreground --signal=INT --kill-after=3s'
+```
+
 ### 俺が考えた最強の cp
 
 cpコマンドを便利化したい。
@@ -14,9 +20,10 @@ cpコマンドを便利化したい。
 #!/usr/bin/env python3
 """
 xcp: Extended cp command.
-Ver: 1.3.0
+Ver: 1.5.0
 Date: 2026-01-14
-Fix: Handle positional arguments correctly (avoid argparse greedy match).
+Fix: Ensure progress reaches 100% by counting skipped files.
+Add: Clear progress bar on completion.
 """
 import sys
 import os
@@ -35,6 +42,7 @@ STATUS_DIR = "/tmp"
 STATUS_PREFIX = "xcp_status_"
 CHUNK_SIZE = 1024 * 1024
 HISTORY_LEN = 20
+PROGRESS_THRESHOLD_SEC = 2.0  # Show bar sooner
 
 # --- Utils ---
 def get_terminal_size():
@@ -80,24 +88,27 @@ def update_status_file(pid, current, total, src, dst, speed, eta, phase="copy"):
 
 def print_progress(current, total, speed, eta, width, phase=""):
     if total <= 0: return
-    percent = current / total
-    bar_len = max(5, width - 40)
+    percent = min(1.0, current / total)
+    bar_len = max(5, width - 45)
     filled = int(bar_len * percent)
     bar = '=' * filled + '-' * (bar_len - filled)
     msg = f"\r{phase[:1]} [{bar}] {percent*100:5.1f}% | {format_size(speed)}/s | ETA {format_time(eta)}"
     sys.stdout.write(msg)
     sys.stdout.flush()
 
+def clear_progress(width):
+    # Overwrite the line with spaces and carriage return
+    sys.stdout.write("\r" + " " * width + "\r")
+    sys.stdout.flush()
+
 def scan_files(sources):
-    """Recursively calculate total size and file list."""
     total_size = 0
     file_list = []
-    
     for src in sources:
         if os.path.isfile(src):
             s = os.path.getsize(src)
             total_size += s
-            file_list.append((src, 'file'))
+            file_list.append((src, 'file', s))
         elif os.path.isdir(src):
             for root, _, files in os.walk(src):
                 for f in files:
@@ -106,23 +117,34 @@ def scan_files(sources):
                         try:
                             s = os.path.getsize(path)
                             total_size += s
-                            file_list.append((path, 'dir_file'))
+                            file_list.append((path, 'dir_file', s))
                         except OSError: pass
     return total_size, file_list
 
-def copy_file_worker(src, dst, state, total_size, args):
+def copy_file_worker(src, dst, state, total_size, file_size, args):
+    # Helper to count skipped bytes
+    def skip():
+        state['copied'] += file_size
+        update_ui(state, total_size, 0, 0, force=True)
+
     # Conflict Resolution & Pre-checks
     if os.path.exists(dst):
-        if args.no_clobber: return 
+        if args.no_clobber:
+            skip(); return
         if args.interactive:
-            sys.stdout.write(f"xcp: overwrite '{dst}'? (y/n [n]) ")
+            sys.stdout.write(f"\rxcp: overwrite '{dst}'? (y/n [n]) ")
             sys.stdout.flush()
-            if sys.stdin.read(1).lower() != 'y': return
-        if args.update or (args.update_opt and args.update_opt != 'all'):
-            if args.update_opt == 'none': return
-            if os.path.getmtime(dst) >= os.path.getmtime(src): return 
-        if args.backup or args.backup_control:
+            if sys.stdin.read(1).lower() != 'y':
+                skip(); return
+        
+        if args.u or (args.update_opt and args.update_opt != 'all'):
+            if args.update_opt == 'none': skip(); return
+            if os.path.getmtime(dst) >= os.path.getmtime(src):
+                skip(); return
+        
+        if args.b or args.backup_control:
             make_backup(dst, args.suffix or "~", args.backup_control or "simple")
+        
         if args.force:
             try: os.remove(dst)
             except OSError: pass
@@ -130,28 +152,28 @@ def copy_file_worker(src, dst, state, total_size, args):
     # Link modes
     if args.symbolic_link:
         if os.path.exists(dst) and not args.force:
-            print(f"xcp: {dst}: File exists", file=sys.stderr); return
+            print(f"xcp: {dst}: File exists", file=sys.stderr); skip(); return
         os.symlink(src, dst)
-        return
+        return # Symlinks don't have size in total_size usually, or negligible
     if args.link:
         if os.path.exists(dst): os.remove(dst)
         os.link(src, dst)
-        return
+        skip(); return
 
     # Checksum skip
     if args.checksum and os.path.exists(dst):
         if os.path.getsize(src) == os.path.getsize(dst):
-            # Simple hash check logic (blocking for simplicity in this ver)
-            # In full ver, this should update progress too.
             try:
+                # Naive read for checksum (blocking), could be improved but sufficient for logic
                 h1 = hashlib.md5(open(src,'rb').read()).digest()
                 h2 = hashlib.md5(open(dst,'rb').read()).digest()
-                if h1 == h2: return
+                if h1 == h2:
+                    skip(); return
             except: pass
 
     if args.attributes_only:
         shutil.copystat(src, dst)
-        return
+        skip(); return
 
     # Auto mkdir
     dst_dir = os.path.dirname(dst)
@@ -167,32 +189,46 @@ def copy_file_worker(src, dst, state, total_size, args):
                 fdst.write(buf)
                 
                 state['copied'] += len(buf)
-                now = time.time()
-                state['history'].append((now, state['copied']))
-                if len(state['history']) > HISTORY_LEN: state['history'].popleft()
-                
-                if now - state['last_update'] > 0.1:
-                    n = len(state['history'])
-                    if n > 1:
-                        sx = sum(t for t,b in state['history'])
-                        sy = sum(b for t,b in state['history'])
-                        sxy = sum(t*b for t,b in state['history'])
-                        sxx = sum(t*t for t,b in state['history'])
-                        a = (n*sxy - sx*sy) / (n*sxx - sx*sx) if (n*sxx - sx*sx)!=0 else 0
-                        speed = a if a>0 else 0
-                    else: speed = 0
-                    
-                    eta = (total_size - state['copied']) / speed if speed > 0 else 0
-                    if state['is_tty']:
-                        print_progress(state['copied'], total_size, speed, eta, state['term_width'])
-                    update_status_file(state['pid'], state['copied'], total_size, src, dst, speed, eta)
-                    state['last_update'] = now
+                update_ui(state, total_size)
         
         if args.preserve or args.archive or args.p:
              shutil.copystat(src, dst)
 
     except Exception as e:
-        print(f"cp: error copying {src}: {e}", file=sys.stderr)
+        print(f"\ncp: error copying {src}: {e}", file=sys.stderr)
+
+def update_ui(state, total_size, force_speed=None, force_eta=None, force=False):
+    now = time.time()
+    # Speed Calc
+    state['history'].append((now, state['copied']))
+    if len(state['history']) > HISTORY_LEN: state['history'].popleft()
+    
+    if now - state['last_update'] > 0.1 or force:
+        n = len(state['history'])
+        if n > 1:
+            sx = sum(t for t,b in state['history'])
+            sy = sum(b for t,b in state['history'])
+            sxy = sum(t*b for t,b in state['history'])
+            sxx = sum(t*t for t,b in state['history'])
+            div = (n*sxx - sx*sx)
+            a = (n*sxy - sx*sy) / div if div!=0 else 0
+            speed = a if a>0 else 0
+        else: speed = 0
+        
+        if force_speed is not None: speed = force_speed
+        eta = (total_size - state['copied']) / speed if speed > 0 else 0
+        if force_eta is not None: eta = force_eta
+
+        elapsed = now - state['start_time']
+        if not state['show_bar']:
+            if (eta > PROGRESS_THRESHOLD_SEC) or (elapsed > PROGRESS_THRESHOLD_SEC):
+                state['show_bar'] = True
+
+        if state['is_tty'] and state['show_bar']:
+            print_progress(state['copied'], total_size, speed, eta, state['term_width'])
+        
+        update_status_file(state['pid'], state['copied'], total_size, "...", "...", speed, eta)
+        state['last_update'] = now
 
 def cmd_status():
     print(f"{'PID':<8} {'Progress':<8} {'Speed':<12} {'ETA':<10} {'File'}")
@@ -213,11 +249,7 @@ def cmd_status():
 
 def main():
     parser = argparse.ArgumentParser(add_help=False)
-    
-    # Combined positional args
     parser.add_argument("files", nargs="*", help="Sources and Destination")
-
-    # Options
     parser.add_argument("-a", "--archive", action="store_true")
     parser.add_argument("--attributes-only", action="store_true")
     parser.add_argument("-b", action="store_true")
@@ -251,17 +283,14 @@ def main():
     parser.add_argument("-Z", action="store_true")
     parser.add_argument("--context")
     parser.add_argument("--help", action="help")
-    
     parser.add_argument("--status", action="store_true")
     parser.add_argument("-c", "--checksum", action="store_true")
 
     args = parser.parse_args()
 
     if args.status:
-        cmd_status()
-        return
+        cmd_status(); return
 
-    # --- Argument Fix Logic ---
     if not args.files:
         if not args.help: parser.print_usage()
         return
@@ -270,14 +299,12 @@ def main():
         dest = args.target_directory
         sources = args.files
     else:
-        # If no target directory, last arg is dest
         if len(args.files) < 2:
-            print("xcp: missing destination file operand after '{}'".format(args.files[0]), file=sys.stderr)
+            print("xcp: missing destination file operand", file=sys.stderr)
             return
         dest = args.files[-1]
         sources = args.files[:-1]
 
-    # Recursive check
     dest_is_dir = os.path.isdir(dest) or dest.endswith(os.sep) or len(sources) > 1 or args.target_directory
     if args.no_target_directory: dest_is_dir = False
     
@@ -287,27 +314,20 @@ def main():
     
     if not sources: return
 
-    # Init State
     state = {
         'copied': 0, 'history': deque(), 'last_update': 0,
         'pid': os.getpid(), 'is_tty': sys.stdout.isatty(),
-        'term_width': get_terminal_size()
+        'term_width': get_terminal_size(), 'start_time': time.time(),
+        'show_bar': False
     }
-    state['history'].append((time.time(), 0))
+    state['history'].append((state['start_time'], 0))
     
-    # Pre-scan for Total Size (to show nice bar)
-    if state['is_tty']:
-        print("Calculating...", end='\r')
     total_size, file_list = scan_files(sources)
     
     try:
-        for src, kind in file_list:
+        for src, kind, size in file_list:
             if dest_is_dir:
-                # Handle path reconstruction
-                # For flat files: dest/filename
-                # For dirs: dest/relpath
                 if kind == 'dir_file':
-                    # Find which source arg this file belongs to
                     base_src = next((s for s in sources if src.startswith(s)), src)
                     rel = os.path.relpath(src, os.path.dirname(base_src))
                     final_dst = os.path.join(dest, rel)
@@ -316,15 +336,18 @@ def main():
             else:
                 final_dst = dest
             
-            copy_file_worker(src, final_dst, state, total_size, args)
+            copy_file_worker(src, final_dst, state, total_size, size, args)
             
-        if state['is_tty']: print("")
+        # Force 100% update briefly before clearing
+        if state['is_tty'] and state['show_bar']: 
+            print_progress(total_size, total_size, 0, 0, state['term_width'])
+            clear_progress(state['term_width']) # Clear the bar
 
     except KeyboardInterrupt:
         print("\nCancelled.")
     finally:
-        if os.path.exists(os.path.join(STATUS_DIR, f"{STATUS_PREFIX}{state['pid']}.json")):
-            os.remove(os.path.join(STATUS_DIR, f"{STATUS_PREFIX}{state['pid']}.json"))
+        status_file = os.path.join(STATUS_DIR, f"{STATUS_PREFIX}{state['pid']}.json")
+        if os.path.exists(status_file): os.remove(status_file)
 
 if __name__ == "__main__":
     main()
@@ -336,34 +359,14 @@ Pythonの制限や複雑さ回避のため、一部は「引数として受け�
 
 | オプション | 意味 | xcpでの対応状況 |
 | --- | --- | --- |
-| `-a`, `--archive` | アーカイブモード 
-
- | 再帰、属性保持モードとして動作 |
-| `-b`, `--backup` | バックアップ作成 
-
- | 実装済。`~`サフィックス等でリネーム |
-| `-f`, `--force` | 強制上書き 
-
- | 実装済。コピー前に削除試行 |
-| `-i`, `--interactive` | 上書き確認 
-
- | 実装済。y/n 入力待ち |
-| `-l`, `--link` | ハードリンク 
-
- | 実装済。データコピーの代わりにリンク作成 |
-| `-n`, `--no-clobber` | 上書き禁止 
-
- | 実装済。ファイルがあればスキップ |
-| `-s`, `--symbolic-link` | シンボリックリンク 
-
- | 実装済。データコピーの代わりにリンク作成 |
-| `-u`, `--update` | 更新された時のみ 
-
- | 実装済。タイムスタンプ比較 |
-| `--attributes-only` | 属性のみ 
-
- | 実装済。データコピーせず `copystat` のみ |
+| `-a`, `--archive` | アーカイブモード | 再帰、属性保持モードとして動作 |
+| `-b`, `--backup` | バックアップ作成 | 実装済。`~`サフィックス等でリネーム |
+| `-f`, `--force` | 強制上書き | 実装済。コピー前に削除試行 |
+| `-i`, `--interactive` | 上書き確認 | 実装済。y/n 入力待ち |
+| `-l`, `--link` | ハードリンク | 実装済。データコピーの代わりにリンク作成 |
+| `-n`, `--no-clobber` | 上書き禁止 | 実装済。ファイルがあればスキップ |
+| `-s`, `--symbolic-link` | シンボリックリンク | 実装済。データコピーの代わりにリンク作成 |
+| `-u`, `--update` | 更新された時のみ | 実装済。タイムスタンプ比較 |
+| `--attributes-only` | 属性のみ | 実装済。データコピーせず `copystat` のみ |
 
 これで、`cp` のオプション体系を保ちつつ、便利なプログレスバーや予測機能を組み合わせることができる。
-
-
