@@ -1,6 +1,6 @@
-## WSL 用のBashコマンド
+## WSLを快適にしたい
 
-### リクエスト
+### /mnt/c/... 邪魔
 
 wslのbashのPATHから、/mnt/c/Users/ だとか、/mnt/c/WINDOWS/System32/ とかを消し去りたい。
 `paste` コマンドを使って再結合するのが一番きれいに仕上がる。
