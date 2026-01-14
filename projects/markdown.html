@@ -4,71 +4,124 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Markdown Viewer</title>
+    
+    <!-- Google Fonts: Roboto (Gemini/Google風フォント) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+
     <!-- GitHub Markdown CSS -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/github-markdown-css/5.8.1/github-markdown.min.css">
-    <!-- Highlight.js CSS -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
+    <!-- Highlight.js CSS (Atom One Dark -> Geminiの雰囲気に近い) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+
     <style>
+        /* --- Gemini Theme Overrides --- */
+        :root {
+            /* Gemini Dark Theme Colors (Material 3 bases) */
+            --gemini-bg: #131314;           /* メイン背景: ほぼ黒 */
+            --gemini-surface: #1E1F20;      /* コードブロック等の背景 */
+            --gemini-text-main: #E3E3E3;    /* メインテキスト: オフホワイト */
+            --gemini-text-muted: #C4C7C5;   /* 補足テキスト */
+            --gemini-accent: #A8C7FA;       /* リンク色: Google Blue (Dark) */
+            --gemini-border: #444746;       /* ボーダー色 */
+            --gemini-btn-bg: #2B2D2F;       /* ボタン背景 */
+            --gemini-btn-hover: #3C4043;    /* ボタンホバー */
+        }
+
+        body {
+            background-color: var(--gemini-bg);
+            /* GeminiのUIに近いフォントスタック */
+            font-family: 'Roboto', 'Google Sans', Helvetica, Arial, sans-serif;
+            margin: 0;
+        }
+
+        /* GitHub Markdown CSS の変数を Geminiカラーで強制上書き */
         .markdown-body {
             box-sizing: border-box;
             min-width: 200px;
-            max-width: 980px;
+            max-width: 900px; /* 少し幅を狭めて読みやすく */
             margin: 0 auto;
             padding: 45px;
+            
+            /* 色の上書き (Dark Modeベース) */
+            color: var(--gemini-text-main);
+            background-color: var(--gemini-bg);
+            --color-canvas-default: var(--gemini-bg);
+            --color-canvas-subtle: var(--gemini-surface);
+            --color-border-default: var(--gemini-border);
+            --color-border-muted: var(--gemini-border);
+            --color-accent-fg: var(--gemini-accent);
+            --color-fg-default: var(--gemini-text-main);
+            --color-fg-muted: var(--gemini-text-muted);
         }
+
+        /* コードブロックのカスタマイズ (Gemini風の丸みと背景) */
+        .markdown-body pre {
+            background-color: var(--gemini-surface) !important;
+            border-radius: 16px; /* 丸みを強く */
+            border: 1px solid var(--gemini-border);
+            position: relative;
+        }
+
+        /* 引用ブロックのデザイン調整 */
+        .markdown-body blockquote {
+            color: var(--gemini-text-muted);
+            border-left-color: var(--gemini-border);
+        }
+
         @media (max-width: 767px) {
             .markdown-body {
-                padding: 15px;
+                padding: 20px;
             }
         }
-        @media (prefers-color-scheme: dark) {
-            body { background-color: #0d1117; }
-        }
+
+        /* エラー表示 */
         #error-message {
-            color: #cf222e;
+            color: #ff897d; /* エラーも少し柔らかい赤に */
             display: none;
             text-align: center;
             margin-top: 50px;
+            font-family: 'Roboto', sans-serif;
         }
 
-        /* --- コピーボタン用スタイル --- */
-        pre {
-            position: relative; /* ボタンを絶対配置するために必要 */
-        }
+        /* --- コピーボタン (Gemini風) --- */
         .copy-btn {
             position: absolute;
-            top: 5px;
-            right: 5px;
-            padding: 3px 8px;
+            top: 12px;   /* 位置調整 */
+            right: 12px;
+            padding: 6px 12px;
             font-size: 12px;
-            color: #24292f;
-            background-color: #f6f8fa;
-            border: 1px solid #d0d7de;
-            border-radius: 6px;
+            font-family: 'Roboto', sans-serif;
+            font-weight: 500;
+            color: var(--gemini-text-main);
+            background-color: var(--gemini-btn-bg);
+            border: none; /* ボーダーなしでフラットに */
+            border-radius: 18px; /* カプセル型 */
             cursor: pointer;
-            opacity: 0; /* デフォルトは非表示 */
-            transition: opacity 0.2s;
+            opacity: 0;
+            transition: all 0.2s ease;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.3);
         }
-        /* マウスホバー時、またはスマホでタップしてフォーカスが当たった時に表示 */
         pre:hover .copy-btn, .copy-btn:focus {
             opacity: 1;
         }
-        /* ダークモード対応 */
-        @media (prefers-color-scheme: dark) {
-            .copy-btn {
-                color: #c9d1d9;
-                background-color: #21262d;
-                border-color: #30363d;
-            }
+        .copy-btn:hover {
+            background-color: var(--gemini-btn-hover);
         }
+        .copy-btn:active {
+            transform: translateY(1px);
+        }
+
     </style>
 </head>
 <body>
     <article id="content" class="markdown-body">
-        <p style="text-align: center; color: #666;">Loading...</p>
+        <p style="text-align: center; color: #666; margin-top: 50px;">Loading content...</p>
     </article>
     <div id="error-message"></div>
 
+    <!-- 必要なライブラリ -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/dompurify/dist/purify.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
@@ -90,9 +143,7 @@
                 
                 contentDiv.innerHTML = cleanHtml;
                 hljs.highlightAll();
-                
-                // --- ここでコピーボタンを追加 ---
-                addCopyButtons();
+                addCopyButtons(); // コピーボタン追加
 
                 document.title = filename;
 
@@ -100,42 +151,34 @@
                 console.error(error);
                 contentDiv.style.display = 'none';
                 errorDiv.style.display = 'block';
-                errorDiv.textContent = `Error: ${error.message}`;
+                errorDiv.innerHTML = `<p>Error loading <strong>${filename}</strong></p><p style="font-size:0.9em">${error.message}</p>`;
             }
         }
 
-        /**
-         * 全ての pre ブロックにコピーボタンを追加する関数
-         */
         function addCopyButtons() {
             document.querySelectorAll('pre').forEach(pre => {
-                // ボタン作成
                 const btn = document.createElement('button');
                 btn.className = 'copy-btn';
                 btn.textContent = 'Copy';
-                btn.setAttribute('aria-label', 'Copy to clipboard');
+                
+                // アイコンを使いたい場合はここをSVGに変更しても良い
+                // btn.innerHTML = `<svg ...>...</svg>`;
 
-                // クリックイベント
                 btn.addEventListener('click', async () => {
                     const code = pre.querySelector('code');
                     if (!code) return;
-
                     try {
-                        // テキストを取得してクリップボードへ
                         await navigator.clipboard.writeText(code.innerText);
-                        
-                        // フィードバック表示
-                        const originalText = btn.textContent;
-                        btn.textContent = 'Copied!';
+                        btn.textContent = 'Copied';
+                        btn.style.backgroundColor = '#4caf50'; // 成功時は緑っぽく
                         setTimeout(() => {
-                            btn.textContent = originalText;
+                            btn.textContent = 'Copy';
+                            btn.style.backgroundColor = '';
                         }, 2000);
                     } catch (err) {
-                        console.error('Failed to copy:', err);
-                        btn.textContent = 'Failed';
+                        btn.textContent = 'Error';
                     }
                 });
-
                 pre.appendChild(btn);
             });
         }
