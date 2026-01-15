@@ -8,6 +8,20 @@ wslのbashのPATHから、/mnt/c/Users/ だとか、/mnt/c/WINDOWS/System32/ と
 export PATH=$(echo "$PATH" | tr ':' '\n' | grep -v '/mnt/c/' | paste -sd: -)
 ```
 
+### wsl で USB デバイスをそれなりに使う
+
+```powershell
+# 1. もう一度インストールを試みる (すでに入っていれば修復か更新が走る)
+winget install usbipd-win
+
+# 2. 上記でエラーが出る、もしくは変化がない場合、場所を指定して実行できるか試す
+& "C:\Program Files\usbipd-win\usbipd.exe" list
+```
+
+```powershell
+& "C:\Program Files\usbipd-win\usbipd.exe" attach --wsl --busid 2-3
+```
+
 ### ALSA で音を出したい
 
 ```bash
