@@ -130,7 +130,7 @@
             const contentDiv = document.getElementById('content');
 
             try {
-                const response = await fetch(filename);
+                const response = await fetch(`${filename}.md`);
                 if (!response.ok) throw new Error(`Failed to load ${filename}`);
 
                 const markdownText = await response.text();
