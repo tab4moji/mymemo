@@ -1,5 +1,16 @@
 ## シェルを便利にしたい
 
+### 俺が考えた最強の alias 構築法
+
+```bash
+_() { local MYVAR="$1"; echo "$1"; }; _ 'hello, world!'
+```
+
+```bash
+$> alias myecho='_() { local MYVAR="$1"; echo "$1"; }; _'
+$> myecho 'hello, world!'
+```
+
 ### 俺が考えた最強の timeout
 
 ```bash
