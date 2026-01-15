@@ -2,13 +2,13 @@
 
 ### CTRL+M で ENTER したい
 
-```pwsh
+```powershell
 Set-PSReadLineKeyHandler -Key "Ctrl+m" -Function AcceptLine
 ```
 
 他も。
 
-```pwsh
+```powershell
 Set-PSReadLineKeyHandler -Key "Ctrl+m" -Function AcceptLine
 Set-PSReadLineKeyHandler -Key "Ctrl+a" -Function BeginningOfLine
 Set-PSReadLineKeyHandler -Key "Ctrl+k" -Function KillLine
@@ -18,7 +18,7 @@ Set-PSReadLineKeyHandler -Key "Ctrl+u" -Function BackwardKillLine
 
 ### TAB補完したい
 
-```pwsh
+```powershell
 Set-PSReadLineOption -PredictionSource History
 Set-PSReadLineOption -PredictionViewStyle Inline
 
@@ -51,7 +51,7 @@ Set-PSReadLineKeyHandler -Key "Ctrl+i" -ScriptBlock $TabAction
 
 Admin権限なら True
 
-```pwsh
+```powershell
 [bool]([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 ```
 
