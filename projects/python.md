@@ -3,7 +3,7 @@
 ### pip 導入
 
 ```python
-MYPYTHON=python3 ${MYPYTHON} -m ensurepip && ${MYPYTHON} -m pip install -U pip pipdeptree pip-autoremove pip-audit pip-review && ${MYPYTHON} -m pip install -U $(pipdeptree --warn silence --json-tree | jq -r '.[].key' | paste -sd ' ') && echo; PYTHONWARNINGS="ignore:The global interpreter lock:RuntimeWarning" ${MYPYTHON} $(${MYPYTHON} -m pip show pip | grep Location | cut -d':' -f2)/pip_audit/__main__.py; PYTHONWARNINGS="ignore:The global interpreter lock:RuntimeWarning" ${MYPYTHON} $(${MYPYTHON} -m pip show pip | grep Location | cut -d':' -f2)/pip_review/__main__.py --auto
+_() { local PYTHON_CMD="${1:-python3}"; ${PYTHON_CMD} -m ensurepip && ${PYTHON_CMD} -m pip install -U pip pipdeptree pip-autoremove pip-audit && local PIP_DIR_PATH="$(${PYTHON_CMD} -m pip show pip | grep Location | cut -d':' -f2)"; PYTHONWARNINGS="ignore:The global interpreter lock:RuntimeWarning" ${PYTHON_CMD} ${PIP_DIR_PATH}/pip_audit/__main__.py; }; _
 ```
 
 ### ruff check で除外したい
