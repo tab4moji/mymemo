@@ -16,13 +16,13 @@ Set-PSReadLineKeyHandler -Key "Ctrl+e" -Function EndOfLine
 Set-PSReadLineKeyHandler -Key "Ctrl+u" -Function BackwardKillLine
 ```
 
-### TAB補完
-
-コマンドライン補完はタブキーじゃなくて右矢印キー。
-でも無理やりTAB補完したい。
+### TAB補完したい
 
 ```pwsh
-$TabFunc = {
+Set-PSReadLineOption -PredictionSource History
+Set-PSReadLineOption -PredictionViewStyle Inline
+
+$TabAction = {
     param($key, $arg)
 
     $line = $null
@@ -30,18 +30,21 @@ $TabFunc = {
     [Microsoft.PowerShell.PSConsoleReadLine]::GetBufferState([ref]$line, [ref]$cursor)
 
     if ($cursor -eq $line.Length) {
-        $prevLine = $line
+        $before = $line
         [Microsoft.PowerShell.PSConsoleReadLine]::AcceptSuggestion()
+
         [Microsoft.PowerShell.PSConsoleReadLine]::GetBufferState([ref]$line, [ref]$cursor)
 
-        if ($prevLine -ne $line) { return }
+        if ($before -ne $line) { return }
     }
 
-    [Microsoft.PowerShell.PSConsoleReadLine]::MenuComplete()
+    # 2. 予測しない(または行末でない)場合は、「通常のTAB補完」を行う
+    #    ※もし一覧表示がいいなら TabCompleteNext を MenuComplete に変えてくれ
+    [Microsoft.PowerShell.PSConsoleReadLine]::TabCompleteNext()
 }
 
-Set-PSReadLineKeyHandler -Key Tab -ScriptBlock $TabFunc
-Set-PSReadLineKeyHandler -Key "Ctrl+i" -ScriptBlock $TabFunc
+Set-PSReadLineKeyHandler -Key "Tab"    -ScriptBlock $TabAction
+Set-PSReadLineKeyHandler -Key "Ctrl+i" -ScriptBlock $TabAction
 ```
 
 ### Administratorなのかどうか
