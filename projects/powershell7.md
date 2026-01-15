@@ -1,5 +1,13 @@
 ## Powershell 7 (pwsh.exe) を便利にしたい
 
+### Administratorなのかどうか
+
+Admin権限なら True
+
+```powershell
+[bool]([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+```
+
 ### CTRL+M で ENTER したい
 
 ```powershell
@@ -46,12 +54,3 @@ $TabAction = {
 Set-PSReadLineKeyHandler -Key "Tab"    -ScriptBlock $TabAction
 Set-PSReadLineKeyHandler -Key "Ctrl+i" -ScriptBlock $TabAction
 ```
-
-### Administratorなのかどうか
-
-Admin権限なら True
-
-```powershell
-[bool]([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
-```
-

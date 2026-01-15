@@ -19,6 +19,7 @@ winget install usbipd-win
 ```
 
 ```powershell
+& "C:\Program Files\usbipd-win\usbipd.exe" bind --busid 2-3
 & "C:\Program Files\usbipd-win\usbipd.exe" attach --wsl --busid 2-3
 ```
 
