@@ -3,7 +3,7 @@
 ### 俺が考えた最強の alias 構築法
 
 ```bash
-_() { local MYVAR="$1"; echo "$1"; }; _ 'hello, world!'
+_() { local MYVAR="$1"; echo "${MYVAR}"; }; _ 'hello, world!'
 ```
 
 ```bash
