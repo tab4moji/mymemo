@@ -39,7 +39,6 @@ git fsck --lost-found
 git gc --prune=now
 ```
 
-
 ### リポジトリを移植
 
 「**全履歴・全タグを移行**」しつつ、「**master を main に変更**」して、「**HEAD（デフォルトブランチ）を正常にする**」ための、一番無駄がない完全な手順だ。
@@ -97,3 +96,10 @@ git push --mirror <新リポジトリのURL>
 #### まとめ
 
 これで、旧リポジトリの歴史をすべて引き継いだ、きれいな `main` 構成の新リポジトリが完成だ。作業に使った `<旧リポジトリ名>.git` フォルダは削除していい。
+
+
+### ワーキングディレクトリの内容を特定のチェンジセットの内容に置き換え
+
+```bash
+_() { local MYTAG="$1"; \git rm -rf . && \git checkout ${MYTAG} -- . && \git add . && \git commit -m "squash merged with ${MYTAG}"; }; _ <タグなど>
+```
