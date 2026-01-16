@@ -12,6 +12,7 @@ git init --bare --shared
 
 ```bash
 git submodule status --recursive && git status && git submodule status --recursive
+git ls-files --exclude-standard --modified --others
 ```
 
 現在のブランチ名
