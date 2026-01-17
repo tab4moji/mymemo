@@ -13,7 +13,7 @@ export PATH=$(echo "$PATH" | tr ':' '\n' | grep -v '/mnt/c/' | paste -sd: -)
 Admin権限なら True
 
 ```bash
-pwsh.exe -Command "[bool]([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)"
+"/mnt/c/Program Files/PowerShell/7/pwsh.exe" -Command "[bool]([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)"
 ```
 
 ### wsl で USB デバイスをそれなりに使う
@@ -21,8 +21,7 @@ pwsh.exe -Command "[bool]([Security.Principal.WindowsPrincipal][Security.Princip
 #### usbipd-winインストールを試みる(すでに入っていれば修復か更新が走る)
 
 ```bash
-win_home="$(wslpath -u "$("/mnt/c/Program Files/PowerShell/7/pwsh.exe" -NoProfile -Command "\$env:USERPROFILE")")" "${win_home%%$'\r'}/AppData/Local/Microsoft/WindowsApps/winget.exe" install usbipd-win
-
+win_home="$(wslpath -u "$("/mnt/c/Program Files/PowerShell/7/pwsh.exe" -NoProfile -Command "\$env:USERPROFILE")")"; "${win_home%%$'\r'}/AppData/Local/Microsoft/WindowsApps/winget.exe" install usbipd-win
 ```
 
 #### デバイスをバインドしている
