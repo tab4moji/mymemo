@@ -8,19 +8,28 @@ wslのbashのPATHから、/mnt/c/Users/ だとか、/mnt/c/WINDOWS/System32/ と
 export PATH=$(echo "$PATH" | tr ':' '\n' | grep -v '/mnt/c/' | paste -sd: -)
 ```
 
-### wsl で USB デバイスをそれなりに使う
+### Administratorなのかどうか
 
-```powershell
-# 1. もう一度インストールを試みる (すでに入っていれば修復か更新が走る)
-winget install usbipd-win
+Admin権限なら True
 
-# 2. 上記でエラーが出る、もしくは変化がない場合、場所を指定して実行できるか試す
-& "C:\Program Files\usbipd-win\usbipd.exe" list
+```bash
+pwsh.exe -Command "[bool]([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)"
 ```
 
-```powershell
-& "C:\Program Files\usbipd-win\usbipd.exe" bind --busid 2-3
-& "C:\Program Files\usbipd-win\usbipd.exe" attach --wsl --busid 2-3
+### wsl で USB デバイスをそれなりに使う
+
+#### usbipd-winインストールを試みる(すでに入っていれば修復か更新が走る)
+
+```bash
+win_home="$(wslpath -u "$("/mnt/c/Program Files/PowerShell/7/pwsh.exe" -NoProfile -Command "\$env:USERPROFILE")")" "${win_home%%$'\r'}/AppData/Local/Microsoft/WindowsApps/winget.exe" install usbipd-win
+
+```
+
+#### デバイスをバインドしている
+
+```bash
+"/mnt/c/Program Files/usbipd-win/usbipd.exe" bind --busid 2-3
+"/mnt/c/Program Files/usbipd-win/usbipd.exe" attach --wsl --busid 2-3
 ```
 
 ### ALSA で音を出したい
