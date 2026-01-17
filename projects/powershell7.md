@@ -11,17 +11,7 @@ Admin権限なら True
 ### CTRL+M で ENTER したい
 
 ```powershell
-Set-PSReadLineKeyHandler -Key "Ctrl+m" -Function AcceptLine
-```
-
-他も。
-
-```powershell
-Set-PSReadLineKeyHandler -Key "Ctrl+m" -Function AcceptLine
-Set-PSReadLineKeyHandler -Key "Ctrl+a" -Function BeginningOfLine
-Set-PSReadLineKeyHandler -Key "Ctrl+k" -Function KillLine
-Set-PSReadLineKeyHandler -Key "Ctrl+e" -Function EndOfLine
-Set-PSReadLineKeyHandler -Key "Ctrl+u" -Function BackwardKillLine
+Set-PSReadLineOption -EditMode Emacs
 ```
 
 ### TAB補完したい
@@ -46,8 +36,8 @@ $TabAction = {
         if ($before -ne $line) { return }
     }
 
-    # 2. 予測しない(または行末でない)場合は、「通常のTAB補完」を行う
-    #    ※もし一覧表示がいいなら TabCompleteNext を MenuComplete に変えてくれ
+    # 予測しない(または行末でない)場合は、「通常のTAB補完」を行う
+    # もし一覧表示がいいなら TabCompleteNext を MenuComplete に変える
     [Microsoft.PowerShell.PSConsoleReadLine]::TabCompleteNext()
 }
 
