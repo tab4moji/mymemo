@@ -8,18 +8,24 @@ Admin権限なら True
 [bool]([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 ```
 
-### CTRL+M で ENTER したい
+### Emacs風シェルにしたい
 
 ```powershell
+# =============================================================================
+# Linux/Emacs Style Keybindings for PowerShell
+# Updated: 2026-01-19 (Fixed Ctrl+D)
+# =============================================================================
+
+# Emacsモード有効化
+# これだけで Ctrl+A/E/K/U/P/N... そして "Ctrl+D" も自動的にLinux風になる
 Set-PSReadLineOption -EditMode Emacs
-```
 
-### TAB補完したい
-
-```powershell
+# --- 予測入力の設定 ---
 Set-PSReadLineOption -PredictionSource History
 Set-PSReadLineOption -PredictionViewStyle Inline
 
+# --- TAB / CTRL+I の挙動設定 ---
+# 予測が出ていれば「右矢印(確定)」、なければ「通常のTab補完」
 $TabAction = {
     param($key, $arg)
 
@@ -27,51 +33,35 @@ $TabAction = {
     $cursor = $null
     [Microsoft.PowerShell.PSConsoleReadLine]::GetBufferState([ref]$line, [ref]$cursor)
 
+    # 1. カーソルが行末かつ予測がある場合 -> 予測を受け入れる
     if ($cursor -eq $line.Length) {
         $before = $line
         [Microsoft.PowerShell.PSConsoleReadLine]::AcceptSuggestion()
-
         [Microsoft.PowerShell.PSConsoleReadLine]::GetBufferState([ref]$line, [ref]$cursor)
-
         if ($before -ne $line) { return }
     }
 
-    # 予測しない(または行末でない)場合は、「通常のTAB補完」を行う
-    # もし一覧表示がいいなら TabCompleteNext を MenuComplete に変える
+    # 2. それ以外 -> 通常のTab補完
     [Microsoft.PowerShell.PSConsoleReadLine]::TabCompleteNext()
 }
 
+# キー割り当て (Tab と Ctrl+I を共通化)
 Set-PSReadLineKeyHandler -Key "Tab"    -ScriptBlock $TabAction
 Set-PSReadLineKeyHandler -Key "Ctrl+i" -ScriptBlock $TabAction
-```
 
-### CTRL-D でさよなら
 
-Ctrl+D に「行が空なら exit、文字があれば Delete（右側の文字削除）」という条件分岐の機能を割り当てれば、LinuxのBashと全く同じ挙動になる。
+# =============================================================================
+# My Aliases
+# =============================================================================
 
-#### 設定コード ($PROFILE)
-
-これをプロファイルに追記してくれ。
-
-```powershell
-Set-PSReadLineKeyHandler -Key "Ctrl+d" -ScriptBlock {
-    $line = $null
-    $cursor = $null
-    [Microsoft.PowerShell.PSConsoleReadLine]::GetBufferState([ref]$line, [ref]$cursor)
-
-    # 行が空っぽなら終了 (exit)
-    if ([String]::IsNullOrEmpty($line)) {
-        exit
-    }
-    # 文字があるなら通常の Delete キーとして振る舞う
-    else {
-        [Microsoft.PowerShell.PSConsoleReadLine]::DeleteChar()
-    }
+function ll { Get-ChildItem -Force -Verbose $args }
+function la { Get-ChildItem -Force $args }
+function l  { Get-ChildItem $args }
+function grep { Select-String $args }
+function touch {
+    param($file)
+    if (Test-Path $file) { (Get-Item $file).LastWriteTime = Get-Date }
+    else { New-Item -ItemType File -Path $file | Out-Null }
 }
-
+Set-Alias -Name clear -Value Clear-Host
 ```
-
-#### 挙動の確認
-
-1. 文字を入力中：`Ctrl+D` を押すと、カーソル位置の文字を削除する。
-2. 何も入力していない時：`Ctrl+D` を押すと、PowerShell が終了する。
