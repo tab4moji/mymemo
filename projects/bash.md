@@ -27,7 +27,7 @@ alias timeout='timeout --foreground --signal=INT --kill-after=3s'
 
 ```bash
 alias vimgrep='_() { vim -q <(\grep "$@") -c "autocmd FileType qf nnoremap <buffer> j j<CR><C-w>p" -c "autocmd FileType qf nnoremap <buffer> k k<CR><C-w>p" -c "autocmd FileType qf nnoremap <buffer> e <CR>" -c "cw" -c "autocmd VimEnter * wincmd j"; }; _'
-alias vimfind='_() { vim --cmd 'set efm=%f' -q <(\find "$@") -c "autocmd FileType qf nnoremap <buffer> j j<CR><C-w>p" -c "autocmd FileType qf nnoremap <buffer> k k<CR><C-w>p" -c "autocmd FileType qf nnoremap <buffer> e <CR>" -c "cw" -c "autocmd VimEnter * wincmd j"; }; _'
+alias vimfind='_() { vim --cmd "set efm=%f" -q <(\find "$@") -c "autocmd FileType qf nnoremap <buffer> j j<CR><C-w>p" -c "autocmd FileType qf nnoremap <buffer> k k<CR><C-w>p" -c "autocmd FileType qf nnoremap <buffer> e <CR>" -c "cw" -c "autocmd VimEnter * wincmd j"; }; _'
 ```
 
 ### 俺が考えた最強の cp
