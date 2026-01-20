@@ -130,7 +130,9 @@
             const contentDiv = document.getElementById('content');
 
             try {
-                const response = await fetch(`${filename}.md`);
+                // ?t=... を付けてURLを毎回ユニークにする + キャッシュ無効オプション
+                // old: const response = await fetch(`${filename}.md`);
+                const response = await fetch(`${filename}.md?t=${new Date().getTime()}`, { cache: "no-store" });
                 if (!response.ok) throw new Error(`Failed to load ${filename}`);
 
                 const markdownText = await response.text();
