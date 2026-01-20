@@ -35,12 +35,12 @@ cpコマンドを便利化したい。
 
 ```python
 #!/usr/bin/env python3
+# this is a 🐍🐍🐍 code.
 """
 xcp: Extended cp command.
-Ver: 1.5.0
-Date: 2026-01-14
-Fix: Ensure progress reaches 100% by counting skipped files.
-Add: Clear progress bar on completion.
+Ver: 1.6.0
+Date: 2026-01-20
+Fix: '-a' option now implies '-r', '-d', and '-p'.
 """
 import sys
 import os
@@ -59,7 +59,7 @@ STATUS_DIR = "/tmp"
 STATUS_PREFIX = "xcp_status_"
 CHUNK_SIZE = 1024 * 1024
 HISTORY_LEN = 20
-PROGRESS_THRESHOLD_SEC = 2.0  # Show bar sooner
+PROGRESS_THRESHOLD_SEC = 2.0
 
 # --- Utils ---
 def get_terminal_size():
@@ -114,7 +114,6 @@ def print_progress(current, total, speed, eta, width, phase=""):
     sys.stdout.flush()
 
 def clear_progress(width):
-    # Overwrite the line with spaces and carriage return
     sys.stdout.write("\r" + " " * width + "\r")
     sys.stdout.flush()
 
@@ -139,12 +138,10 @@ def scan_files(sources):
     return total_size, file_list
 
 def copy_file_worker(src, dst, state, total_size, file_size, args):
-    # Helper to count skipped bytes
     def skip():
         state['copied'] += file_size
         update_ui(state, total_size, 0, 0, force=True)
 
-    # Conflict Resolution & Pre-checks
     if os.path.exists(dst):
         if args.no_clobber:
             skip(); return
@@ -166,22 +163,19 @@ def copy_file_worker(src, dst, state, total_size, file_size, args):
             try: os.remove(dst)
             except OSError: pass
 
-    # Link modes
     if args.symbolic_link:
         if os.path.exists(dst) and not args.force:
             print(f"xcp: {dst}: File exists", file=sys.stderr); skip(); return
         os.symlink(src, dst)
-        return # Symlinks don't have size in total_size usually, or negligible
+        return
     if args.link:
         if os.path.exists(dst): os.remove(dst)
         os.link(src, dst)
         skip(); return
 
-    # Checksum skip
     if args.checksum and os.path.exists(dst):
         if os.path.getsize(src) == os.path.getsize(dst):
             try:
-                # Naive read for checksum (blocking), could be improved but sufficient for logic
                 h1 = hashlib.md5(open(src,'rb').read()).digest()
                 h2 = hashlib.md5(open(dst,'rb').read()).digest()
                 if h1 == h2:
@@ -192,12 +186,10 @@ def copy_file_worker(src, dst, state, total_size, file_size, args):
         shutil.copystat(src, dst)
         skip(); return
 
-    # Auto mkdir
     dst_dir = os.path.dirname(dst)
     if dst_dir and not os.path.exists(dst_dir):
         os.makedirs(dst_dir, exist_ok=True)
 
-    # Real Copy
     try:
         with open(src, 'rb') as fsrc, open(dst, 'wb') as fdst:
             while True:
@@ -216,7 +208,6 @@ def copy_file_worker(src, dst, state, total_size, file_size, args):
 
 def update_ui(state, total_size, force_speed=None, force_eta=None, force=False):
     now = time.time()
-    # Speed Calc
     state['history'].append((now, state['copied']))
     if len(state['history']) > HISTORY_LEN: state['history'].popleft()
     
@@ -258,7 +249,7 @@ def cmd_status():
                 with open(path, 'r') as f: data = json.load(f)
                 if os.path.exists(f"/proc/{data['pid']}"):
                     pct = (data['current_bytes']/data['total_bytes'])*100 if data['total_bytes'] else 0
-                    print(f"{data['pid']:<8} {pct:5.1f}%   {format_size(data['speed_bps']):<12} {format_time(data['eta_sec']):<10} {os.path.basename(data['source'])}")
+                    print(f"{data['pid']:<8} {pct:5.1f}%    {format_size(data['speed_bps']):<12} {format_time(data['eta_sec']):<10} {os.path.basename(data['source'])}")
                     found = True
                 else: os.remove(path)
             except: pass
@@ -311,6 +302,12 @@ def main():
     if not args.files:
         if not args.help: parser.print_usage()
         return
+    
+    # Fix: -a implies -r, -d, -p
+    if args.archive:
+        args.recursive = True
+        args.d = True
+        args.p = True
 
     if args.target_directory:
         dest = args.target_directory
@@ -355,10 +352,9 @@ def main():
             
             copy_file_worker(src, final_dst, state, total_size, size, args)
             
-        # Force 100% update briefly before clearing
         if state['is_tty'] and state['show_bar']: 
             print_progress(total_size, total_size, 0, 0, state['term_width'])
-            clear_progress(state['term_width']) # Clear the bar
+            clear_progress(state['term_width'])
 
     except KeyboardInterrupt:
         print("\nCancelled.")
