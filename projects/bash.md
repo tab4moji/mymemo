@@ -7,7 +7,7 @@ _() { local MYVAR="$1"; echo "${MYVAR}"; }; _ 'hello, world!'
 ```
 
 ```bash
-$> alias myecho='_() { local MYVAR="$1"; echo "$1"; }; _'
+$> alias myecho='_() { local MYVAR="$1"; echo "${MYVAR}"; }; _'
 $> myecho 'hello, world!'
 ```
 
