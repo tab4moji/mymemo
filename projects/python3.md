@@ -6,6 +6,12 @@
 _() { local PYTHON_CMD="${1:-python3}"; ${PYTHON_CMD} -m ensurepip && ${PYTHON_CMD} -m pip install -U pip pipdeptree pip-autoremove pip-audit && local PIP_DIR_PATH="$(${PYTHON_CMD} -m pip show pip | grep Location | cut -d':' -f2)"; PYTHONWARNINGS="ignore:The global interpreter lock:RuntimeWarning" ${PYTHON_CMD} ${PIP_DIR_PATH}/pip_audit/__main__.py; }; _
 ```
 
+### python バージョン指定コマンド呼び出し(一部可能)
+
+```python
+alias pycall='_() { local PYTHON_CMD="python3"; local PIP_DIR_PATH="$(${PYTHON_CMD} -m pip show pip | grep Location | cut -d':' -f2)"; local PYTHON_SUBCMD="$1"; shift; PYTHONWARNINGS="ignore:The global interpreter lock:RuntimeWarning" ${PYTHON_CMD} ${PIP_DIR_PATH}/${PYTHON_SUBCMD}/__main__.py $@; }; _'
+```
+
 ### ruff check で除外したい
 
 Ruffで特定のディレクトリを解析対象から外すには、設定ファイル（`pyproject.toml` または `ruff.toml`）を使うのが一番スマートだ。
