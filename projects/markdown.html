@@ -126,7 +126,7 @@
     <script>
         async function loadMarkdown() {
             const params = new URLSearchParams(window.location.search);
-            const filename = params.get('file') || 'README.md';
+            const filename = params.get('content') || 'README';
             const contentDiv = document.getElementById('content');
 
             try {
