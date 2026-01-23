@@ -39,7 +39,16 @@ git fsck --lost-found
 git gc --prune=now
 ```
 
-### リポジトリを移植
+### ブランチを呼び接ぎ
+
+```bash
+alias git_graft='_() { local MYHEAD=$(git rev-parse HEAD); local BRANCH_CUR="$1"; local BRANCH_NEW="$2"; if git rev-parse --verify "${BRANCH_CUR}" >/dev/null 2>&1; then if git rev-parse --verify "${BRANCH_NEW}" >/dev/null 2>&1; then echo NG; else git branch -m ${BRANCH_CUR} ${BRANCH_NEW} && git checkout -b ${BRANCH_CUR} ${MYHEAD} && git push origin ${BRANCH_NEW} && git push -f origin ${BRANCH_CUR}; fi; else echo NG; fi; }; _'
+
+# 接ぎ木するチェンジセットに移動したあとに...
+git_graft main old_main
+```
+
+### リポジトリで切り株プランター
 
 「**全履歴・全タグを移行**」しつつ、「**master を main に変更**」して、「**HEAD（デフォルトブランチ）を正常にする**」ための、一番無駄がない完全な手順だ。
 
