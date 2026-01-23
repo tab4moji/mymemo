@@ -110,5 +110,6 @@ git push --mirror <新リポジトリのURL>
 ### ワーキングディレクトリの内容を特定のチェンジセットの内容に置き換え
 
 ```bash
-_() { local MYTAG="$1"; \git reset --hard HEAD && \git rm -rf . && \git checkout ${MYTAG} -- . && \git add . && \git commit -m "squash merged with ${MYTAG}"; }; _ <タグ/コミットハッシュ>
+alias git_override='_() { local MYTAG="$1"; \git reset --hard HEAD && \git rm -rf . && \git checkout ${MYTAG} -- . && \git add . && \git commit -m "squash merged with ${MYTAG}"; }; _'
+git_override <タグ/コミットハッシュ>
 ```
