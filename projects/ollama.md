@@ -75,7 +75,8 @@ def send_chat_request(messages: list) -> str:
         headers={
             "Content-Type": "application/json",
             "Authorization": f"Bearer {API_KEY}"
-        }
+        },
+        proxies={'http': None, 'https': None}
     )
 
     full_content = []
