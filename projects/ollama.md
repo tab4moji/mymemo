@@ -75,8 +75,7 @@ def send_chat_request(messages: list) -> str:
         headers={
             "Content-Type": "application/json",
             "Authorization": f"Bearer {API_KEY}"
-        },
-        proxies={'http': None, 'https': None}
+        }
     )
 
     full_content = []
@@ -122,6 +121,13 @@ def main() -> None:
     """
     Main execution flow.
     """
+    # --- 【追加】プロキシ無効化設定 (requestsの proxies=None と同等) ---
+    # 空の辞書を渡すことで、環境変数のプロキシ設定を無視して直接接続させる
+    proxy_handler = request.ProxyHandler({})
+    opener = request.build_opener(proxy_handler)
+    request.install_opener(opener)
+    # ---------------------------------------------------------------
+
     print(f"--- Starting Session with {MODEL_NAME} ---")
     print(f"Current Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
 
