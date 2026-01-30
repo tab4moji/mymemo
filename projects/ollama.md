@@ -3,8 +3,7 @@ OllamaのAPIに対し、標準ライブラリのみを使ってストリーミ�
 
 ### 概要
 
-1. **ollama_chat_sample_v01.md**: プログラムの機能説明。
-2. **ollama_chat.py**: チャットクライアントのソースコード。
+**ollama_chat.py**: チャットクライアントのソースコード。**プロキシ無効**。
 
 ### ollama_chat.py
 
