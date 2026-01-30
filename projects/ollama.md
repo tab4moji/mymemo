@@ -6,10 +6,6 @@ OllamaのAPIに対し、標準ライブラリのみを使ってストリーミ�
 1. **ollama_chat_sample_v01.md**: プログラムの機能説明。
 2. **ollama_chat.py**: チャットクライアントのソースコード。
 
-```markdown
-
-```
-
 ### ollama_chat.py
 
 ```python
@@ -61,7 +57,7 @@ API_KEY = "sk-ollama-dummy-key"
 API_URL = "http://localhost:11434/api/chat"
 # Target Model (Ensure this model is pulled: `ollama pull llama3`)
 MODEL_NAME = "llama3"
-
+USER_NAME = "太郎"
 
 def send_chat_request(messages: list) -> str:
     """
@@ -134,7 +130,7 @@ def main() -> None:
     history = []
 
     # 1. Introduce self
-    user_input_1 = "私の名前はGemini3です。私の名前を覚えてください。"
+    user_input_1 = f"私の名前は{USER_NAME}です。私の名前を覚えてください。"
     print(f"User: {user_input_1}")
     
     history.append({"role": "user", "content": user_input_1})
