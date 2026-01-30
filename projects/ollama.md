@@ -16,8 +16,15 @@ OllamaのAPIに対し、標準ライブラリのみを使ってストリーミ�
 Ollama Chat API Sample with Streaming
 Purpose: Demonstrate chat interaction with Ollama API using standard libraries.
 Description:
-# Ollama Chat API Sample
+"""
 
+# --- Configuration ---
+API_KEY = "sk-ollama-dummy-key" # API Key (Ollama usually doesn't need this locally, but added for requirements)
+API_URL = "http://localhost:11434/api/chat" # Ollama API Endpoint
+MODEL_NAME = "llama3" # Target Model (Ensure this model is pulled: `ollama pull llama3`)
+USER_NAME = "太郎" # Your name
+
+"""
 ## 1. 概要
 Ollamaの `/api/chat` エンドポイントを使用して、ストリーミング形式のチャットを行うPythonスクリプトです。
 外部ライブラリ（requests等）を使用せず、Python標準ライブラリのみで構成されており、WSL2やLinux環境で即座に動作します。
@@ -49,15 +56,6 @@ import sys
 import time
 from urllib import request, error
 from datetime import datetime
-
-# --- Configuration ---
-# API Key (Ollama usually doesn't need this locally, but added for requirements)
-API_KEY = "sk-ollama-dummy-key"
-# Ollama API Endpoint
-API_URL = "http://localhost:11434/api/chat"
-# Target Model (Ensure this model is pulled: `ollama pull llama3`)
-MODEL_NAME = "llama3"
-USER_NAME = "太郎"
 
 def send_chat_request(messages: list) -> str:
     """
