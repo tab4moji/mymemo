@@ -1,6 +1,6 @@
 ## git いろは
 
-### リポジトリ作成
+### bare なリポジトリ作成
 
 ```bash
 git init --bare --shared
@@ -37,6 +37,12 @@ git fsck --lost-found
 
 ```bash
 git gc --prune=now
+```
+
+### squash マージ
+
+```bash
+git merge --squash -X theirs <ブランチ名>
 ```
 
 ### ブランチを呼び接ぎ
