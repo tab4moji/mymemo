@@ -10,6 +10,16 @@ export PATH=$(echo "$PATH" | tr ':' '\n' | grep -v '/mnt/c/' | paste -sd: -)
 
 ### モバイル ホットスポットとwsl
 
+#### wsl から 192.168.137.115 の 11434 ポートにゲートウェイ経由でつなげる
+
+```powershell
+netsh interface portproxy add v4tov4 listenport=11434 listenaddress=0.0.0.0 connectport=11434 connectaddress=192.168.137.115
+```
+
+```bash
+GATEWAY_IP=$(ip route show | grep default | awk '{print $3}') && echo "Windows Host IP: $GATEWAY_IP" && curl -v http://$GATEWAY_IP:11434
+```
+
 #### すっきりしたいとき
 
 ```powershell
@@ -37,19 +47,18 @@ netsh interface portproxy delete v4tov4 listenaddress=0.0.0.0 listenport=11434
 netsh interface portproxy show v4tov4
 ```
 
-#### wsl から 192.168.137.115 の 11434 ポートにつなげたい
+#### 使う必要があるか不明 firewall
 
-```powershell
-netsh interface portproxy add v4tov4 listenport=11434 listenaddress=0.0.0.0 connectport=11434 connectaddress=192.168.137.115
+```firewall 設定を探す
+Get-NetFirewallRule -DisplayName "MyPersnal*"
 ```
 
-```firewall 無効化
-Get-NetFirewallRule -DisplayName "Ollama-Proxy-In"
-
+```firewall 設定を消す
+Remove-NetFirewallRule -DisplayName "MyPersnal*"
 ```
 
-```bash
-GATEWAY_IP=$(ip route show | grep default | awk '{print $3}') && echo "Windows Host IP: $GATEWAY_IP" && curl -v http://$GATEWAY_IP:11434
+```firewall 穴あけの設定をする
+New-NetFirewallRule -DisplayName "MyPersonalRule" -Direction Inbound -LocalPort 11434 -Protocol TCP -Action Allow; netsh interface portproxy add v4tov4 listenport=11434 listenaddress=0.0.0.0 connectport=11434 connectaddress=192.168.137.115
 ```
 
 ### Administratorなのかどうか
