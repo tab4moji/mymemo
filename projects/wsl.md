@@ -8,6 +8,50 @@ wslのbashのPATHから、/mnt/c/Users/ だとか、/mnt/c/WINDOWS/System32/ と
 export PATH=$(echo "$PATH" | tr ':' '\n' | grep -v '/mnt/c/' | paste -sd: -)
 ```
 
+### モバイル ホットスポットとwsl
+
+#### すっきりしたいとき
+
+```powershell
+PS C:\> netsh interface portproxy show v4tov4
+
+ipv4 をリッスンする:         ipv4 に接続する:
+
+Address         Port        Address         Port
+--------------- ----------  --------------- ----------
+192.168.137.115 11434       172.20.4.52     11434
+127.0.0.1       11434       172.20.4.52     11434
+0.0.0.0         11435       192.168.137.115 11434
+0.0.0.0         11434       192.168.137.115 11434
+```
+
+```powershell
+netsh interface portproxy show v4tov4
+```
+
+```powershell
+netsh interface portproxy delete v4tov4 listenaddress=192.168.137.115 listenport=11434
+netsh interface portproxy delete v4tov4 listenaddress=127.0.0.1 listenport=11434
+netsh interface portproxy delete v4tov4 listenaddress=0.0.0.0 listenport=11435
+netsh interface portproxy delete v4tov4 listenaddress=0.0.0.0 listenport=11434
+netsh interface portproxy show v4tov4
+```
+
+#### wsl から 192.168.137.115 の 11434 ポートにつなげたい
+
+```powershell
+netsh interface portproxy add v4tov4 listenport=11434 listenaddress=0.0.0.0 connectport=11434 connectaddress=192.168.137.115
+```
+
+```firewall 無効化
+Get-NetFirewallRule -DisplayName "Ollama-Proxy-In"
+
+```
+
+```bash
+GATEWAY_IP=$(ip route show | grep default | awk '{print $3}') && echo "Windows Host IP: $GATEWAY_IP" && curl -v http://$GATEWAY_IP:11434
+```
+
 ### Administratorなのかどうか
 
 Admin権限なら True
