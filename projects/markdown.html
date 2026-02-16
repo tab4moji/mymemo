@@ -41,6 +41,37 @@
             color: var(--text-main);
         }
 
+        /* --- Heading Overrides (見出しスタイルの変更) --- */
+        
+        /* H2: ページトップ・センタリング・ハッキリタイトル */
+        .markdown-body h2 {
+            text-align: center;
+            font-size: 2em;
+            padding-bottom: 0.5em;
+            border-bottom: 3px solid var(--accent-color); /* アクセントカラーで太線 */
+            margin-top: 1.5em;
+            margin-bottom: 1em;
+            color: var(--text-main);
+        }
+
+        /* H3: 旧H2相当 (セクション区切り・下線あり) */
+        .markdown-body h3 {
+            font-size: 1.5em;
+            padding-bottom: 0.3em;
+            border-bottom: 1px solid var(--border-color);
+            margin-top: 1.5em;
+            margin-bottom: 16px;
+        }
+
+        /* H4: 旧H3相当 (サブセクション・下線なし) */
+        .markdown-body h4 {
+            font-size: 1.25em;
+            font-weight: 600;
+            border-bottom: none;
+            margin-top: 1.5em;
+            margin-bottom: 16px;
+        }
+
         /* --- Code Block Container --- */
         .code-wrapper {
             margin-bottom: 16px;
@@ -118,12 +149,12 @@
             background-color: transparent !important;
         }
 
-        /* --- Snip Marker (省略行のスタイル) --- */
+        /* --- Snip Marker --- */
         .snip-line {
             display: block;
             margin: 8px 0;
             padding: 8px;
-            background-color: rgba(168, 199, 250, 0.1); /* 薄い青 */
+            background-color: rgba(168, 199, 250, 0.1);
             color: var(--accent-color);
             text-align: center;
             font-style: italic;
@@ -158,9 +189,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/powershell.min.js"></script>
 
     <script>
-        // 設定: 何行を超えたら省略するか
-        const FOLD_THRESHOLD = 25;
-        // 先頭・末尾の表示行数
+        const FOLD_THRESHOLD = 20;
         const SHOW_LINES = 10;
 
         async function loadMarkdown() {
@@ -196,7 +225,6 @@
                 const code = pre.querySelector('code');
                 if (!code) return;
 
-                // 1. 言語とタイトルの解析 (class="language-python:app.py")
                 let rawClass = code.className || '';
                 let lang = 'text';
                 let title = '';
@@ -213,7 +241,6 @@
                     }
                 }
                 
-                // 表示用言語名
                 let displayLang = lang;
                 if (lang === 'js') displayLang = 'JavaScript';
                 if (lang === 'ts') displayLang = 'TypeScript';
@@ -221,16 +248,13 @@
                 if (lang === 'sh') displayLang = 'Bash';
                 if (['ps1', 'pwsh', 'powershell'].includes(lang.toLowerCase())) displayLang = 'PowerShell';
 
-                // 2. 元のソースコードを保存 (Highlight前の純粋なテキスト)
                 const originalText = code.textContent;
                 const lines = originalText.split(/\r\n|\r|\n/);
                 const totalLines = lines.length;
                 
-                // 3. Highlight用クラス設定
                 code.className = `language-${lang}`;
-                code.innerHTML = ''; // 一旦空にする
+                code.innerHTML = ''; 
 
-                // 4. ラッパーとヘッダーの作成
                 const wrapper = document.createElement('div');
                 wrapper.className = 'code-wrapper';
 
@@ -250,7 +274,6 @@
                 lSpan.textContent = displayLang;
                 leftDiv.appendChild(lSpan);
 
-                // Copy Button
                 const copyBtn = document.createElement('button');
                 copyBtn.className = 'copy-btn';
                 copyBtn.textContent = 'Copy';
@@ -265,12 +288,10 @@
                 header.appendChild(leftDiv);
                 header.appendChild(copyBtn);
 
-                // DOM組み換え: preをwrapperに入れる
                 pre.parentNode.insertBefore(wrapper, pre);
                 wrapper.appendChild(header);
                 wrapper.appendChild(pre);
 
-                // 5. 省略ロジック or 通常表示
                 if (totalLines > FOLD_THRESHOLD) {
                     renderSnipped(code, lines, lang);
                 } else {
@@ -279,52 +300,34 @@
             });
         }
 
-        // 通常表示 (Highlightのみ)
         function renderFull(codeElement, text) {
             codeElement.textContent = text;
             hljs.highlightElement(codeElement);
         }
 
-        // 省略表示 (Top10 + Snip + Bottom10)
         function renderSnipped(codeElement, lines, lang) {
             const headLines = lines.slice(0, SHOW_LINES);
             const tailLines = lines.slice(-SHOW_LINES);
             const hiddenCount = lines.length - (SHOW_LINES * 2);
 
-            // 前半部分
             const headText = headLines.join('\n');
-            // 後半部分
             const tailText = tailLines.join('\n');
 
-            // ハイライト適用 (個別に適用して結合する)
-            // ※注意: ブロックまたぎのコメントなどは切れる可能性があるが、簡易ビューアとしては許容範囲とする
-            
-            // 1. 前半のレンダリング
-            // ダミー要素を作ってHighlightさせる
-            const headDummy = document.createElement('div');
-            headDummy.textContent = headText;
-            // クラスをセットしないとauto detectionが走るが、指定言語でhighlightさせたい
-            // hljs.highlight(text, {language: ...}) を使う
             let headHtml = hljs.highlight(headText, { language: lang, ignoreIllegals: true }).value;
-            
-            // 2. 後半のレンダリング
             let tailHtml = hljs.highlight(tailText, { language: lang, ignoreIllegals: true }).value;
 
-            // 3. 省略バー (クリックで展開)
             const snipDiv = document.createElement('div');
             snipDiv.className = 'snip-line';
             snipDiv.textContent = `... snip (${hiddenCount} lines hidden) ... Click to expand all`;
             
             snipDiv.onclick = () => {
-                // クリックされたら全展開
                 const fullText = lines.join('\n');
-                codeElement.innerHTML = ''; // クリア
+                codeElement.innerHTML = '';
                 codeElement.textContent = fullText;
-                hljs.highlightElement(codeElement); // 再ハイライト
+                hljs.highlightElement(codeElement);
             };
 
-            // DOMに流し込み
-            codeElement.innerHTML = headHtml + '\n'; // 改行を入れておく
+            codeElement.innerHTML = headHtml + '\n';
             codeElement.appendChild(snipDiv);
             codeElement.insertAdjacentHTML('beforeend', tailHtml);
         }
