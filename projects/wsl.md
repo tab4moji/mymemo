@@ -8,6 +8,206 @@ wslのbashのPATHから、/mnt/c/Users/ だとか、/mnt/c/WINDOWS/System32/ と
 export PATH=$(echo "$PATH" | tr ':' '\n' | grep -v '/mnt/c/' | paste -sd: -)
 ```
 
+### vhdx 圧縮
+
+```powershell
+#!/usr/bin/env pwsh
+<#
+.SYNOPSIS
+    WSL2 Disk Compactor via Diskpart
+.DESCRIPTION
+    Reclaims disk space from WSL2 virtual hard disks (vhdx) using Windows diskpart utility.
+    Requires Administrator privileges.
+.NOTES
+    Update History:
+    No.2 2026-02-16 Fixed: Replaced non-existent wsl command with diskpart automation.
+#>
+
+Set-StrictMode -Version 3.0
+$ErrorActionPreference = "Stop"
+
+function Test-Administrator {
+    $Identity = [System.Security.Principal.WindowsIdentity]::GetCurrent()
+    $Principal = [System.Security.Principal.WindowsPrincipal]$Identity
+    return $Principal.IsInRole([System.Security.Principal.WindowsBuiltInRole]::Administrator)
+}
+
+function Get-WslDistributionInfo {
+    [CmdletBinding()]
+    param()
+
+    $DistroList = @()
+    $LxssPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Lxss"
+
+    try {
+        if (-not (Test-Path $LxssPath)) {
+            throw "WSL registry key not found at $LxssPath."
+        }
+
+        $SubKeys = Get-ChildItem -Path $LxssPath -ErrorAction Stop
+
+        foreach ($Key in $SubKeys) {
+            $DistroName = $null
+            $BasePath = $null
+            $VhdxPath = $null
+
+            if ($Key.Property -contains "DistributionName") {
+                $DistroName = Get-ItemProperty -Path $Key.PSPath -Name "DistributionName" | Select-Object -ExpandProperty DistributionName
+            }
+
+            if ($Key.Property -contains "BasePath") {
+                $BasePath = Get-ItemProperty -Path $Key.PSPath -Name "BasePath" | Select-Object -ExpandProperty BasePath
+            }
+
+            if (-not [string]::IsNullOrEmpty($BasePath)) {
+                $PotentialPath = Join-Path -Path $BasePath -ChildPath "ext4.vhdx"
+                if (Test-Path $PotentialPath) {
+                    $VhdxPath = $PotentialPath
+                }
+            }
+
+            if (-not [string]::IsNullOrEmpty($DistroName) -and -not [string]::IsNullOrEmpty($VhdxPath)) {
+                $DistroList += [PSCustomObject]@{
+                    Name     = $DistroName
+                    VhdxPath = $VhdxPath
+                }
+            }
+        }
+    }
+    catch {
+        Write-Error "Failed to retrieve WSL information: $_"
+        $DistroList = @()
+    }
+
+    return $DistroList
+}
+
+function Format-FileSize {
+    [CmdletBinding()]
+    param([long]$Bytes)
+
+    $Result = ""
+    $Units = @("B", "KiB", "MiB", "GiB", "TiB")
+    $Index = 0
+
+    try {
+        $Value = [double]$Bytes
+        while ($Value -ge 1024 -and $Index -lt ($Units.Count - 1)) {
+            $Value /= 1024
+            $Index++
+        }
+        $Result = "{0:N2} {1}" -f $Value, $Units[$Index]
+    }
+    catch {
+        $Result = "0 B"
+    }
+
+    return $Result
+}
+
+function Invoke-DiskpartCompact {
+    [CmdletBinding()]
+    param([array]$Distributions)
+
+    $TotalReclaimed = 0
+    $ScriptFile = Join-Path -Path $env:TEMP -ChildPath "wsl_compact_script.txt"
+
+    try {
+        Write-Host "Shutting down WSL instances..." -ForegroundColor Cyan
+        wsl --shutdown
+        if ($LASTEXITCODE -ne 0) { throw "Failed to shutdown WSL." }
+        Start-Sleep -Seconds 3
+
+        foreach ($Distro in $Distributions) {
+            Write-Host "--------------------------------------------------"
+            Write-Host "Target: $($Distro.Name)" -ForegroundColor Yellow
+
+            $FileItem = Get-Item -Path $Distro.VhdxPath -ErrorAction Stop
+            $SizeBefore = $FileItem.Length
+
+            Write-Host "  Path: $($Distro.VhdxPath)"
+            Write-Host "  Size (Before): $(Format-FileSize $SizeBefore)"
+            Write-Host "  Compacting via Diskpart..." -NoNewline
+
+            # Create Diskpart script
+            $Commands = @"
+select vdisk file="$($Distro.VhdxPath)"
+attach vdisk readonly
+compact vdisk
+detach vdisk
+"@
+            Set-Content -Path $ScriptFile -Value $Commands -Encoding Ascii
+
+            # Execute Diskpart
+            $ProcessInfo = New-Object System.Diagnostics.ProcessStartInfo
+            $ProcessInfo.FileName = "diskpart.exe"
+            $ProcessInfo.Arguments = "/s `"$ScriptFile`""
+            $ProcessInfo.RedirectStandardOutput = $true
+            $ProcessInfo.RedirectStandardError = $true
+            $ProcessInfo.UseShellExecute = $false
+            $ProcessInfo.CreateNoWindow = $true
+
+            $Process = [System.Diagnostics.Process]::Start($ProcessInfo)
+            $Process.WaitForExit()
+
+            # Clean up script
+            if (Test-Path $ScriptFile) { Remove-Item -Path $ScriptFile -Force }
+
+            if ($Process.ExitCode -eq 0) {
+                Write-Host " Done." -ForegroundColor Green
+
+                $FileItem.Refresh()
+                $SizeAfter = $FileItem.Length
+                $Diff = $SizeBefore - $SizeAfter
+                $TotalReclaimed += $Diff
+
+                Write-Host "  Size (After) : $(Format-FileSize $SizeAfter)"
+                if ($Diff -gt 0) {
+                    Write-Host "  Reclaimed    : $(Format-FileSize $Diff)" -ForegroundColor Cyan
+                } else {
+                    Write-Host "  No space reclaimed." -ForegroundColor Gray
+                }
+            } else {
+                Write-Host " Failed." -ForegroundColor Red
+                Write-Error "Diskpart failed. ExitCode: $($Process.ExitCode)"
+                Write-Host $Process.StandardOutput.ReadToEnd()
+            }
+        }
+
+        Write-Host "=================================================="
+        Write-Host "Total Space Reclaimed: $(Format-FileSize $TotalReclaimed)" -ForegroundColor Magenta
+        Write-Host "=================================================="
+    }
+    catch {
+        Write-Error "An unexpected error occurred: $_"
+    }
+}
+
+function Main {
+    if (-not (Test-Administrator)) {
+        Write-Warning "This script requires Administrator privileges to run diskpart."
+        Write-Warning "Please run PowerShell as Administrator."
+        return 1
+    }
+
+    try {
+        Write-Host "Starting WSL Disk Compactor (Diskpart Edition)..." -ForegroundColor Cyan
+        $Distros = Get-WslDistributionInfo
+        if ($Distros.Count -eq 0) {
+            throw "No WSL distributions with valid VHDX files found."
+        }
+        Invoke-DiskpartCompact -Distributions $Distros
+    }
+    catch {
+        Write-Error $_
+        return 1
+    }
+    return 0
+}
+
+$Global:LastExitCode = Main
+```
+
 ### モバイル ホットスポットとwsl
 
 #### wsl から 192.168.137.115 の 11434 ポートにゲートウェイ経由でつなげる
