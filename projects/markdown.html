@@ -7,14 +7,13 @@
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/github-markdown-css/5.8.1/github-markdown.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
 
     <style>
         :root {
-            /* Gemini Dark Theme Colors */
             --gemini-bg: #131314;
             --gemini-surface: #1E1F20;
             --gemini-text-main: #E3E3E3;
@@ -39,16 +38,29 @@
             padding: 45px;
             color: var(--gemini-text-main);
             background-color: var(--gemini-bg);
-            --color-canvas-default: var(--gemini-bg);
-            --color-canvas-subtle: var(--gemini-surface);
-            --color-border-default: var(--gemini-border);
-            --color-border-muted: var(--gemini-border);
-            --color-accent-fg: var(--gemini-accent);
-            --color-fg-default: var(--gemini-text-main);
-            --color-fg-muted: var(--gemini-text-muted);
         }
 
-        /* --- 折りたたみ (Details/Summary) スタイル --- */
+        /* --- Code Block Header (Title & Lang) --- */
+        .code-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: #2D2E30; /* Header Bg */
+            padding: 8px 16px;
+            border-bottom: 1px solid var(--gemini-border);
+            border-radius: 16px 16px 0 0;
+            font-family: 'Roboto', sans-serif;
+            font-size: 13px;
+            color: var(--gemini-text-muted);
+        }
+        
+        .code-title {
+            font-weight: 700;
+            color: var(--gemini-text-main);
+            margin-right: 10px;
+        }
+
+        /* --- Details/Summary Styling --- */
         details.code-details {
             margin-bottom: 16px;
             background-color: var(--gemini-surface);
@@ -60,14 +72,13 @@
         details.code-details > summary {
             padding: 10px 16px;
             cursor: pointer;
-            background-color: var(--gemini-btn-bg);
+            background-color: #2D2E30;
             font-size: 13px;
-            font-weight: 500;
             color: var(--gemini-text-muted);
             user-select: none;
             display: flex;
             align-items: center;
-            justify-content: space-between;
+            font-family: 'Roboto', sans-serif;
             transition: background-color 0.2s;
         }
         
@@ -75,74 +86,77 @@
             background-color: var(--gemini-btn-hover);
             color: var(--gemini-text-main);
         }
-
+        
+        /* 矢印アイコンのカスタマイズ */
         details.code-details > summary::marker {
-            /* デフォルトの三角を消すかは好みだが、ここでは残す */
             color: var(--gemini-text-muted);
         }
+        
+        /* Summary内のレイアウト */
+        .summary-content {
+            display: flex;
+            align-items: center;
+            width: 100%;
+            margin-left: 5px; 
+        }
+        .summary-title {
+            font-weight: 700;
+            color: var(--gemini-text-main);
+            margin-right: 8px;
+        }
+        .summary-meta {
+            color: var(--gemini-text-muted);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+        }
 
-        /* --- コードブロック全体 --- */
-        /* detailsの中に入った場合、preのborderやmarginをリセットして統合する */
+        /* --- Pre Styling --- */
+        /* Detailsの中にあるPre */
         details.code-details pre {
             margin: 0 !important;
             border: none !important;
-            border-radius: 0 0 16px 16px !important; /* 下だけ丸める */
+            border-radius: 0 0 16px 16px !important;
             background-color: var(--gemini-surface) !important;
-            position: relative;
-            padding-top: 40px; 
+            padding-top: 10px; /* Headerがあるのですこし詰める */
         }
 
-        /* 通常のpre (折りたたまないやつ) */
+        /* 通常のPre (折りたたまない場合) */
         .markdown-body pre:not(.inside-details) {
             background-color: var(--gemini-surface) !important;
             border-radius: 16px;
             border: 1px solid var(--gemini-border);
-            position: relative;
-            padding-top: 40px;
+            padding-top: 10px;
+            margin-top: 0; /* Headerとくっつけるため */
         }
         
+        /* Header付きのPreの角丸調整 */
+        .has-header {
+            border-top-left-radius: 0 !important;
+            border-top-right-radius: 0 !important;
+            border-top: none !important;
+        }
+
         .markdown-body pre code {
-            display: block;
-            overflow-x: auto;
-            padding: 0;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 14px;
+            line-height: 1.5;
         }
 
-        /* --- 言語ラベル表示 (左上) --- */
-        .markdown-body pre::before {
-            content: attr(data-lang);
-            position: absolute;
-            top: 10px;
-            left: 16px;
-            font-size: 13px;
-            font-weight: 500;
-            color: var(--gemini-text-muted);
-            text-transform: capitalize;
-            pointer-events: none;
-        }
-
-        /* --- コピーボタン (右上) --- */
+        /* Copy Button */
         .copy-btn {
-            position: absolute;
-            top: 8px;
-            right: 8px;
-            padding: 5px 10px;
-            font-size: 12px;
-            font-family: 'Roboto', sans-serif;
-            color: var(--gemini-text-main);
-            background-color: var(--gemini-btn-bg);
-            border: 1px solid transparent;
-            border-radius: 8px;
+            background-color: transparent;
+            border: 1px solid var(--gemini-border);
+            color: var(--gemini-text-muted);
+            border-radius: 6px;
+            padding: 4px 8px;
+            font-size: 11px;
             cursor: pointer;
-            opacity: 0;
             transition: all 0.2s;
-            z-index: 10;
-        }
-        pre:hover .copy-btn, .copy-btn:focus {
-            opacity: 1;
+            margin-left: auto; /* 右寄せ */
         }
         .copy-btn:hover {
             background-color: var(--gemini-btn-hover);
-            border-color: #555;
+            color: var(--gemini-text-main);
         }
 
         @media (max-width: 767px) {
@@ -193,94 +207,162 @@
         }
 
         function processCodeBlocks() {
-            hljs.highlightAll();
-
-            // querySelectorAllの結果は静的なので、DOM変更中にループしても安全
             const pres = document.querySelectorAll('pre');
 
             pres.forEach(pre => {
                 const code = pre.querySelector('code');
                 if (!code) return;
 
-                // --- 1. 言語検出と整形 ---
-                const classes = code.className.split(' ');
+                // --- 1. クラス名解析 (言語:タイトル) ---
+                // 例: class="language-python:app.py"
+                let rawClass = code.className || '';
                 let lang = '';
-                classes.forEach(c => {
-                    if (c.startsWith('language-')) {
-                        lang = c.replace('language-', '');
+                let title = '';
+
+                // marked.jsは通常 "language-xxx" を付与する
+                // 言語指定部分を探す
+                const match = rawClass.match(/language-([^\s"]+)/);
+                if (match) {
+                    const fullLangPart = match[1]; // "python:app.py" or "python"
+                    if (fullLangPart.includes(':')) {
+                        const parts = fullLangPart.split(':');
+                        lang = parts[0]; // python
+                        title = parts.slice(1).join(':'); // app.py (もしファイル名に:が含まれても対応)
+                    } else {
+                        lang = fullLangPart;
                     }
-                });
-
-                // 表示用の言語名調整
-                let displayLang = lang;
-                if (lang === 'js') displayLang = 'JavaScript';
-                if (lang === 'ts') displayLang = 'TypeScript';
-                if (lang === 'py') displayLang = 'Python';
-                if (lang === 'sh') displayLang = 'Bash';
-                if (lang === 'ps1' || lang === 'pwsh') displayLang = 'PowerShell';
-                
-                if (displayLang) {
-                    pre.setAttribute('data-lang', displayLang);
                 }
 
-                // --- 2. 折りたたみ判定 (Folding Logic) ---
-                
-                // 条件A: PowerShell系は無条件で折りたたむ
-                const isPowerShell = ['powershell', 'ps1', 'pwsh', 'ps'].includes(lang.toLowerCase());
-                
-                // 条件B: 高さが300px (約15行程度) を超える場合は折りたたむ
-                // scrollHeightで実際の高さを取得
-                const isLarge = pre.scrollHeight > 300;
-
-                if (isPowerShell || isLarge) {
-                    wrapInDetails(pre, displayLang || 'Code', isPowerShell);
+                // highlight.jsが正しく動くようにクラス名を修正
+                if (lang) {
+                    code.className = `language-${lang}`;
+                } else {
+                    // 言語指定がない場合
+                    code.className = 'language-plaintext';
                 }
 
-                // --- 3. コピーボタン ---
-                const btn = document.createElement('button');
-                btn.className = 'copy-btn';
-                btn.textContent = 'Copy';
-                btn.addEventListener('click', async (e) => {
-                    // detailsが閉じている時のクリック暴発防止（念の為）
-                    e.stopPropagation(); 
+                // 表示用言語名
+                let displayLang = lang || 'Text';
+                if (displayLang === 'js') displayLang = 'JavaScript';
+                if (displayLang === 'ts') displayLang = 'TypeScript';
+                if (displayLang === 'py') displayLang = 'Python';
+                if (displayLang === 'sh') displayLang = 'Bash';
+                if (['ps1', 'pwsh', 'powershell'].includes(displayLang.toLowerCase())) displayLang = 'PowerShell';
+
+                // --- 2. Highlight実行 ---
+                hljs.highlightElement(code);
+
+                // --- 3. 折りたたみ判定 ---
+                const isPowerShell = ['powershell', 'ps1', 'pwsh'].includes(lang.toLowerCase());
+                const lineCount = code.textContent.split(/\r\n|\r|\n/).length;
+                // 行数が15行以上、またはPowerShellなら折りたたみ
+                const shouldFold = isPowerShell || lineCount > 15;
+
+                // --- 4. コピーボタン作成 ---
+                const copyBtn = document.createElement('button');
+                copyBtn.className = 'copy-btn';
+                copyBtn.textContent = 'Copy';
+                copyBtn.addEventListener('click', async (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
                     try {
                         await navigator.clipboard.writeText(code.innerText);
-                        btn.textContent = 'Copied!';
-                        setTimeout(() => btn.textContent = 'Copy', 2000);
+                        copyBtn.textContent = 'Copied!';
+                        setTimeout(() => copyBtn.textContent = 'Copy', 2000);
                     } catch (err) {
-                        btn.textContent = 'Error';
+                        copyBtn.textContent = 'Error';
                     }
                 });
-                pre.appendChild(btn);
+
+                if (shouldFold) {
+                    // 折りたたみ (Details)
+                    wrapInDetails(pre, title, displayLang, lineCount, copyBtn);
+                } else {
+                    // 折りたたまない (Headerのみ付与)
+                    attachHeader(pre, title, displayLang, copyBtn);
+                }
             });
         }
 
-        function wrapInDetails(preElement, langName, isStronglyFolded) {
-            // <details class="code-details">
-            //   <summary>LangName (XX lines) - Click to expand</summary>
-            //   ... moved pre ...
-            // </details>
-
+        // 折りたたみ用 DOM構築
+        function wrapInDetails(pre, title, lang, lines, btn) {
             const details = document.createElement('details');
             details.className = 'code-details';
-            
-            // 行数概算 (改行コードの数)
-            const text = preElement.textContent;
-            const lineCount = text.split(/\r\n|\r|\n/).length;
 
             const summary = document.createElement('summary');
-            // PowerShellなら明示的に、それ以外はLarge Code扱い
-            const reason = isStronglyFolded ? 'PowerShell' : 'Large Output';
-            summary.textContent = `▶ ${langName || 'Text'} (${lineCount} lines) - Click to show`;
+            
+            // Summaryの中身: [Title] [Language - XX lines]
+            const contentDiv = document.createElement('div');
+            contentDiv.className = 'summary-content';
+            
+            if (title) {
+                const titleSpan = document.createElement('span');
+                titleSpan.className = 'summary-title';
+                titleSpan.textContent = title;
+                contentDiv.appendChild(titleSpan);
+            }
 
-            // preの直前にdetailsを挿入
-            preElement.parentNode.insertBefore(details, preElement);
+            const metaSpan = document.createElement('span');
+            metaSpan.className = 'summary-meta';
+            // 英語表現: Language - XX lines
+            metaSpan.textContent = title ? `(${lang})` : `${lang} - ${lines} lines`;
+            contentDiv.appendChild(metaSpan);
             
-            // preをdetailsの中に移動
-            details.appendChild(preElement);
+            // ボタンをSummaryの右端に置くか、開いた中身に置くか。
+            // ここでは開いたときの中身のヘッダーに置くUIにするため、Summaryには置かない（クリック競合回避）
+            // もしくはSummaryに置くならe.stopPropagationが必要。今回は「開いた中身」にヘッダーをつける。
+
+            summary.appendChild(contentDiv);
+            details.appendChild(summary);
+
+            // Preを挿入
+            pre.parentNode.insertBefore(details, pre);
+            details.appendChild(pre);
+            pre.classList.add('inside-details');
+
+            // 開いたとき用のヘッダーをpreの直前に追加 (コピーボタン置き場として)
+            // Summaryがあるのでタイトルは不要かもしれないが、開いた状態でもコピーボタンは欲しい
+            const internalHeader = document.createElement('div');
+            internalHeader.className = 'code-header';
+            internalHeader.style.borderTop = '1px solid var(--gemini-border)'; // 区切り線
             
-            // CSS調整用クラス
-            preElement.classList.add('inside-details');
+            // 開いている時は「言語名」と「コピーボタン」を表示
+            const langSpan = document.createElement('span');
+            langSpan.style.fontSize = '12px';
+            langSpan.style.color = 'var(--gemini-text-muted)';
+            langSpan.textContent = lang; // シンプルに言語名だけ
+            
+            internalHeader.appendChild(langSpan);
+            internalHeader.appendChild(btn);
+            
+            pre.parentNode.insertBefore(internalHeader, pre);
+        }
+
+        // 折りたたまない場合のヘッダー付与
+        function attachHeader(pre, title, lang, btn) {
+            // Header: [Title?] [Lang] [Copy]
+            const header = document.createElement('div');
+            header.className = 'code-header';
+
+            const leftDiv = document.createElement('div');
+            
+            if (title) {
+                const titleSpan = document.createElement('span');
+                titleSpan.className = 'code-title';
+                titleSpan.textContent = title;
+                leftDiv.appendChild(titleSpan);
+            }
+            
+            const langSpan = document.createElement('span');
+            langSpan.style.color = 'var(--gemini-text-muted)';
+            langSpan.textContent = lang;
+            leftDiv.appendChild(langSpan);
+
+            header.appendChild(leftDiv);
+            header.appendChild(btn);
+
+            pre.parentNode.insertBefore(header, pre);
+            pre.classList.add('has-header');
         }
 
         loadMarkdown();
