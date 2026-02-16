@@ -10,7 +10,7 @@ export PATH=$(echo "$PATH" | tr ':' '\n' | grep -v '/mnt/c/' | paste -sd: -)
 
 ### vhdx 圧縮
 
-```powershell
+```powershell:compact_vhdx.ps1
 #!/usr/bin/env pwsh
 <#
 .SYNOPSIS
