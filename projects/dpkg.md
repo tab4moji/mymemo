@@ -19,12 +19,16 @@ do-release-upgrade -c 2>/dev/null | grep -v "There is no " | grep -w available |
 ### apt
 
 ```bash
-_() { DEBIAN_FRONTEND=noninteractive; sudo -E apt-get install --fix-missing --fix-broken --autoremove -y; }; _
+_() { \
+    DEBIAN_FRONTEND=noninteractive; \
+    sudo -E apt-get install --fix-missing --fix-broken --autoremove -y; \
+};
+_ # 関数呼び出し
 ```
 
 ```bash
-_() {
-    DEBIAN_FRONTEND=noninteractive;
+_() { \
+    DEBIAN_FRONTEND=noninteractive; \
     sudo -E apt-get purge --fix-missing --fix-broken --autoremove -y libx11-6 xfonts* && \
     sudo -E apt-get update && \
     sudo -E apt-get dist-upgrade --fix-missing --fix-broken -y && \
@@ -38,7 +42,8 @@ _() {
     [[ ! -f /etc/apt/sources.list.${old_codename}.tgz ]] && \
     sudo tar czf /etc/apt/sources.list.${old_codename}.tgz /etc/apt/sources.list /etc/apt/sources.list.d 2>/dev/null || echo "None." && \
     sudo find /etc/apt/sources.list /etc/apt/sources.list.d -type f \( -name 'sources.list' -o -name '*.list' -o -name '*.sources' \) -exec sed -Ei.bak -e "/^\s*deb(-src)?\s/ s/\b${old_codename}\b/${codename}/g" -e "/^\s*Suites:/ s/\b${old_codename}(-updates|-security|-backports)?\b/${codename}\1/g" {} + && \
-    sudo -E apt-get update --fix-missing;
-    sudo -E apt-get -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confnew" full-upgrade --fix-missing --fix-broken --autoremove --purge -y
-}; _
+    sudo -E apt-get update --fix-missing; \
+    sudo -E apt-get -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confnew" full-upgrade --fix-missing --fix-broken --autoremove --purge -y; \
+};
+_ # 関数呼び出し
 ```
