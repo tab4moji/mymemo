@@ -24,12 +24,12 @@ _() { DEBIAN_FRONTEND=noninteractive; sudo -E apt-get install --fix-missing --fi
 
 ```bash
 _() {
-    DEBIAN_FRONTEND=noninteractive
+    DEBIAN_FRONTEND=noninteractive;
     sudo -E apt-get purge --fix-missing --fix-broken --autoremove -y libx11-6 xfonts* && \
     sudo -E apt-get update && \
     sudo -E apt-get dist-upgrade --fix-missing --fix-broken -y && \
     [[ \$(which lsb_relase) ]] || sudo -E apt-get install lsb-release git --fix-missing --fix-broken -y && echo && \
-    lsb_release -a && ]
+    lsb_release -a && \
     sudo -E apt-get install -y --fix-missing --fix-broken ubuntu-release-upgrader-core update-manager-core && \
     relver="\$(do-release-upgrade -c | grep -w available | cut -d\' -f2)" && \
     codename="\$(curl -fsSL https://changelogs.ubuntu.com/meta-release | grep -B 4 "\${relver}" | grep -v tar.gz | grep -w "Dist" | cut -d' ' -f2)" && \
