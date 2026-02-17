@@ -7,8 +7,8 @@ _() { local MYVAR="$1"; echo "${MYVAR}"; }; _ 'hello, world!'
 ```
 
 ```bash
-$> alias myecho='_() { local MYVAR="$1"; echo "${MYVAR}"; }; _'
-$> myecho 'hello, world!'
+alias myecho='_() { local MYVAR="$1"; echo "${MYVAR}"; }; _'
+myecho 'hello, world!'
 ```
 
 ### 俺が考えた最強の reset
