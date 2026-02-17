@@ -14,7 +14,7 @@ myecho 'hello, world!'
 ### 俺が考えた最強の reset
 
 ```bash
-alias reset="_() { [ -t 0 ] && stty icanon echo echoe isig iexten icrnl opost -echok -istrip; printf '\033>\033[?25h\033%%G'; }; _"
+alias resetty="_() { [ -t 0 ] && stty icanon echo echoe isig iexten icrnl opost -echok -istrip; printf '\033>\033[?25h\033%%G'; }; _"
 ```
 
 ### 俺が考えた最強の timeout
