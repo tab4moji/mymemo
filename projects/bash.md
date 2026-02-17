@@ -39,137 +39,7 @@ alias vimfind='_() { vim --cmd "set efm=%f" -q <(\find "$@") -c "autocmd FileTyp
 **進捗率不明...デカいファイルや遅いストレージにコピーし始めてから後悔する。あとからでも進捗を知りたいから、常に先回りでワイルドカードだったら全ファイルのサイズを調べておいて、実際のコピーのときは dd とかで通過したバイト数と経過時間から y = ax+b で a と b を予測して内部的に保持、/tmp/ の下に状況を常に更新して、終わったら消し去って欲しい。標準出力が tty だったらプログレスバーを自動で出して欲しい。パイプとか繋がったりシェルの中だったり表示すると問題がありそうだったら、表示しない。で、cp コマンドにないオプションを追加で、cp --status っての打つと、全 cp 中の状況を/tmp/ の下から拾ってきて表示。
 
 Pythonの `argparse` のように、**ショートオプション (`-f`)**、**ロングオプション (`--file`)**、**値の割り当て (`--file=test.txt` や `--file test.txt`)**、そして**ヘルプ**を柔軟に処理できる、移植性の高いBashのボイラープレートを用意した。
-
 外部コマンドの `getopt` は環境（BSD vs GNU）によって挙動が違うから、互換性を重視してビルトインの `while` と `case` で回すのが正解だ。
-
-#### Bash Argument Parsing Template
-
-このスクリプトは以下のパターンをすべて正しく処理する。
-
-* `script.sh -v --name=Gemini input.txt`
-* `script.sh --verbose --name Gemini input.txt`
-* `script.sh -vn Gemini input.txt` (ショートオプションの連結はこれだと複雑になるので、今回はシンプルさ重視で分離推奨だが、構造は拡張可能)
-
-```bash
-#!/bin/bash
-set -euo pipefail
-
-# 1. デフォルト値の設定
-VERBOSE=false
-TARGET_NAME="Guest"
-OUTPUT_FILE=""
-POSITIONAL_ARGS=()
-
-# 2. ヘルプメッセージの定義
-usage() {
-    cat <<EOF
-Usage: $(basename "${BASH_SOURCE[0]}") [OPTIONS] [ARGUMENTS]
-
-Description:
-  Pythonのargparse的なパラメータ解析を行うBashスクリプトのテンプレート。
-
-Options:
-  -n, --name NAME    名前を指定する (Default: Guest)
-  -o, --output FILE  出力ファイルを指定する
-  -v, --verbose      詳細ログを出力する
-  -h, --help         このヘルプを表示する
-
-Examples:
-  $(basename "${BASH_SOURCE[0]}") --name="Gemini" -v input.dat
-EOF
-    exit 1
-}
-
-# 3. パラメータ解析ループ
-parse_args() {
-    while [[ $# -gt 0 ]]; do
-        case "$1" in
-            # --- フラグ (値なし) ---
-            -h|--help)
-                usage
-                ;;
-            -v|--verbose)
-                VERBOSE=true
-                shift
-                ;;
-            
-            # --- 値付き引数 (-o val / --output=val / --output val) ---
-            -n|--name)
-                # "-n val" 形式
-                if [[ -n "${2:-}" && ! ${2:-} =~ ^- ]]; then
-                    TARGET_NAME="$2"
-                    shift 2
-                else
-                    echo "Error: Argument for $1 is missing" >&2
-                    exit 1
-                fi
-                ;;
-            --name=*)
-                # "--name=val" 形式
-                TARGET_NAME="${1#*=}"
-                shift
-                ;;
-            
-            -o|--output)
-                if [[ -n "${2:-}" && ! ${2:-} =~ ^- ]]; then
-                    OUTPUT_FILE="$2"
-                    shift 2
-                else
-                    echo "Error: Argument for $1 is missing" >&2
-                    exit 1
-                fi
-                ;;
-            --output=*)
-                OUTPUT_FILE="${1#*=}"
-                shift
-                ;;
-
-            # --- オプション終了 ---
-            --)
-                shift
-                POSITIONAL_ARGS+=("$@")
-                break
-                ;;
-            
-            # --- 未知のオプション ---
-            -*|--*)
-                echo "Error: Unknown option $1" >&2
-                usage
-                ;;
-            
-            # --- 位置引数 (Positional Arguments) ---
-            *)
-                POSITIONAL_ARGS+=("$1")
-                shift
-                ;;
-        esac
-    done
-}
-
-# メイン処理実行
-main() {
-    parse_args "$@"
-    
-    # 位置引数を再セット (必要であれば)
-    set -- "${POSITIONAL_ARGS[@]}"
-
-    # --- デバッグ出力 (動作確認用) ---
-    echo "--- Config ---"
-    echo "VERBOSE     : ${VERBOSE}"
-    echo "TARGET_NAME : ${TARGET_NAME}"
-    echo "OUTPUT_FILE : ${OUTPUT_FILE:-<none>}"
-    echo "POSITIONAL  : ${POSITIONAL_ARGS[*]}"
-    echo "--------------"
-
-    # ここにロジックを書く
-    if [[ "$VERBOSE" == true ]]; then
-        echo "Verbose mode is ON. Processing..."
-    fi
-}
-
-main "$@"
-```
-
 
 #### ソースコード: `xcp.py`
 
@@ -523,3 +393,131 @@ Pythonの制限や複雑さ回避のため、一部は「引数として受け�
 | `--attributes-only` | 属性のみ | 実装済。データコピーせず `copystat` のみ |
 
 これで、`cp` のオプション体系を保ちつつ、便利なプログレスバーや予測機能を組み合わせることができる。
+
+### Bash Argument Parsing Template
+
+このスクリプトは以下のパターンをすべて正しく処理する。
+
+* `script.sh -v --name=Gemini input.txt`
+* `script.sh --verbose --name Gemini input.txt`
+* `script.sh -vn Gemini input.txt` (ショートオプションの連結はこれだと複雑になるので、今回はシンプルさ重視で分離推奨だが、構造は拡張可能)
+
+```bash
+#!/bin/bash
+set -euo pipefail
+
+# 1. デフォルト値の設定
+VERBOSE=false
+TARGET_NAME="Guest"
+OUTPUT_FILE=""
+POSITIONAL_ARGS=()
+
+# 2. ヘルプメッセージの定義
+usage() {
+    cat <<EOF
+Usage: $(basename "${BASH_SOURCE[0]}") [OPTIONS] [ARGUMENTS]
+
+Description:
+  Pythonのargparse的なパラメータ解析を行うBashスクリプトのテンプレート。
+
+Options:
+  -n, --name NAME    名前を指定する (Default: Guest)
+  -o, --output FILE  出力ファイルを指定する
+  -v, --verbose      詳細ログを出力する
+  -h, --help         このヘルプを表示する
+
+Examples:
+  $(basename "${BASH_SOURCE[0]}") --name="Gemini" -v input.dat
+EOF
+    exit 1
+}
+
+# 3. パラメータ解析ループ
+parse_args() {
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            # --- フラグ (値なし) ---
+            -h|--help)
+                usage
+                ;;
+            -v|--verbose)
+                VERBOSE=true
+                shift
+                ;;
+            
+            # --- 値付き引数 (-o val / --output=val / --output val) ---
+            -n|--name)
+                # "-n val" 形式
+                if [[ -n "${2:-}" && ! ${2:-} =~ ^- ]]; then
+                    TARGET_NAME="$2"
+                    shift 2
+                else
+                    echo "Error: Argument for $1 is missing" >&2
+                    exit 1
+                fi
+                ;;
+            --name=*)
+                # "--name=val" 形式
+                TARGET_NAME="${1#*=}"
+                shift
+                ;;
+            
+            -o|--output)
+                if [[ -n "${2:-}" && ! ${2:-} =~ ^- ]]; then
+                    OUTPUT_FILE="$2"
+                    shift 2
+                else
+                    echo "Error: Argument for $1 is missing" >&2
+                    exit 1
+                fi
+                ;;
+            --output=*)
+                OUTPUT_FILE="${1#*=}"
+                shift
+                ;;
+
+            # --- オプション終了 ---
+            --)
+                shift
+                POSITIONAL_ARGS+=("$@")
+                break
+                ;;
+            
+            # --- 未知のオプション ---
+            -*|--*)
+                echo "Error: Unknown option $1" >&2
+                usage
+                ;;
+            
+            # --- 位置引数 (Positional Arguments) ---
+            *)
+                POSITIONAL_ARGS+=("$1")
+                shift
+                ;;
+        esac
+    done
+}
+
+# メイン処理実行
+main() {
+    parse_args "$@"
+    
+    # 位置引数を再セット (必要であれば)
+    set -- "${POSITIONAL_ARGS[@]}"
+
+    # --- デバッグ出力 (動作確認用) ---
+    echo "--- Config ---"
+    echo "VERBOSE     : ${VERBOSE}"
+    echo "TARGET_NAME : ${TARGET_NAME}"
+    echo "OUTPUT_FILE : ${OUTPUT_FILE:-<none>}"
+    echo "POSITIONAL  : ${POSITIONAL_ARGS[*]}"
+    echo "--------------"
+
+    # ここにロジックを書く
+    if [[ "$VERBOSE" == true ]]; then
+        echo "Verbose mode is ON. Processing..."
+    fi
+}
+
+main "$@"
+```
