@@ -3,7 +3,14 @@
 ### pip 導入
 
 ```python
-_() { local PYTHON_CMD="${1:-python3}"; ${PYTHON_CMD} -m ensurepip && ${PYTHON_CMD} -m pip install -U pip pipdeptree pip-autoremove pip-audit && local PIP_DIR_PATH="$(${PYTHON_CMD} -m pip show pip | grep Location | cut -d':' -f2)"; PYTHONWARNINGS="ignore:The global interpreter lock:RuntimeWarning" ${PYTHON_CMD} ${PIP_DIR_PATH}/pip_audit/__main__.py; }; _
+_() { \
+    local PYTHON_CMD="${1:-python3}"; \
+    ${PYTHON_CMD} -m ensurepip && \
+    ${PYTHON_CMD} -m pip install -U pip pipdeptree pip-autoremove pip-audit && \
+    local PIP_DIR_PATH="$(${PYTHON_CMD} -m pip show pip | grep Location | cut -d':' -f2)"; \
+    PYTHONWARNINGS="ignore:The global interpreter lock:RuntimeWarning" ${PYTHON_CMD} ${PIP_DIR_PATH}/pip_audit/__main__.py; \
+}; \
+_ python3 # 関数実行
 ```
 
 ### python バージョン指定コマンド呼び出し(一部可能)
