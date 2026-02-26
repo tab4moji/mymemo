@@ -66,3 +66,22 @@ ruff check . --exclude "backups,tools,tmps"
 
 * **`.gitignore` の扱い:** Ruffはデフォルトで `.gitignore` に書かれているファイルも無視してくれる。Git管理外にしているなら、あえてRuffの設定に書く必要はないかもしれない。
 * **パスの指定:** パスは設定ファイルがある場所からの相対パス、またはグロブパターン（`**/*.py`など）が使える。
+
+### 基本のメモ
+
+#### 🎯 基本：リスト内包表記で条件抽出
+```python
+data = [
+    {"name": "Alice", "age": 25},
+    {"name": "Bob",   "age": 20},
+    {"name": "Carol", "age": 30},
+]
+
+# age が 25 以上のものだけ
+filtered_data = [x for x in data if x["age"] >= 25]
+print(filtered_data)
+
+# age が 25 以上のものだけ
+filtered_data = list(filter(lambda x: x["age"] >= 25, data))
+print(filtered_data)
+```
