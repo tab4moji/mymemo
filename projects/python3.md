@@ -67,9 +67,19 @@ ruff check . --exclude "backups,tools,tmps"
 * **`.gitignore` の扱い:** Ruffはデフォルトで `.gitignore` に書かれているファイルも無視してくれる。Git管理外にしているなら、あえてRuffの設定に書く必要はないかもしれない。
 * **パスの指定:** パスは設定ファイルがある場所からの相対パス、またはグロブパターン（`**/*.py`など）が使える。
 
-### 基本のメモ
+### 🎯 基本のメモ
 
-#### 🎯 基本：リスト内包表記で条件抽出
+#### ライブラリパス
+
+```python
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+import sys
+sys.path.append('../')
+```
+
+#### リスト内包表記で条件抽出
 ```python
 data = [
     {"name": "Alice", "age": 25},
