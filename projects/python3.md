@@ -82,14 +82,24 @@ sys.path.append('../')
 #### オブジェクト
 
 ```python
+class opaque:
+    pass
+
+a = opaque()
+a.property = 5
+```
+
+```python
 import types
 opaque = types.SimpleNamespace
 
 a = opaque()
+a.property = 5
 ```
 
 ```python
 a = lambda: None # noqa: E731
+a.property = 5 # pylint: disable=no-member
 ```
 
 
