@@ -79,6 +79,20 @@ import sys
 sys.path.append('../')
 ```
 
+#### オブジェクト
+
+```python
+import types
+opaque = types.SimpleNamespace
+
+a = opaque()
+```
+
+```python
+a = lambda: None # noqa: E731
+```
+
+
 #### リスト内包表記で条件抽出
 ```python
 data = [
