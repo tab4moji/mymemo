@@ -200,7 +200,7 @@
 
             for (let i = 0; i < lines.length; i++) {
                 // 先頭のスペース、3つ以上のバッククォート、その後の文字列を抽出
-                const match = lines[i].match(/^(\s*)({3,})(.*)$/);
+                const match = lines[i].match(/^(\s*)(`{3,})(.*)$/);
                 if (match) {
                     const indent = match;[1]
                     const fence = match;
