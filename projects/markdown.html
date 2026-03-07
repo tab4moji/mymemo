@@ -204,7 +204,7 @@
                 if (match) {
                     const indent = match;[1]
                     const fence = match;
-                    const info = match;[2]
+                    const info = match[3] || '';
                     const hasInfo = info.trim().length > 0;
 
                     if (hasInfo) {
