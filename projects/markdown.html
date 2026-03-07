@@ -192,6 +192,57 @@
         const FOLD_THRESHOLD = 20;
         const SHOW_LINES = 10;
 
+        function fixNestedCodeBlocks(text) {
+            const lines = text.split('\n');
+            const out = [...lines];
+
+            let i = 0;
+            while (i < lines.length) {
+                const open = lines[i].match(/^(\s*)(`{3,})(.*)$/);
+                if (!open) {
+                    i += 1;
+                    continue;
+                }
+
+                const openIndent = open[1];
+                const openFence = open[2];
+                const openRest = open[3] ?? '';
+                const fenceLen = openFence.length;
+
+                const closeRe = new RegExp(`^\\s*${'`'.repeat(fenceLen)}\\`*\\s*$`);
+
+                let j = i + 1;
+                let maxRun = fenceLen;
+
+                while (j < lines.length) {
+                    const runs = lines[j].match(/`+/g);
+                    if (runs) {
+                        for (const r of runs) maxRun = Math.max(maxRun, r.length);
+                    }
+                    if (closeRe.test(lines[j])) break;
+                    j += 1;
+                }
+
+                if (j >= lines.length) {
+                    i += 1;
+                    continue;
+                }
+
+                const needed = Math.max(fenceLen, maxRun + 1);
+                if (needed > fenceLen) {
+                    const newFence = '`'.repeat(needed);
+                    out[i] = `${openIndent}${newFence}${openRest}`;
+
+                    const closeIndent = (lines[j].match(/^(\s*)/) ?? ['',''])[1];
+                    out[j] = `${closeIndent}${newFence}`;
+                }
+
+                i = j + 1;
+            }
+
+            return out.join('\n');
+        }
+
         async function loadMarkdown() {
             const params = new URLSearchParams(window.location.search);
             const filename = params.get('content') || 'README';
@@ -202,7 +253,8 @@
                 if (!response.ok) throw new Error(`Failed to load ${filename}`);
 
                 const markdownText = await response.text();
-                const rawHtml = marked.parse(markdownText);
+                const fixedText = fixNestedCodeBlocks(markdownText);
+                const rawHtml = marked.parse(fixedText);
                 const cleanHtml = DOMPurify.sanitize(rawHtml);
                 
                 contentDiv.innerHTML = cleanHtml;
