@@ -248,14 +248,14 @@
                 }
 
                 const needed = Math.max(block.fence.length, maxChildFence + 1);
-                // if (needed > block.fence.length) {
-                //     const newFence = '`'.repeat(needed);
-                //     out[block.index] = block.indent + newFence + block.info;
-                //     if (block.closeIndex !== null) {
-                //         out[block.closeIndex] = block.closeIndent + newFence;
-                //     }
-                //     return needed;
-                // }
+                if (needed > block.fence.length) {
+                    const newFence = '`'.repeat(needed);
+                    out[block.index] = block.indent + newFence + block.info;
+                    if (block.closeIndex !== null) {
+                        out[block.closeIndex] = block.closeIndent + newFence;
+                    }
+                    return needed;
+                }
 
                 return block.fence.length;
             }
@@ -326,7 +326,10 @@
                 if (lang === 'sh') displayLang = 'Bash';
                 if (['ps1', 'pwsh', 'powershell'].includes(lang.toLowerCase())) displayLang = 'PowerShell';
 
-                const originalText = code.textContent;
+                // const を let に変更し、置換処理を追加
+                let originalText = code.textContent;
+                originalText = originalText.replace(/^(\s*)`{4,}(.*)$/gm, '$1```$2'); // 4つ以上のバッククォートを3つに切り詰める
+
                 const lines = originalText.split(/\r\n|\r|\n/);
                 const totalLines = lines.length;
 
