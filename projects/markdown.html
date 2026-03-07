@@ -248,14 +248,14 @@
                 }
 
                 const needed = Math.max(block.fence.length, maxChildFence + 1);
-                if (needed > block.fence.length) {
-                    const newFence = '`'.repeat(needed);
-                    out[block.index] = block.indent + newFence + block.info;
-                    if (block.closeIndex !== null) {
-                        out[block.closeIndex] = block.closeIndent + newFence;
-                    }
-                    return needed;
-                }
+                // if (needed > block.fence.length) {
+                //     const newFence = '`'.repeat(needed);
+                //     out[block.index] = block.indent + newFence + block.info;
+                //     if (block.closeIndex !== null) {
+                //         out[block.closeIndex] = block.closeIndent + newFence;
+                //     }
+                //     return needed;
+                // }
 
                 return block.fence.length;
             }
