@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Markdown Viewer</title>
-    
+
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -42,7 +42,7 @@
         }
 
         /* --- Heading Overrides (見出しスタイルの変更) --- */
-        
+
         /* H2: ページトップ・センタリング・ハッキリタイトル */
         .markdown-body h2 {
             text-align: center;
@@ -195,49 +195,76 @@
         function fixNestedCodeBlocks(text) {
             const lines = text.split('\n');
             const out = [...lines];
+            const stack = [];
+            const blocks = [];
 
-            let i = 0;
-            while (i < lines.length) {
-                const open = lines[i].match(/^(\s*)(`{3,})(.*)$/);
-                if (!open) {
-                    i += 1;
-                    continue;
-                }
+            for (let i = 0; i < lines.length; i++) {
+                // 先頭のスペース、3つ以上のバッククォート、その後の文字列を抽出
+                const match = lines[i].match(/^(\s*)({3,})(.*)$/);
+                if (match) {
+                    const indent = match;[1]
+                    const fence = match;
+                    const info = match;[2]
+                    const hasInfo = info.trim().length > 0;
 
-                const openIndent = open[1];
-                const openFence = open[2];
-                const openRest = open[3] ?? '';
-                const fenceLen = openFence.length;
+                    if (hasInfo) {
+                        // 言語名などの記載がある場合は「開きタグ」としてスタックに乗せる
+                        stack.push({ index: i, indent, fence, info, children: [] });
+                    } else {
+                        if (stack.length > 0) {
+                            // 言語名がなくスタックがある場合は、直近の「開きタグ」を閉じる
+                            const open = stack.pop();
+                            open.closeIndex = i;
+                            open.closeIndent = indent;
 
-                const closeRe = new RegExp(`^\\s*${'`'.repeat(fenceLen)}\\`*\\s*$`);
-
-                let j = i + 1;
-                let maxRun = fenceLen;
-
-                while (j < lines.length) {
-                    const runs = lines[j].match(/`+/g);
-                    if (runs) {
-                        for (const r of runs) maxRun = Math.max(maxRun, r.length);
+                            if (stack.length > 0) {
+                                stack[stack.length - 1].children.push(open);
+                            } else {
+                                blocks.push(open);
+                            }
+                        } else {
+                            // 言語名もなくスタックも空なら、新たな「開きタグ」として扱う
+                            stack.push({ index: i, indent, fence, info, children: [] });
+                        }
                     }
-                    if (closeRe.test(lines[j])) break;
-                    j += 1;
+                }
+            }
+
+            // 閉じられていないタグが残っていたら強制的に閉じる
+            while (stack.length > 0) {
+                const open = stack.pop();
+                open.closeIndex = null;
+                if (stack.length > 0) {
+                    stack[stack.length - 1].children.push(open);
+                } else {
+                    blocks.push(open);
+                }
+            }
+
+            // 内側のブロックの長さを再帰的に調べ、外側のバッククォートの数を「内側の最大値 + 1」に増やす
+            function adjustLengths(block) {
+                let maxChildFence = block.fence.length - 1;
+
+                for (let i = 0; i < block.children.length; i++) {
+                    const childFenceLen = adjustLengths(block.children[i]);
+                    maxChildFence = Math.max(maxChildFence, childFenceLen);
                 }
 
-                if (j >= lines.length) {
-                    i += 1;
-                    continue;
-                }
-
-                const needed = Math.max(fenceLen, maxRun + 1);
-                if (needed > fenceLen) {
+                const needed = Math.max(block.fence.length, maxChildFence + 1);
+                if (needed > block.fence.length) {
                     const newFence = '`'.repeat(needed);
-                    out[i] = `${openIndent}${newFence}${openRest}`;
-
-                    const closeIndent = (lines[j].match(/^(\s*)/) ?? ['',''])[1];
-                    out[j] = `${closeIndent}${newFence}`;
+                    out[block.index] = block.indent + newFence + block.info;
+                    if (block.closeIndex !== null) {
+                        out[block.closeIndex] = block.closeIndent + newFence;
+                    }
+                    return needed;
                 }
 
-                i = j + 1;
+                return block.fence.length;
+            }
+
+            for (let i = 0; i < blocks.length; i++) {
+                adjustLengths(blocks[i]);
             }
 
             return out.join('\n');
@@ -256,9 +283,9 @@
                 const fixedText = fixNestedCodeBlocks(markdownText);
                 const rawHtml = marked.parse(fixedText);
                 const cleanHtml = DOMPurify.sanitize(rawHtml);
-                
+
                 contentDiv.innerHTML = cleanHtml;
-                
+
                 processCodeBlocks();
                 document.title = filename;
 
@@ -292,7 +319,7 @@
                         lang = fullLang;
                     }
                 }
-                
+
                 let displayLang = lang;
                 if (lang === 'js') displayLang = 'JavaScript';
                 if (lang === 'ts') displayLang = 'TypeScript';
@@ -303,16 +330,16 @@
                 const originalText = code.textContent;
                 const lines = originalText.split(/\r\n|\r|\n/);
                 const totalLines = lines.length;
-                
+
                 code.className = `language-${lang}`;
-                code.innerHTML = ''; 
+                code.innerHTML = '';
 
                 const wrapper = document.createElement('div');
                 wrapper.className = 'code-wrapper';
 
                 const header = document.createElement('div');
                 header.className = 'code-header';
-                
+
                 const leftDiv = document.createElement('div');
                 leftDiv.className = 'header-left';
                 if (title) {
@@ -371,7 +398,7 @@
             const snipDiv = document.createElement('div');
             snipDiv.className = 'snip-line';
             snipDiv.textContent = `... snip (${hiddenCount} lines hidden) ... Click to expand all`;
-            
+
             snipDiv.onclick = () => {
                 const fullText = lines.join('\n');
                 codeElement.innerHTML = '';
