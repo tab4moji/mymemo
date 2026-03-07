@@ -193,26 +193,26 @@
         const SHOW_LINES = 10;
 
         function fixNestedCodeBlocks(text) {
-            const lines = text.split('\n');
+            if (!text || typeof text !== 'string') return text;
+
+            // \r\n (Windows), \r (Mac), \n (Linux) 全ての改行コードを安全に分割
+            const lines = text.split(/\r\n|\r|\n/);
             const out = [...lines];
             const stack = [];
             const blocks = [];
 
             for (let i = 0; i < lines.length; i++) {
-                // 先頭のスペース、3つ以上のバッククォート、その後の文字列を抽出
                 const match = lines[i].match(/^(\s*)(`{3,})(.*)$/);
                 if (match) {
-                    const indent = match;[1]
-                    const fence = match;
+                    const indent = match[1] || '';
+                    const fence = match[2] || '';
                     const info = match[3] || '';
                     const hasInfo = info.trim().length > 0;
 
                     if (hasInfo) {
-                        // 言語名などの記載がある場合は「開きタグ」としてスタックに乗せる
-                        stack.push({ index: i, indent, fence, info, children: [] });
+                        stack.push({ index: i, indent: indent, fence: fence, info: info, children: [] });
                     } else {
                         if (stack.length > 0) {
-                            // 言語名がなくスタックがある場合は、直近の「開きタグ」を閉じる
                             const open = stack.pop();
                             open.closeIndex = i;
                             open.closeIndent = indent;
@@ -223,14 +223,12 @@
                                 blocks.push(open);
                             }
                         } else {
-                            // 言語名もなくスタックも空なら、新たな「開きタグ」として扱う
-                            stack.push({ index: i, indent, fence, info, children: [] });
+                            stack.push({ index: i, indent: indent, fence: fence, info: info, children: [] });
                         }
                     }
                 }
             }
 
-            // 閉じられていないタグが残っていたら強制的に閉じる
             while (stack.length > 0) {
                 const open = stack.pop();
                 open.closeIndex = null;
@@ -241,7 +239,6 @@
                 }
             }
 
-            // 内側のブロックの長さを再帰的に調べ、外側のバッククォートの数を「内側の最大値 + 1」に増やす
             function adjustLengths(block) {
                 let maxChildFence = block.fence.length - 1;
 
@@ -267,7 +264,9 @@
                 adjustLengths(blocks[i]);
             }
 
-            return out.join('\n');
+            // 配列ではなく、確実に「改行」で再結合した文字列を返す
+            // （バックスラッシュ落ち対策として文字コード10番を使用）
+            return out.join(String.fromCharCode(10));
         }
 
         async function loadMarkdown() {
