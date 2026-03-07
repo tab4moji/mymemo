@@ -59,6 +59,7 @@ GEMINI.md ルールを厳守してくれ。
 
 ## 3. 保留・次タスク
 * 未解決のバグや、明日に持ち越すタスク。
+```
 
 ## 6. interraction アプリの試行
 
@@ -145,7 +146,6 @@ result = executor.run("echo 'Hello World'; sleep 2")
 print(f"Exit Code: {result.exit_code}")
 print(f"Output: {result.stdout}")
 print(f"Elapsed Time: {result.elapsed:.2f}s")
-```
 ```
 ```
 
