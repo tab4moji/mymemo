@@ -30,6 +30,12 @@ alias vimgrep='_() { vim -q <(\grep "$@") -c "autocmd FileType qf nnoremap <buff
 alias vimfind='_() { vim --cmd "set efm=%f" -q <(\find "$@") -c "autocmd FileType qf nnoremap <buffer> j j<CR><C-w>p" -c "autocmd FileType qf nnoremap <buffer> k k<CR><C-w>p" -c "autocmd FileType qf nnoremap <buffer> e <CR>" -c "cw" -c "autocmd VimEnter * wincmd j"; }; _'
 ```
 
+### 時刻フォーマット
+
+```bash
+date +%Y_%m%d_%H%M_%S
+```
+
 ### 俺が考えた最強の cp
 
 #### cpコマンドを便利化したい。
