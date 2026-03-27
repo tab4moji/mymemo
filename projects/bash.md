@@ -26,7 +26,7 @@ alias timeout='timeout --foreground --signal=INT --kill-after=3s'
 ### 俺が考えた最強の grep / find + vim
 
 ```bash
-alias vimgrep='_() { vim -q <(\grep "$@") -c "autocmd FileType qf nnoremap <buffer> j j<CR><C-w>p" -c "autocmd FileType qf nnoremap <buffer> k k<CR><C-w>p" -c "autocmd FileType qf nnoremap <buffer> e <CR>" -c "cw" -c "autocmd VimEnter * wincmd j"; }; _'
+alias vimgrep='_() { local p=""; for a in "$@"; do if [[ "$a" != -* ]]; then p="$a"; break; fi; done; vim -q <(\grep "$@") -c "let @/='\''\v${p}'\''" -c "set hlsearch" -c "autocmd FileType qf nnoremap <buffer> j j<CR>:setlocal cursorline<CR><C-w>p" -c "autocmd FileType qf nnoremap <buffer> k k<CR>:setlocal cursorline<CR><C-w>p" -c "autocmd FileType qf nnoremap <buffer> e <CR>" -c "botright copen" -c "autocmd VimEnter * wincmd j"; }; _'
 alias vimfind='_() { vim --cmd "set efm=%f" -q <(\find "$@") -c "autocmd FileType qf nnoremap <buffer> j j<CR><C-w>p" -c "autocmd FileType qf nnoremap <buffer> k k<CR><C-w>p" -c "autocmd FileType qf nnoremap <buffer> e <CR>" -c "cw" -c "autocmd VimEnter * wincmd j"; }; _'
 ```
 
