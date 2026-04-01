@@ -38,12 +38,12 @@ date +%Y_%m%d_%H%M_%S
 
 ### ログにタイムスタンプ
 
-```
+```bash
 dpkg -s moreutils >/dev/null 2>&1 || sudo apt -E install -y moreutils
 ```
 
 #### ping で試す
-```
+```bash
 ping -O -c 3 -i 2 -W 1 8.8.8.8 | ts '[%Y-%m-%d %H:%M:%S %Z]'
 ```
 
