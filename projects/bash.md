@@ -36,6 +36,17 @@ alias vimfind='_() { vim --cmd "set efm=%f" -q <(\find "$@") -c "autocmd FileTyp
 date +%Y_%m%d_%H%M_%S
 ```
 
+### ログにタイムスタンプ
+
+```
+dpkg -s moreutils >/dev/null 2>&1 || sudo apt -E install -y moreutils
+```
+
+#### ping で試す
+```
+ping -O -c 3 -i 2 -W 1 8.8.8.8  |  ts '[%Y-%m-%d %H:%M:%S %Z]'
+```
+
 ### 俺が考えた最強の cp
 
 #### cpコマンドを便利化したい。
