@@ -6,7 +6,7 @@
 _() { local MYVAR="$1"; echo "${MYVAR}"; }; _ 'hello, world!'
 ```
 
-```bash
+```bash:使用例
 alias myecho='_() { local MYVAR="$1"; echo "${MYVAR}"; }; _'
 myecho 'hello, world!'
 ```
@@ -548,12 +548,12 @@ https://github.com/yuru7/HackGen/releases
 ### 未分類
 
 #### 拡張Glob
-```
+```bash
 shopt -s extglob
 ```
 
 #### パラメータ展開(Parameter Expansion)
-```
+```bash
 shopt -s extglob
 var=$'スコア: 100点 20回\nスコア: 20点'
 echo "${var/+([0-9])/99}"
@@ -563,7 +563,7 @@ echo "${var//$'\n'/ }" # 改行文字は $'\n' で表現
 
 #### パラメータ展開よりも遅くていいなら perl -pe 一択
 
-```
+```bash
 echo -e "スコア: 100点 20回\nスコア: 20点"
 echo -e "スコア: 100点 20回\nスコア: 20点" | perl -pe 's/[0-9]+/99/'
 echo -e "スコア: 100点 20回\nスコア: 20点" | perl -pe 's/[0-9]+/99/g'
