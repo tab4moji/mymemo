@@ -44,7 +44,7 @@ dpkg -s moreutils >/dev/null 2>&1 || sudo apt -E install -y moreutils
 
 #### ping で試す
 ```
-ping -O -c 3 -i 2 -W 1 8.8.8.8  |  ts '[%Y-%m-%d %H:%M:%S %Z]'
+ping -O -c 3 -i 2 -W 1 8.8.8.8 | ts '[%Y-%m-%d %H:%M:%S %Z]'
 ```
 
 ### 俺が考えた最強の cp
