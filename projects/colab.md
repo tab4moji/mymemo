@@ -5,6 +5,9 @@
 ```python
 from google.colab import drive
 drive.mount('/content/drive')
+
+# source /content/drive/MyDrive/colab_works/init.sh
+################################################################
 ```
 
 ```bash
