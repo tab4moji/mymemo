@@ -135,19 +135,21 @@ select vdisk file="$($Distro.VhdxPath)"
 attach vdisk readonly
 compact vdisk
 detach vdisk
+exit
 "@
             Set-Content -Path $ScriptFile -Value $Commands -Encoding Ascii
 
             # Execute Diskpart
-            $ProcessInfo = New-Object System.Diagnostics.ProcessStartInfo
-            $ProcessInfo.FileName = "diskpart.exe"
-            $ProcessInfo.Arguments = "/s `"$ScriptFile`""
-            $ProcessInfo.RedirectStandardOutput = $true
-            $ProcessInfo.RedirectStandardError = $true
-            $ProcessInfo.UseShellExecute = $false
-            $ProcessInfo.CreateNoWindow = $true
+            # $ProcessInfo = New-Object System.Diagnostics.ProcessStartInfo
+            # $ProcessInfo.FileName = "diskpart.exe"
+            # $ProcessInfo.Arguments = "/s `"$ScriptFile`""
+            # $ProcessInfo.RedirectStandardOutput = $true
+            # $ProcessInfo.RedirectStandardError = $true
+            # $ProcessInfo.UseShellExecute = $false
+            # $ProcessInfo.CreateNoWindow = $true
 
-            $Process = [System.Diagnostics.Process]::Start($ProcessInfo)
+            # $Process = [System.Diagnostics.Process]::Start($ProcessInfo)
+            $Process = Start-Process -FilePath "diskpart.exe" -ArgumentList "/s `"$ScriptFile`"" -Wait -NoNewWindow -PassThru
             $Process.WaitForExit()
 
             # Clean up script
