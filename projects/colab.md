@@ -10,8 +10,7 @@ drive.mount('/content/drive')
 ################################################################
 ```
 
-```bash
-cat << 'EOF' > /content/drive/MyDrive/colab_works/init.sh
+```bash:init.sh
 #!/bin/bash
 # 005 2026-04-06
 # 目的: Colab環境の永続化初期化、積極的save_envの再建と終了時の自動サルベージ必須化
@@ -85,5 +84,4 @@ cd ~/myworks
 echo "Workspace ready!"
 echo "任意のタイミングで 'save_env' を実行して差分保存できる。"
 echo "ターミナル終了時にも自動で save_env が走るから安心だ。"
-EOF
 ```
