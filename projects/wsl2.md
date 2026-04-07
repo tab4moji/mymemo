@@ -212,7 +212,14 @@ $Global:LastExitCode = Main
 
 ### モバイル ホットスポットとwsl
 
-#### wsl から 192.168.137.115 の 11434 ポートにゲートウェイ経由でつなげる
+#### Windows ホストの外部 IP アドレス
+
+```bash:Windows ホストの IP アドレス
+/mnt/c/Program\ Files/PowerShell/7/pwsh.exe -NoProfile -Command 'Get-NetAdapter | Where-Object { $_.Status -eq "Up" -and $_.Name -notmatch "vEthernet|Loopback" } | Get-NetIPAddress -AddressFamily IPv4 |
+Select-Object -ExpandProperty IPAddress' | tr -d '\r'
+```
+
+#### wsl からモバイルホットスポットに接続した端末の 192.168.137.115:11434 ポートにゲートウェイ経由でつなげる
 
 ```powershell
 netsh interface portproxy add v4tov4 listenport=11434 listenaddress=0.0.0.0 connectport=11434 connectaddress=192.168.137.115

@@ -8,7 +8,7 @@ WSLやLinux環境（Ubuntu/Debian）前提で説明する。
 #### 1. Homebrewの導入 (Install)
 端末で以下のコマンドを順に実行するだけだ。
 
-**① インストール**
+**インストール**
 ```bash
 brew doctor || { NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"; sudo -E apt update -y && sudo -E apt full-upgrade -y && sudo -E apt install build-essential -y && brew doctor; }
 ```
@@ -34,12 +34,17 @@ WSLやLinux環境（Ubuntu/Debian）前提で説明する。
 #### 1. uvの導入 (Install)
 端末で以下のコマンドを順に実行するだけだ。
 
-**① インストール**
+**インストール**
 ```bash
 uv --version || { NONINTERACTIVE=1 /bin/bash -c "$(curl -LsSf https://astral.sh/uv/install.sh)"; }
 ```
 
-#### 2. 完全アンインストール (Clean Uninstall)
+#### 2. 使用例
+```bash
+uv python install 3.14t
+```
+
+#### 3. 完全アンインストール (Clean Uninstall)
 「管理下の物（パッケージ）も含めて綺麗さっぱり」とのことなので、以下の手順で根こそぎ消す。
 
 **アンインストール**
