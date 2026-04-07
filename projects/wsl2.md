@@ -220,11 +220,11 @@ $Global:LastExitCode = Main
 
 #### wsl からモバイルホットスポットに接続した端末の 192.168.137.115:11434 ポートにゲートウェイ経由でつなげる
 
-```powershell
+```powershell:両者同じポート番号でポートフォワード
 netsh interface portproxy add v4tov4 listenport=11434 listenaddress=0.0.0.0 connectport=11434 connectaddress=192.168.137.115
 ```
 
-```bash
+```bash:つなげてみる
 GATEWAY_IP=$(ip route show | grep default | awk '{print $3}') && echo "Windows Host IP: $GATEWAY_IP" && curl -v http://$GATEWAY_IP:11434
 ```
 
