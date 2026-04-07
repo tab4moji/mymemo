@@ -8,7 +8,7 @@ WSLやLinux環境（Ubuntu/Debian）前提で説明する。
 
 **① インストール**
 ```bash
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" && (echo; echo 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"') >> ~/.bashrc && eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)" && brew doctor
+NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" && (echo; echo 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"') >> ~/.bashrc && eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)" && brew doctor
 ```
 ※ 途中で `Press RETURN/ENTER to continue` と出たらEnterを押す。パスワードを聞かれたら入力する。
 `Your system is ready to brew.` と出れば完了だ。
@@ -21,6 +21,6 @@ WSLやLinux環境（Ubuntu/Debian）前提で説明する。
 **アンインストール**
 まず、Homebrew本体とパッケージ管理情報を削除する。
 ```bash
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/uninstall.sh)" && sudo rm -rf /home/linuxbrew && rm -rf ~/.cache/Homebrew && rm -rf ~/.linuxbrew
+NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/uninstall.sh)" && sudo rm -rf /home/linuxbrew && rm -rf ~/.cache/Homebrew && rm -rf ~/.linuxbrew
 ```
 ※ 実行中に「本当に消していいか？」と聞かれるので `y` を押して進める。
