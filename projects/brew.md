@@ -8,9 +8,9 @@ WSLやLinux環境（Ubuntu/Debian）前提で説明する。
 
 **① インストール**
 ```bash
-NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" && (echo; echo 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"') >> ~/.bashrc && eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)" && brew doctor
+brew doctor || { NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"; sudo -E apt update -y && sudo -E apt full-upgrade -y && su
+do -E apt install build-essential -y && brew doctor; }
 ```
-※ 途中で `Press RETURN/ENTER to continue` と出たらEnterを押す。パスワードを聞かれたら入力する。
 `Your system is ready to brew.` と出れば完了だ。
 
 ***
