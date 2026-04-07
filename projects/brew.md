@@ -8,8 +8,7 @@ WSLやLinux環境（Ubuntu/Debian）前提で説明する。
 
 **① インストール**
 ```bash
-brew doctor || { NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"; sudo -E apt update -y && sudo -E apt full-upgrade -y && su
-do -E apt install build-essential -y && brew doctor; }
+brew doctor || { NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"; sudo -E apt update -y && sudo -E apt full-upgrade -y && sudo -E apt install build-essential -y && brew doctor; }
 ```
 `Your system is ready to brew.` と出れば完了だ。
 
