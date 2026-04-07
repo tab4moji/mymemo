@@ -14,8 +14,6 @@ brew doctor || { NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubu
 ```
 `Your system is ready to brew.` と出れば完了だ。
 
-***
-
 #### 2. 完全アンインストール (Clean Uninstall)
 「管理下の物（パッケージ）も含めて綺麗さっぱり」とのことなので、以下の手順で根こそぎ消す。
 
@@ -26,6 +24,7 @@ NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Ho
 ```
 ※ 実行中に「本当に消していいか？」と聞かれるので `y` を押して進める。
 
+***
 
 ### uv
 
@@ -39,8 +38,6 @@ WSLやLinux環境（Ubuntu/Debian）前提で説明する。
 ```bash
 uv --version || { NONINTERACTIVE=1 /bin/bash -c "$(curl -LsSf https://astral.sh/uv/install.sh)"; }
 ```
-
-***
 
 #### 2. 完全アンインストール (Clean Uninstall)
 「管理下の物（パッケージ）も含めて綺麗さっぱり」とのことなので、以下の手順で根こそぎ消す。
