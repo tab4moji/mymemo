@@ -2,9 +2,7 @@
 
 ### WSLがAdministratorなのかどうか
 
-Admin権限なら True
-
-```bash
+```bash:Admin権限なら True
 "/mnt/c/Program Files/PowerShell/7/pwsh.exe" -Command "[bool]([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)"
 ```
 
