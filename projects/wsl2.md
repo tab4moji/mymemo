@@ -1,15 +1,23 @@
 ## WSLを快適にしたい
 
-### sshdのための経路
+### ネットワーク経路
 
-```bash:ネットワーク開通
+```bash:Windows ホストの IP アドレス
+/mnt/c/Program\ Files/PowerShell/7/pwsh.exe -NoProfile -Command 'Get-NetAdapter | Where-Object { $_.Status -eq "Up" -and $_.Name -notmatch "vEthernet|Loopback" } | Get-NetIPAddress -AddressFamily IPv4 | Select-Object -ExpandProperty IPAddress' | tr -d '\r'
+```
+
+```bash:WSL の IP アドレス
+ip addr | \grep -E "global eth[0-9]" | sed -E 's/[ \t\/:]+/ /g' | cut -d' ' -f3
+```
+
+```bash:sshネットワーク開通
 /mnt/c/Program\ Files/PowerShell/7/pwsh.exe -Command "netsh interface portproxy add v4tov4 listenport=22 listenaddress=0.0.0.0 connectport=22 connectaddress=$(ip addr | \grep -E "global eth[0-9]" | sed -E 's/[ \t\/:]+/ /g' | cut -d' ' -f3)"
 /mnt/c/Program\ Files/PowerShell/7/pwsh.exe -Command "New-NetFirewallRule -DisplayName 'WSL SSH Forwarding' -Direction Inbound -Action Allow -Protocol TCP -LocalPort 22"
 /mnt/c/Program\ Files/PowerShell/7/pwsh.exe -Command "netsh interface portproxy show v4tov4"
 /mnt/c/Program\ Files/PowerShell/7/pwsh.exe -Command "Get-NetFirewallRule -DisplayName 'WSL SSH Forwarding'"
 ```
 
-```bash:ネットワーク閉鎖
+```bash:sshネットワーク閉鎖
 /mnt/c/Program\ Files/PowerShell/7/pwsh.exe -Command "netsh interface portproxy delete v4tov4 listenport=22 listenaddress=0.0.0.0"
 /mnt/c/Program\ Files/PowerShell/7/pwsh.exe -Command "Remove-NetFirewallRule -DisplayName 'WSL SSH Forwarding'"
 /mnt/c/Program\ Files/PowerShell/7/pwsh.exe -Command "netsh interface portproxy show v4tov4"
@@ -227,12 +235,6 @@ $Global:LastExitCode = Main
 ```
 
 ### モバイル ホットスポットとwsl
-
-#### Windows ホストの外部 IP アドレス
-
-```bash:Windows ホストの IP アドレス
-/mnt/c/Program\ Files/PowerShell/7/pwsh.exe -NoProfile -Command 'Get-NetAdapter | Where-Object { $_.Status -eq "Up" -and $_.Name -notmatch "vEthernet|Loopback" } | Get-NetIPAddress -AddressFamily IPv4 | Select-Object -ExpandProperty IPAddress' | tr -d '\r'
-```
 
 #### wsl からモバイルホットスポットに接続した端末の 192.168.137.115:11434 ポートにゲートウェイ経由でつなげる
 
