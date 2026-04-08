@@ -1,15 +1,15 @@
 ## WSLを快適にしたい
 
-### sshd
+### sshdのための経路
 
-```bash:開始
+```bash:ネットワーク開通
 /mnt/c/Program\ Files/PowerShell/7/pwsh.exe -Command "netsh interface portproxy add v4tov4 listenport=22 listenaddress=0.0.0.0 connectport=22 connectaddress=$(ip addr | \grep -E "global eth[0-9]" | sed -E 's/[ \t\/:]+/ /g' | cut -d' ' -f3)"
 /mnt/c/Program\ Files/PowerShell/7/pwsh.exe -Command "New-NetFirewallRule -DisplayName 'WSL SSH Forwarding' -Direction Inbound -Action Allow -Protocol TCP -LocalPort 22"
 /mnt/c/Program\ Files/PowerShell/7/pwsh.exe -Command "netsh interface portproxy show v4tov4"
 /mnt/c/Program\ Files/PowerShell/7/pwsh.exe -Command "Get-NetFirewallRule -DisplayName 'WSL SSH Forwarding'"
 ```
 
-```bash:やめる
+```bash:ネットワーク閉鎖
 /mnt/c/Program\ Files/PowerShell/7/pwsh.exe -Command "netsh interface portproxy delete v4tov4 listenport=22 listenaddress=0.0.0.0"
 /mnt/c/Program\ Files/PowerShell/7/pwsh.exe -Command "Remove-NetFirewallRule -DisplayName 'WSL SSH Forwarding'"
 /mnt/c/Program\ Files/PowerShell/7/pwsh.exe -Command "netsh interface portproxy show v4tov4"
