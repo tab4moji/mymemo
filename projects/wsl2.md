@@ -3,13 +3,13 @@
 ### sshd
 
 ```bash:開始
-/mnt/c/Program\ Files/PowerShell/7/pwsh.exe -Command "netsh interface portproxy add v4tov4 listenport=22 listenaddress=0.0.0.0 connectport=22 connectaddress=$(/mnt/c/Program\ Files/PowerShell/7/pwsh.exe -NoProfile -Command 'Get-NetAdapter | Where-Object { $_.Status -eq "Up" -and $_.Name -notmatch "vEthernet|Loopback" } | Get-NetIPAddress -AddressFamily IPv4 | Select-Object -ExpandProperty IPAddress' | tr -d '\r')"
+/mnt/c/Program\ Files/PowerShell/7/pwsh.exe -Command "netsh interface portproxy add v4tov4 listenport=22 listenaddress=0.0.0.0 connectport=22 connectaddress=$(ip addr | \grep -E "global eth[0-9]" | sed -E 's/[ \t\/:]+/ /g' | cut -d' ' -f3)"
 /mnt/c/Program\ Files/PowerShell/7/pwsh.exe -Command "New-NetFirewallRule -DisplayName 'WSL SSH Forwarding' -Direction Inbound -Action Allow -Protocol TCP -LocalPort 22"
 ```
 
 ```bash:やめる
 /mnt/c/Program\ Files/PowerShell/7/pwsh.exe -Command "Remove-NetFirewallRule -DisplayName 'WSL SSH Forwarding'"
-/mnt/c/Program\ Files/PowerShell/7/pwsh.exe -Command "netsh interface portproxy delete v4tov4 listenport=22 listenaddress=0.0.0.0 connectport=22 connectaddress=$(/mnt/c/Program\ Files/PowerShell/7/pwsh.exe -NoProfile -Command 'Get-NetAdapter | Where-Object { $_.Status -eq "Up" -and $_.Name -notmatch "vEthernet|Loopback" } | Get-NetIPAddress -AddressFamily IPv4 | Select-Object -ExpandProperty IPAddress' | tr -d '\r')"
+/mnt/c/Program\ Files/PowerShell/7/pwsh.exe -Command "netsh interface portproxy delete v4tov4 listenport=22 listenaddress=0.0.0.0 connectport=22 connectaddress=$(ip addr | \grep -E "global eth[0-9]" | sed -E 's/[ \t\/:]+/ /g' | cut -d' ' -f3)"
 ```
 
 ### /mnt/c/... 邪魔
