@@ -126,5 +126,9 @@ then
 fi
 
 echo "Run:"
-echo "litert-torch export_hf ./local_gemma_model ./gemma4_output --task=text_generation --quantization_recipe=\"int4\" --prefill_lengths=512 --cache_length=512 --bundle_litert_lm=True --experimental_lightweight_conversion=True --externalize_embedder"
+echo "litert-torch export_hf ./local_gemma_model ./gemma4_output --task=text_generation --quantization_recipe="weight_only_wi4_afp32" --prefill_lengths="[512]" --cache_length=512 --bundle_litert_lm=True --experimental_lightweight_conversion=True --externalize_embedder"
+```
+
+```bash
+litert-torch export_hf ./local_gemma_model ./gemma4_output --task=text_generation --quantization_recipe="weight_only_wi4_afp32" --prefill_lengths="[512]" --cache_length=512 --bundle_litert_lm=True --experimental_lightweight_conversion=True --externalize_embedder
 ```
