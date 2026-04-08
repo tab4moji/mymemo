@@ -9,7 +9,7 @@
 
 ```bash:やめる
 /mnt/c/Program\ Files/PowerShell/7/pwsh.exe -Command "Remove-NetFirewallRule -DisplayName 'WSL SSH Forwarding'"
-/mnt/c/Program\ Files/PowerShell/7/pwsh.exe -Command "netsh interface portproxy delete v4tov4 listenport=22 listenaddress=0.0.0.0 connectport=22 connectaddress=$(ip addr | \grep -E "global eth[0-9]" | sed -E 's/[ \t\/:]+/ /g' | cut -d' ' -f3)"
+/mnt/c/Program\ Files/PowerShell/7/pwsh.exe -Command "netsh interface portproxy delete v4tov4 listenport=22 listenaddress=0.0.0.0"
 ```
 
 ### /mnt/c/... 邪魔
