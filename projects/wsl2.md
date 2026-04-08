@@ -1,8 +1,16 @@
 ## WSLを快適にしたい
 
+### WSLがAdministratorなのかどうか
+
+Admin権限なら True
+
+```bash
+"/mnt/c/Program Files/PowerShell/7/pwsh.exe" -Command "[bool]([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)"
+```
+
 ### ネットワーク経路
 
-### 概要と結論
+#### 概要と結論
 WSL2のネットワークはWindowsホストから独立した仮想ネットワークにあるため、外部PCから直接WSLのIPアドレスを指定してアクセスすることはできない。
 
 これを実現するには以下の3ステップが必要だ。
@@ -10,7 +18,7 @@ WSL2のネットワークはWindowsホストから独立した仮想ネットワ
 2. Windowsホストで `netsh portproxy` を使い、WindowsへのアクセスをWSLへ転送（ポートフォワーディング）する。
 3. Windowsのファイアウォールで該当ポートの外部からの通信を許可する。
 
-#### ⚠️WSL再起動時の注意点
+##### ⚠️WSL再起動時の注意点
 WSL2はWindowsを再起動したりWSLをシャットダウンしたりするたびに、仮想IPアドレスが変わってしまう仕様だ。
 IPが変わるとフォワーディング先が迷子になるため、起動のたびに手順2の `netsh` の `connectaddress` を新しいIPで上書き更新する必要がある。
 
@@ -34,6 +42,57 @@ ip addr | \grep -E "global eth[0-9]" | sed -E 's/[ \t\/:]+/ /g' | cut -d' ' -f3
 /mnt/c/Program\ Files/PowerShell/7/pwsh.exe -Command "Remove-NetFirewallRule -DisplayName 'WSL SSH Forwarding'"
 /mnt/c/Program\ Files/PowerShell/7/pwsh.exe -Command "netsh interface portproxy show v4tov4"
 /mnt/c/Program\ Files/PowerShell/7/pwsh.exe -Command "Get-NetFirewallRule -DisplayName 'WSL SSH Forwarding'"
+```
+
+### モバイルホットスポットに接続した**端末 192.168.137.115:11434** にゲートウェイ経由でつなげる
+
+```powershell:両者同じポート番号でポートフォワード
+netsh interface portproxy add v4tov4 listenport=11434 listenaddress=0.0.0.0 connectport=11434 connectaddress=192.168.137.115
+```
+
+```bash:つなげてみる
+GATEWAY_IP=$(ip route show | grep default | awk '{print $3}') && echo "Windows Host IP: $GATEWAY_IP" && curl -v http://$GATEWAY_IP:11434
+```
+
+#### 使う必要があるか不明 firewall
+
+```firewall 設定を探す
+Get-NetFirewallRule -DisplayName "MyPersnal*"
+```
+
+```firewall 設定を消す
+Remove-NetFirewallRule -DisplayName "MyPersnal*"
+```
+
+```firewall 穴あけの設定をする
+New-NetFirewallRule -DisplayName "MyPersonalRule" -Direction Inbound -LocalPort 11434 -Protocol TCP -Action Allow; netsh interface portproxy add v4tov4 listenport=11434 listenaddress=0.0.0.0 connectport=11434 connectaddress=192.168.137.115
+```
+
+#### すっきりしたいとき
+
+```powershell
+PS C:\> netsh interface portproxy show v4tov4
+
+ipv4 をリッスンする:         ipv4 に接続する:
+
+Address         Port        Address         Port
+--------------- ----------  --------------- ----------
+192.168.137.115 11434       172.20.4.52     11434
+127.0.0.1       11434       172.20.4.52     11434
+0.0.0.0         11435       192.168.137.115 11434
+0.0.0.0         11434       192.168.137.115 11434
+```
+
+```powershell
+netsh interface portproxy show v4tov4
+```
+
+```powershell
+netsh interface portproxy delete v4tov4 listenaddress=192.168.137.115 listenport=11434
+netsh interface portproxy delete v4tov4 listenaddress=127.0.0.1 listenport=11434
+netsh interface portproxy delete v4tov4 listenaddress=0.0.0.0 listenport=11435
+netsh interface portproxy delete v4tov4 listenaddress=0.0.0.0 listenport=11434
+netsh interface portproxy show v4tov4
 ```
 
 ### /mnt/c/... 邪魔
@@ -244,67 +303,6 @@ function Main {
 }
 
 $Global:LastExitCode = Main
-```
-
-### モバイル ホットスポットとwsl
-
-#### wsl からモバイルホットスポットに接続した端末の 192.168.137.115:11434 ポートにゲートウェイ経由でつなげる
-
-```powershell:両者同じポート番号でポートフォワード
-netsh interface portproxy add v4tov4 listenport=11434 listenaddress=0.0.0.0 connectport=11434 connectaddress=192.168.137.115
-```
-
-```bash:つなげてみる
-GATEWAY_IP=$(ip route show | grep default | awk '{print $3}') && echo "Windows Host IP: $GATEWAY_IP" && curl -v http://$GATEWAY_IP:11434
-```
-
-#### すっきりしたいとき
-
-```powershell
-PS C:\> netsh interface portproxy show v4tov4
-
-ipv4 をリッスンする:         ipv4 に接続する:
-
-Address         Port        Address         Port
---------------- ----------  --------------- ----------
-192.168.137.115 11434       172.20.4.52     11434
-127.0.0.1       11434       172.20.4.52     11434
-0.0.0.0         11435       192.168.137.115 11434
-0.0.0.0         11434       192.168.137.115 11434
-```
-
-```powershell
-netsh interface portproxy show v4tov4
-```
-
-```powershell
-netsh interface portproxy delete v4tov4 listenaddress=192.168.137.115 listenport=11434
-netsh interface portproxy delete v4tov4 listenaddress=127.0.0.1 listenport=11434
-netsh interface portproxy delete v4tov4 listenaddress=0.0.0.0 listenport=11435
-netsh interface portproxy delete v4tov4 listenaddress=0.0.0.0 listenport=11434
-netsh interface portproxy show v4tov4
-```
-
-#### 使う必要があるか不明 firewall
-
-```firewall 設定を探す
-Get-NetFirewallRule -DisplayName "MyPersnal*"
-```
-
-```firewall 設定を消す
-Remove-NetFirewallRule -DisplayName "MyPersnal*"
-```
-
-```firewall 穴あけの設定をする
-New-NetFirewallRule -DisplayName "MyPersonalRule" -Direction Inbound -LocalPort 11434 -Protocol TCP -Action Allow; netsh interface portproxy add v4tov4 listenport=11434 listenaddress=0.0.0.0 connectport=11434 connectaddress=192.168.137.115
-```
-
-### Administratorなのかどうか
-
-Admin権限なら True
-
-```bash
-"/mnt/c/Program Files/PowerShell/7/pwsh.exe" -Command "[bool]([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)"
 ```
 
 ### wsl で USB デバイスをそれなりに使う
