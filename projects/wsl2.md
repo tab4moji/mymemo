@@ -2,11 +2,23 @@
 
 ### ネットワーク経路
 
-```bash:Windows ホストの IP アドレス
+### 概要と結論
+WSL2のネットワークはWindowsホストから独立した仮想ネットワークにあるため、外部PCから直接WSLのIPアドレスを指定してアクセスすることはできない。
+
+これを実現するには以下の3ステップが必要だ。
+1. WSL上でSSHサーバー（`sshd`）を起動する。
+2. Windowsホストで `netsh portproxy` を使い、WindowsへのアクセスをWSLへ転送（ポートフォワーディング）する。
+3. Windowsのファイアウォールで該当ポートの外部からの通信を許可する。
+
+#### ⚠️WSL再起動時の注意点
+WSL2はWindowsを再起動したりWSLをシャットダウンしたりするたびに、仮想IPアドレスが変わってしまう仕様だ。
+IPが変わるとフォワーディング先が迷子になるため、起動のたびに手順2の `netsh` の `connectaddress` を新しいIPで上書き更新する必要がある。
+
+```bash:WindowsホストのIPアドレス
 /mnt/c/Program\ Files/PowerShell/7/pwsh.exe -NoProfile -Command 'Get-NetAdapter | Where-Object { $_.Status -eq "Up" -and $_.Name -notmatch "vEthernet|Loopback" } | Get-NetIPAddress -AddressFamily IPv4 | Select-Object -ExpandProperty IPAddress' | tr -d '\r'
 ```
 
-```bash:WSL の IP アドレス
+```bash:WSLのWindows内IPアドレス
 ip addr | \grep -E "global eth[0-9]" | sed -E 's/[ \t\/:]+/ /g' | cut -d' ' -f3
 ```
 
