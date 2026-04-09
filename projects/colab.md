@@ -131,6 +131,10 @@ echo "Run:"
 echo "litert-torch export_hf ./local_gemma_model /content/local_gemma_output --task=text_generation --quantization_recipe=\"weight_only_wi4_afp32\" --prefill_lengths=\"[512]\" --cache_length=512 --bundle_litert_lm=True --experimental_lightweight_conversion=True --externalize_embedder"
 ```
 
-```bash
+```bash:変換開始
 litert-torch export_hf ./local_gemma_model /content/local_gemma_output --task=text_generation --quantization_recipe="weight_only_wi4_afp32" --prefill_lengths="[512]" --cache_length=512 --bundle_litert_lm=True --experimental_lightweight_conversion=True --externalize_embedder
+```
+
+```bash:できたモデルをGoogleDriveへ退避
+cp -r /content/local_gemma_output /content/drive/MyDrive/colab_works/
 ```
