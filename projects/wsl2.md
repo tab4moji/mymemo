@@ -16,10 +16,6 @@ WSL2のネットワークはWindowsホストから独立した仮想ネットワ
 2. Windowsホストで `netsh portproxy` を使い、WindowsへのアクセスをWSLへ転送（ポートフォワーディング）する。
 3. Windowsのファイアウォールで該当ポートの外部からの通信を許可する。
 
-##### ⚠️WSL再起動時の注意点
-WSL2はWindowsを再起動したりWSLをシャットダウンしたりするたびに、仮想IPアドレスが変わってしまう仕様だ。
-IPが変わるとフォワーディング先が迷子になるため、起動のたびに手順2の `netsh` の `connectaddress` を新しいIPで上書き更新する必要がある。
-
 ```bash:WindowsホストのIPアドレス
 /mnt/c/Program\ Files/PowerShell/7/pwsh.exe -NoProfile -Command 'Get-NetAdapter | Where-Object { $_.Status -eq "Up" -and $_.Name -notmatch "vEthernet|Loopback" } | Get-NetIPAddress -AddressFamily IPv4 | Select-Object -ExpandProperty IPAddress' | tr -d '\r'
 ```
@@ -41,6 +37,15 @@ ip addr | \grep -E "global eth[0-9]" | sed -E 's/[ \t\/:]+/ /g' | cut -d' ' -f3
 /mnt/c/Program\ Files/PowerShell/7/pwsh.exe -Command "netsh interface portproxy show v4tov4"
 /mnt/c/Program\ Files/PowerShell/7/pwsh.exe -Command "Get-NetFirewallRule -DisplayName 'WSL SSH Forwarding'"
 ```
+
+```bash:確認
+/mnt/c/Program\ Files/PowerShell/7/pwsh.exe -Command 'Get-NetFirewallRule | Where-Object { [string]::IsNullOrWhiteSpace($_.DisplayGroup) } | Select-Object DisplayName, Name, Direction, Action | Format-Table -AutoSize'
+/mnt/c/Program\ Files/PowerShell/7/pwsh.exe -Command "netsh interface portproxy show v4tov4"
+```
+
+##### ⚠️WSL再起動時の注意点
+WSL2はWindowsを再起動したりWSLをシャットダウンしたりするたびに、仮想IPアドレスが変わってしまう仕様だ。
+IPが変わるとフォワーディング先が迷子になるため、起動のたびに手順2の `netsh` の `connectaddress` を新しいIPで上書き更新する必要がある。
 
 ### モバイルホットスポットに接続した**端末 192.168.137.115:11434** にゲートウェイ経由でつなげる
 
