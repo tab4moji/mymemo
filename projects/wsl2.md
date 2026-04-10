@@ -47,6 +47,19 @@ ip addr | \grep -E "global eth[0-9]" | sed -E 's/[ \t\/:]+/ /g' | cut -d' ' -f3
 WSL2はWindowsを再起動したりWSLをシャットダウンしたりするたびに、仮想IPアドレスが変わってしまう仕様だ。
 IPが変わるとフォワーディング先が迷子になるため、起動のたびに手順2の `netsh` の `connectaddress` を新しいIPで上書き更新する必要がある。
 
+```bash:🔛ネットワーク開通
+_() { local port_number="$1"; /mnt/c/Program\ Files/PowerShell/7/pwsh.exe -Command "netsh interface portproxy add v4tov4 listenport=${port_number} listenaddress=0.0.0.0 connectport=${port_number} connectaddress=$(ip addr | \grep -E 'global eth[0-9]' | sed -E 's/[ \t\/:]+/ /g' | cut -d' ' -f3); New-NetFirewallRule -DisplayName 'WSL Port${port_number} Forwarding' -Direction Inbound -Action Allow -Protocol TCP -LocalPort ${port_number}; netsh interface portproxy show v4tov4; Get-NetFirewallRule -DisplayName 'WSL Port${port_number} Forwarding'"; }; _ 11434
+```
+
+```bash:ℹ️確認
+/mnt/c/Program\ Files/PowerShell/7/pwsh.exe -Command 'Get-NetFirewallRule | Where-Object { [string]::IsNullOrWhiteSpace($_.DisplayGroup) } | Select-Object DisplayName, Name, Direction, Action | Format-Table -AutoSize'
+/mnt/c/Program\ Files/PowerShell/7/pwsh.exe -Command "netsh interface portproxy show v4tov4"
+```
+
+```bash:⛔ネットワーク閉鎖
+_() { local port_number="$1"; /mnt/c/Program\ Files/PowerShell/7/pwsh.exe -Command "netsh interface portproxy delete v4tov4 listenport=${port_number} listenaddress=0.0.0.0; Remove-NetFirewallRule -DisplayName 'WSL Port${port_number} Forwarding'"; }; _ 11434
+```
+
 ### モバイルホットスポットに接続した**端末 192.168.137.115:11434** にゲートウェイ経由でつなげる
 
 ```powershell:両者同じポート番号でポートフォワード
