@@ -16,11 +16,11 @@ WSL2のネットワークはWindowsホストから独立した仮想ネットワ
 2. Windowsホストで `netsh portproxy` を使い、WindowsへのアクセスをWSLへ転送（ポートフォワーディング）する。
 3. Windowsのファイアウォールで該当ポートの外部からの通信を許可する。
 
-```bash:WindowsホストのIPアドレス
+```bash:💻WindowsホストのIPアドレス
 /mnt/c/Program\ Files/PowerShell/7/pwsh.exe -NoProfile -Command 'Get-NetAdapter | Where-Object { $_.Status -eq "Up" -and $_.Name -notmatch "vEthernet|Loopback" } | Get-NetIPAddress -AddressFamily IPv4 | Select-Object -ExpandProperty IPAddress' | tr -d '\r'
 ```
 
-```bash:WSLのWindows内IPアドレス
+```bash:🐧WSLのWindows内IPアドレス
 ip addr | \grep -E "global eth[0-9]" | sed -E 's/[ \t\/:]+/ /g' | cut -d' ' -f3
 ```
 
