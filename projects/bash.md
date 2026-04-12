@@ -23,6 +23,48 @@ alias resetty="_() { [ -t 0 ] && stty icanon echo echoe isig iexten icrnl opost 
 alias timeout='timeout --foreground --signal=INT --kill-after=3s'
 ```
 
+### 俺が考えた最強の nohup
+
+```bash
+function spawn () {
+    if [[ $# -eq 0 ]]
+    then
+        echo "Usage: spawn <command> [args...]" >&2
+        return 1
+    fi
+
+    function __INTERNAL_FUNCTION_spawn () {
+        # execを使わず、bashの機能(wait, trap)を利用して終了検知とクリーンアップを行う
+        setsid -f bash -c '
+            pid=$$
+            out="/tmp/spawn.${pid}.stdout"
+            err="/tmp/spawn.${pid}.stderr"
+            run_file="/tmp/spawn.${pid}.running"
+
+            echo "[INFO] Detached wrapper started. PID: ${pid}" >&3
+            echo "[INFO] STDOUT: ${out}" >&3
+            echo "[INFO] STDERR: ${err}" >&3
+
+            # 正常終了・強制終了(SIGKILL除く)の際に必ず .running を消すトラップ
+            trap "rm -f ${run_file}" EXIT
+
+            # 実際のコマンドをバックグラウンド実行して実プロセスのPIDを取得
+            "$@" > "${out}" 2> "${err}" < /dev/null 3>&- &
+            child_pid=$!
+
+            # .runningファイルを作成し、実体プロセスのPIDを記録しておく
+            echo "${child_pid}" > "${run_file}"
+
+            # 子プロセスの終了を待機する
+            wait "${child_pid}"
+
+        ' _ "$@" 3>&1
+    }
+
+    __INTERNAL_FUNCTION_spawn bash -c "$@"
+}
+```
+
 ### 俺が考えた最強の grep / find + vim
 
 ```bash
