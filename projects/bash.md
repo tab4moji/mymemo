@@ -1,31 +1,25 @@
 ## シェルを便利にしたい
 
-### 俺が考えた最強の alias 構築法
+### 俺が考えた最強シリーズ
 
-```bash
+```bash:alias 構築法
 _() { local MYVAR="$1"; echo "${MYVAR}"; }; _ 'hello, world!'
 ```
 
-```bash:使用例
+```bash:alias 構築例
 alias myecho='_() { local MYVAR="$1"; echo "${MYVAR}"; }; _'
 myecho 'hello, world!'
 ```
 
-### 俺が考えた最強の reset
-
-```bash
+```bash:tty reset
 alias resetty="_() { [ -t 0 ] && stty icanon echo echoe isig iexten icrnl opost -echok -istrip; printf '\033>\033[?25h\033%%G'; }; _"
 ```
 
-### 俺が考えた最強の timeout
-
-```bash
+```bash:timeout
 alias timeout='timeout --foreground --signal=INT --kill-after=3s'
 ```
 
-### 俺が考えた最強の nohup
-
-```bash
+```bash:nohup
 function spawn () {
     if [[ $# -eq 0 ]]
     then
@@ -67,7 +61,7 @@ function spawn () {
 
 ### 俺が考えた最強の grep / find + vim
 
-```bash
+```bash:grep / find + vim
 alias vimgrep='_() { local p=""; for a in "$@"; do if [[ "$a" != -* ]]; then p="$a"; break; fi; done; vim -q <(\grep "$@") -c "let @/='\''\v${p}'\''" -c "set hlsearch" -c "autocmd FileType qf nnoremap <buffer> j j<CR>:setlocal cursorline<CR><C-w>p" -c "autocmd FileType qf nnoremap <buffer> k k<CR>:setlocal cursorline<CR><C-w>p" -c "autocmd FileType qf nnoremap <buffer> e <CR>" -c "botright copen" -c "autocmd VimEnter * wincmd j"; }; _'
 alias vimfind='_() { vim --cmd "set efm=%f" -q <(\find "$@") -c "autocmd FileType qf nnoremap <buffer> j j<CR><C-w>p" -c "autocmd FileType qf nnoremap <buffer> k k<CR><C-w>p" -c "autocmd FileType qf nnoremap <buffer> e <CR>" -c "cw" -c "autocmd VimEnter * wincmd j"; }; _'
 ```
