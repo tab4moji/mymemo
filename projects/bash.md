@@ -72,17 +72,27 @@ alias vimfind='_() { vim --cmd "set efm=%f" -q <(\find "$@") -c "autocmd FileTyp
 date +%Y_%m%d_%H%M_%S
 ```
 
+### 優先度下げて実行
+
+```bash:sleepで試す。
+nice -n 19 sleep 3
+```
+
+```bash
+nice -n 19
+```
+
 ### ログにタイムスタンプ
 
 ```bash
 dpkg -s moreutils >/dev/null 2>&1 || sudo apt -E install -y moreutils
 ```
 
-```bash:ping で試す
+```bash:pingで試す
 2>&1 | ts '[%Y-%m-%d %H:%M:%S %Z]' | tee ts.$(date +%Y_%m%d_%H%M_%S).log
 ```
 
-```bash:ping で試す
+```bash:pingで試す
 ping -O -c 3 -i 2 -W 1 8.8.8.8 2>&1 | ts '[%Y-%m-%d %H:%M:%S %Z]' | tee ts.$(date +%Y_%m%d_%H%M_%S).log
 ```
 
