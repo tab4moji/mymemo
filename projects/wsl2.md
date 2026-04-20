@@ -8,6 +8,8 @@
 
 ### Windows Terminal
 
+#### CTRL-H を Backspace にする
+
 ```json:settings.json::actions
 {
     "command":
