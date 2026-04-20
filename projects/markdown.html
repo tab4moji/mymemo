@@ -331,23 +331,36 @@
                 const code = pre.querySelector('code');
                 if (!code) return;
 
+                // 1. デフォルト値の初期化（ここが消えているとエラーになる）
                 let rawClass = code.className || '';
                 let lang = 'text';
                 let title = '';
 
+                // 2. 言語とタイトルの抽出
                 const match = rawClass.match(/language-([^\s"]+)/);
-                if (match) {
-                    lang = match;          // クラスからは lang だけ取る[1]
+                if (match && match[1]) {
+                    lang = match[1]; // 必ず match[1] を代入する
                 }
-                if (code.dataset.title) {
-                    title = code.dataset.title;   // data-title 属性から title を取る
+                
+                // dataset.title が存在すれば取得
+                if (code.dataset && code.dataset.title) {
+                    title = code.dataset.title;
                 }
+
+                // 3. 安全策: lang が確実に文字列であることを保証
+                if (typeof lang !== 'string') {
+                    lang = 'text';
+                }
+
+                // 4. 表示用の言語名変換
                 let displayLang = lang;
                 if (lang === 'js') displayLang = 'JavaScript';
                 if (lang === 'ts') displayLang = 'TypeScript';
                 if (lang === 'py') displayLang = 'Python';
                 if (lang === 'sh') displayLang = 'Bash';
-                if (['ps1', 'pwsh', 'powershell'].includes(lang.toLowerCase())) displayLang = 'PowerShell';
+                if (['ps1', 'pwsh', 'powershell'].includes(lang.toLowerCase())) {
+                    displayLang = 'PowerShell';
+                }
 
                 // const を let に変更し、置換処理を追加
                 let originalText = code.textContent;
