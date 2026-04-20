@@ -304,7 +304,6 @@
                 };
                 marked.use({ renderer });
                 const rawHtml = marked.parse(fixedText);
-                const rawHtml = marked.parse(fixedText);
                 const cleanHtml = DOMPurify.sanitize(rawHtml);
 
                 contentDiv.innerHTML = cleanHtml;
