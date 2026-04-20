@@ -6,26 +6,27 @@
 "/mnt/c/Program Files/PowerShell/7/pwsh.exe" -Command "[bool]([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)"
 ```
 
-### PowerToy
+### Windows Terminal
 
-`gemini-cli` 固有のバグ修正を待つよりも、このレイヤーで上書きしてしまうのが最も手っ取り早い回避策だ。
-**概要と結論**
-Windows環境で `ctrl+h` を物理的な `Backspace` キー入力にリマップするには、Microsoft公式の「PowerToys」を使う方法か、「AutoHotkey」という外部ソフトを使う方法が一般的かつ短時間で実現可能だ。
-
-設定のしやすさ・導入の早さという点では **PowerToys (Keyboard Manager)** が一番おすすめだ。
-
-**詳細かつ具体的な説明**
-
-```powershell
-winget install --id Microsoft.PowerToys --source winget
+```json:settings.json::actions
+{
+    "command":
+    {
+        "action": "sendInput",
+        "input": "\u007f"
+    },
+    "id": "User.sendInput.aa7c4768-3c8b-11f1-aa02-00155d9f13a2"
+},
 ```
 
-GUIで直感的に設定でき、特定のアプリ（Windows Terminalなど）だけに限定して適用することもできる 。 [qiita](https://qiita.com/warpkwd/items/184cae758100467ec235)
-- Microsoft Store または GitHubから [PowerToys](https://learn.microsoft.com/ja-jp/windows/powertoys/) をインストールする 。 [qiita](https://qiita.com/warpkwd/items/184cae758100467ec235)
-- PowerToysの設定画面を開き、「Keyboard Manager」を有効にする 。 [qiita](https://qiita.com/warpkwd/items/184cae758100467ec235)
-- 「ショートカットの再マップ (Remap a shortcut)」をクリックする 。 [qiita](https://qiita.com/warpkwd/items/184cae758100467ec235)
-- 【元のショートカット】に `Ctrl + H` を指定し、【マップ先】に `Backspace` を指定する 。 [qiita](https://qiita.com/warpkwd/items/184cae758100467ec235)
-- 必要であれば「ターゲットアプリ」に Windows Terminal の実行ファイル名（`wt.exe`）を指定すれば、ターミナル上でのみ有効になる 。 [learn.microsoft](https://learn.microsoft.com/ja-jp/windows/powertoys/keyboard-manager)
+```json:settings.json::keybindings
+{
+    "id": "User.sendInput.aa7c4768-3c8b-11f1-aa02-00155d9f13a2",
+    "keys": "ctrl+h"
+},
+```
+
+参考: [Windows ターミナルでのカスタム アクションとキーバインド](https://learn.microsoft.com/ja-jp/windows/terminal/customize-settings/actions#application-level-commands)
 
 ### ネットワーク経路
 
