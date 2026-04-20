@@ -280,6 +280,30 @@
 
                 const markdownText = await response.text();
                 const fixedText = fixNestedCodeBlocks(markdownText);
+                const renderer = new marked.Renderer();
+                renderer.code = function({ text, lang: infoStr }) {
+                    const info = (infoStr || '').trim();
+                    let lang = '';
+                    let title = '';
+                    if (info) {
+                        const colonIdx = info.indexOf(':');
+                        if (colonIdx !== -1) {
+                            lang  = info.slice(0, colonIdx).trim();
+                            title = info.slice(colonIdx + 1).trim();
+                        } else {
+                            lang = info.split(/\s+/);
+                        }
+                    }
+                    const escapedCode = text
+                        .replace(/&/g, '&amp;')
+                        .replace(/</g, '&lt;')
+                        .replace(/>/g, '&gt;');
+                    const langAttr  = lang  ? ` class="language-${lang}"`                    : '';
+                    const titleAttr = title ? ` data-title="${title.replace(/"/g, '&quot;')}"` : '';
+                    return `<pre><code${langAttr}${titleAttr}>${escapedCode}</code></pre>\n`;
+                };
+                marked.use({ renderer });
+                const rawHtml = marked.parse(fixedText);
                 const rawHtml = marked.parse(fixedText);
                 const cleanHtml = DOMPurify.sanitize(rawHtml);
 
@@ -314,16 +338,11 @@
 
                 const match = rawClass.match(/language-([^\s"]+)/);
                 if (match) {
-                    const fullLang = match[1];
-                    if (fullLang.includes(':')) {
-                        const parts = fullLang.split(':');
-                        lang = parts[0];
-                        title = parts.slice(1).join(':');
-                    } else {
-                        lang = fullLang;
-                    }
+                    lang = match;          // クラスからは lang だけ取る[1]
                 }
-
+                if (code.dataset.title) {
+                    title = code.dataset.title;   // data-title 属性から title を取る
+                }
                 let displayLang = lang;
                 if (lang === 'js') displayLang = 'JavaScript';
                 if (lang === 'ts') displayLang = 'TypeScript';
