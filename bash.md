@@ -596,13 +596,14 @@ https://github.com/yuru7/HackGen/releases
 
 ### 未分類
 
-#### 拡張Glob
-```bash
+#### パラメータ展開(Parameter Expansion)
+
+拡張グロブ（拡張ワイルドカード）を有効にし、!(pattern) や @(a|b) など高度なパターンでファイルや文字列を簡潔に指定できるようにします。
+```bash:拡張Glob
 shopt -s extglob
 ```
 
-#### パラメータ展開(Parameter Expansion)
-```bash
+```bash:パラメータ展開(Parameter Expansion)
 shopt -s extglob
 var=$'スコア: 100点 20回\nスコア: 20点'
 echo "${var/+([0-9])/99}"
