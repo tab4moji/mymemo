@@ -8,6 +8,12 @@ Admin権限なら True
 [bool]([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 ```
 
+### Upgrade
+
+```powershell
+winget upgrade --id Microsoft.PowerShell --source winget
+```
+
 ### Emacs風シェルにしたい
 
 ```powershell
