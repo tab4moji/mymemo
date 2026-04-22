@@ -10,9 +10,11 @@ Admin権限なら True
 
 ### Upgrade
 
-```powershell
+```powershell:広く公開されたら
 winget upgrade --id Microsoft.PowerShell --source winget
 ```
+
+他の方法だと、ウィンドウ操作で対応。
 
 ### Emacs風シェルにしたい
 
