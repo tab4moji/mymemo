@@ -84,16 +84,67 @@ nice -n 19
 
 ### ログにタイムスタンプ
 
-```bash
-dpkg -s moreutils >/dev/null 2>&1 || sudo apt -E install -y moreutils
+このコマンドを ~/.local/bin/timestamp にでも保存。
+
+```python:timestamp
+#!/usr/bin/env python3
+
+"""
+filename: timestamp
+標準入力からデータを1文字ずつ読み込み、改行直後にタイムスタンプを付与してリアルタイム出力する。
+使用例: <元コマンド> | timestamp
+"""
+
+import sys
+import time
+
+def main():
+    # タイムスタンプフォーマット: '[%Y-%m-%d %H:%M:%S %Z] '
+    ts_format = "[%Y-%m-%d %H:%M:%S %Z] "
+
+    # 行の先頭かどうかのフラグ
+    is_start_of_line = True
+
+    while True:
+        try:
+            # ブロックせずに1文字だけ読み込む
+            char = sys.stdin.read(1)
+
+            # EOF (入力終了) の場合はループを抜ける
+            if not char:
+                break
+
+            # キャリッジリターン(\r)は改行として扱わず、そのまま出力して上書きさせる
+            # ただし、行の先頭フラグは立てない(プログレスバーの先頭にタイムスタンプが入り続けるのを防ぐため)
+
+            # 行の先頭(最初の1文字)を出力する直前にタイムスタンプを挿入
+            if is_start_of_line and char not in ('\r', '\n'):
+                timestamp = time.strftime(ts_format)
+                sys.stdout.write(timestamp)
+                is_start_of_line = False
+
+            # 文字を出力
+            sys.stdout.write(char)
+            sys.stdout.flush()
+
+            # 改行(\n)が出力されたら、次の文字の前にタイムスタンプを出すためのフラグを立てる
+            if char == '\n':
+                is_start_of_line = True
+
+        except KeyboardInterrupt:
+            # Ctrl+C などで中断された場合は終了
+            break
+
+if __name__ == "__main__":
+    main()
 ```
 
 ```bash:pingで試す
-2>&1 | ts '[%Y-%m-%d %H:%M:%S %Z]' | tee ts.$(date +%Y_%m%d_%H%M_%S).log
+2>&1 | timestamp '[%Y-%m-%d %H:%M:%S %Z]' | tee runlog.$(date +%Y_%m%d_%H%M_%S).log
 ```
 
 ```bash:pingで試す
-ping -O -c 3 -i 2 -W 1 8.8.8.8 2>&1 | ts '[%Y-%m-%d %H:%M:%S %Z]' | tee ts.$(date +%Y_%m%d_%H%M_%S).log
+ping -O -c 3 -i 2 -W 1 8.8.8.8 2>&1 | timestamp '[%Y-%m-%d %H:%M:%S %Z]' | tee runlog.$(date +%Y_%m%d_%H%M_%S).log
 ```
 
 ### 俺が考えた最強の cp
