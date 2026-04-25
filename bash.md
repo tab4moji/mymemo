@@ -93,47 +93,66 @@ nice -n 19
 filename: timestamp
 標準入力からデータを1文字ずつ読み込み、改行直後にタイムスタンプを付与してリアルタイム出力する。
 使用例: <元コマンド> | timestamp
+
+目的: 標準入力からのデータにタイムスタンプを付与しリアルタイム出力する。
+機能: \rによるプログレスバー上書き維持、空行(\nのみ)へのタイムスタンプ付与。
+      バイナリストリームの直接操作により、パイプ処理時のバッファ目詰まりを完全解消。
+更新履歴:
+- 002: 2026-04-25 パイプ処理時のバッファリング問題をバイナリI/O(sys.stdin.buffer.read1)で解消
+- 001: 2026-04-25 空行へのタイムスタンプ出力バグ修正とルール適用
 """
 
 import sys
 import time
 
-def main():
-    # タイムスタンプフォーマット: '[%Y-%m-%d %H:%M:%S %Z] '
-    ts_format = "[%Y-%m-%d %H:%M:%S %Z] "
-
-    # 行の先頭かどうかのフラグ
+def process_stream() -> None:
+    ts_format = "[%Y-%m-%d %H:%M:%S %Z] ".encode("utf-8")
     is_start_of_line = True
+    result = None
+
+    # sys.stdin/stdout.buffer はバイナリの生のストリームを扱う
+    stdin_buf = sys.stdin.buffer
+    stdout_buf = sys.stdout.buffer
 
     while True:
         try:
-            # ブロックせずに1文字だけ読み込む
-            char = sys.stdin.read(1)
+            # read1(1) でOSから直接1バイト取得。ブロックを最小限に抑える
+            char_bytes = stdin_buf.read1(1)
 
-            # EOF (入力終了) の場合はループを抜ける
-            if not char:
-                break
+            # ガード節: EOF
+            if not char_bytes:
+                raise EOFError("入力が終了しました")
 
-            # キャリッジリターン(\r)は改行として扱わず、そのまま出力して上書きさせる
-            # ただし、行の先頭フラグは立てない(プログレスバーの先頭にタイムスタンプが入り続けるのを防ぐため)
+            # \r (0x0D) と \n (0x0A) の判定
+            is_cr = (char_bytes == b'\r')
+            is_lf = (char_bytes == b'\n')
 
-            # 行の先頭(最初の1文字)を出力する直前にタイムスタンプを挿入
-            if is_start_of_line and char not in ('\r', '\n'):
-                timestamp = time.strftime(ts_format)
-                sys.stdout.write(timestamp)
+            # 行の先頭かつ \r でない場合にタイムスタンプ挿入
+            if is_start_of_line and not is_cr:
+                stdout_buf.write(time.strftime("[%Y-%m-%d %H:%M:%S %Z] ").encode("utf-8"))
                 is_start_of_line = False
 
-            # 文字を出力
-            sys.stdout.write(char)
-            sys.stdout.flush()
+            # 1文字出力して即時フラッシュ（目詰まり防止）
+            stdout_buf.write(char_bytes)
+            stdout_buf.flush()
 
-            # 改行(\n)が出力されたら、次の文字の前にタイムスタンプを出すためのフラグを立てる
-            if char == '\n':
+            # 改行が来たら次の文字を行頭として扱う
+            if is_lf:
                 is_start_of_line = True
 
-        except KeyboardInterrupt:
-            # Ctrl+C などで中断された場合は終了
+        except EOFError:
             break
+        except KeyboardInterrupt:
+            break
+        except Exception as e:
+            sys.stderr.write(f"処理エラー: {e}\n")
+            break
+
+    return result
+
+def main() -> None:
+    process_stream()
+    return None
 
 if __name__ == "__main__":
     main()
