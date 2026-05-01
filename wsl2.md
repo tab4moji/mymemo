@@ -8,8 +8,8 @@
 
 ### WSL の動作優先度を少し落とす
 
-```powershell:WSL の動作優先度を少し落とす
-Get-Process vmmemWSL | ForEach-Object { $_.PriorityClass = 'BelowNormal' }
+```bash:WSL の動作優先度を少し落とす
+/mnt/c/Program\ Files/PowerShell/7/pwsh.exe -Command "Get-Process vmmemWSL -ErrorAction SilentlyContinue | ForEach-Object { \$_.PriorityClass = 'BelowNormal' }"
 ```
 
 ### Windows Terminal
