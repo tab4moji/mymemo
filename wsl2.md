@@ -3,13 +3,15 @@
 ### WSLがAdministratorなのかどうか
 
 ```bash:Admin権限なら True
-"/mnt/c/Program Files/PowerShell/7/pwsh.exe" -Command "[bool]([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)"
+"/mnt/c/Program Files/PowerShell/7/pwsh.exe" -NoProfile -Command "[bool]([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)"
 ```
 
 ### WSL の動作優先度を少し落とす
 
+RealTime High AboveNormal Normal BelowNormal Idle
+
 ```bash:WSL の動作優先度を少し落とす
-"/mnt/c/Program Files/PowerShell/7/pwsh.exe" -Command "\$ErrorActionPreference = 'Stop'; try { Get-Process vmmemWSL | ForEach-Object { \$_.PriorityClass = 'BelowNormal' } } catch { Write-Host \"Error: \$(\$_.Exception.Message)\" }"
+"/mnt/c/Program Files/PowerShell/7/pwsh.exe" -NoProfile -Command "\$ErrorActionPreference = 'Stop'; try { Get-Process vmmemWSL | ForEach-Object { \$_.PriorityClass = 'BelowNormal' } } catch { Write-Host \"Error: \$(\$_.Exception.Message)\" }"
 ```
 
 ### Windows Terminal
