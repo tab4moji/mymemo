@@ -9,7 +9,7 @@
 ### WSL の動作優先度を少し落とす
 
 ```bash:WSL の動作優先度を少し落とす
-"/mnt/c/Program Files/PowerShell/7/pwsh.exe" -Command "Get-Process vmmemWSL -ErrorAction SilentlyContinue | ForEach-Object { \$_.PriorityClass = 'BelowNormal' }"
+"/mnt/c/Program Files/PowerShell/7/pwsh.exe" -Command "\$ErrorActionPreference = 'Stop'; try { Get-Process vmmemWSL | ForEach-Object { \$_.PriorityClass = 'BelowNormal' } } catch { Write-Host \"Error: \$(\$_.Exception.Message)\" }"
 ```
 
 ### Windows Terminal
