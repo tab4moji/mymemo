@@ -5,7 +5,7 @@
 これはプログラムのアルゴリズムや挙動には一切影響を与えず、純粋に「人間の可読性の向上」と「チーム内での認知負荷の軽減」を目的としている 。 [shadecoder](https://www.shadecoder.com/topics/what-is-code-style-a-practical-guide-for-2025)
 現在の開発現場では、この領域は人間が手動で気にするものではなくなりつつある。Pythonの `Black` やJavaScriptの `Prettier`、C/C++の `clang-format` などの「Formatter（フォーマッター）」と呼ばれる自動整形ツールに一任するのが英語圏を含めた世界的な標準だ 。 [blog.codacy](https://blog.codacy.com/coding-standards)
 
-### 2. コーディング標準（Coding Standards / Best Practices）:ロジックと設計の制約
+### コーディング標準（Coding Standards / Best Practices）:ロジックと設計の制約
 「誤差を避けるために金額計算には浮動小数点（Float）ではなくDecimalを使う」「if文の条件節で副作用のある関数呼び出しをしない」といったルールはこちらに該当する 。 [anderson02](https://anderson02.com/cs/cskiso/cskisoniwari-04/)
 これらは見た目ではなく、バグの未然防止、保守性、セキュリティ、パフォーマンスの担保を目的としている。英語圏では「Coding Standards（コーディング標準）」や「Best Practices（ベストプラクティス）」、「Programming Idioms（イディオム）」として区別して語られることが多い 。 [blog.codacy](https://blog.codacy.com/coding-standards)
 この領域の違反を検出するために使われるのが、`ESLint`、`Pylint`、`SonarQube` などの「Linter（リンター）」や静的解析ツールだ。
