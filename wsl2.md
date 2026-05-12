@@ -96,24 +96,38 @@ _() { local port_number="$1"; /mnt/c/Program\ Files/PowerShell/7/pwsh.exe -Comma
 
 #### wsl からモバイルホットスポットにつなげた**端末 192.168.137.xxx:11434** にローカルゲートウェイ経由でつなげる
 
-```powershell:ローカルと端末を両者の同じポート番号でポートフォワード
-New-NetFirewallRule -DisplayName "MyPersonalRule" -Direction Inbound -LocalPort 11434 -Protocol TCP -Action Allow;
-netsh interface portproxy add v4tov4 listenport=11434 listenaddress=0.0.0.0 connectport=11434 connectaddress=192.168.137.xxx
+```powershell:🔛ローカルと端末を両者の同じポート番号でポートフォワード
+& {
+  param($port, $ipaddr)
+  New-NetFirewallRule -DisplayName "MyPersonalRule" -Direction Inbound -LocalPort $port -Protocol TCP -Action Allow
+  netsh interface portproxy add v4tov4 listenport=$port listenaddress=0.0.0.0 connectport=$port connectaddress=$ipaddr
+} 11434 "192.168.137.xxx"
 ```
 
 ```bash:試しに curl でつなげてみる
 GATEWAY_IP=$(ip route show | grep default | awk '{print $3}') && echo "Windows Host IP: $GATEWAY_IP" && curl -v http://$GATEWAY_IP:11434
 ```
 
-```firewall 設定を探す
+```powershell:ℹ️firewall 設定を探す
+netsh interface portproxy show v4tov4
 Get-NetFirewallRule -DisplayName "MyPersonal*"
 ```
 
-```firewall 設定を消す
+```powershell:⛔firewall 設定とポートフォワード設定を消す
 Remove-NetFirewallRule -DisplayName "MyPersonal*"
+netsh interface portproxy show v4tov4 | Select-String "0\.0\.0\.0" | ForEach-Object {
+    $port = $_.ToString() -split '\s+' | Where-Object { $_ -ne "" } | Select-Object -Index 1
+    if ($port -match '^\d+$') {
+        netsh interface portproxy delete v4tov4 listenaddress=0.0.0.0 listenport=$port
+    }
+}
 ```
 
 #### すっきりしたいとき
+
+```ℹ️powershell
+netsh interface portproxy show v4tov4
+```
 
 ```powershell
 PS C:\> netsh interface portproxy show v4tov4
@@ -126,10 +140,6 @@ Address         Port        Address         Port
 127.0.0.1       11434       172.20.4.52     11434
 0.0.0.0         11435       192.168.137.115 11434
 0.0.0.0         11434       192.168.137.115 11434
-```
-
-```powershell
-netsh interface portproxy show v4tov4
 ```
 
 ```powershell
