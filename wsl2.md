@@ -138,14 +138,12 @@ Address         Port        Address         Port
 --------------- ----------  --------------- ----------
 192.168.137.115 11434       172.20.4.52     11434
 127.0.0.1       11434       172.20.4.52     11434
-0.0.0.0         11435       192.168.137.115 11434
 0.0.0.0         11434       192.168.137.115 11434
 ```
 
-```powershell
+```⛔powershell
 netsh interface portproxy delete v4tov4 listenaddress=192.168.137.115 listenport=11434
 netsh interface portproxy delete v4tov4 listenaddress=127.0.0.1 listenport=11434
-netsh interface portproxy delete v4tov4 listenaddress=0.0.0.0 listenport=11435
 netsh interface portproxy delete v4tov4 listenaddress=0.0.0.0 listenport=11434
 netsh interface portproxy show v4tov4
 ```
