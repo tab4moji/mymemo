@@ -125,11 +125,11 @@ GATEWAY_IP=$(ip route show | grep default | awk '{print $3}') && echo "Windows H
 
 #### 手動ですっきりしたいとき
 
-```ℹ️powershell
+```powershell:ℹ️一覧表示
 netsh interface portproxy show v4tov4
 ```
 
-```powershell
+```powershell:お試し結果
 PS C:\> netsh interface portproxy show v4tov4
 
 ipv4 をリッスンする:         ipv4 に接続する:
@@ -141,7 +141,7 @@ Address         Port        Address         Port
 0.0.0.0         11434       192.168.137.115 11434
 ```
 
-```⛔powershell
+```powershell:⛔ポートフォワード削除
 netsh interface portproxy delete v4tov4 listenaddress=192.168.137.115 listenport=11434
 netsh interface portproxy delete v4tov4 listenaddress=127.0.0.1 listenport=11434
 netsh interface portproxy delete v4tov4 listenaddress=0.0.0.0 listenport=11434
