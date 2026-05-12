@@ -92,10 +92,12 @@ _() { local port_number="$1"; /mnt/c/Program\ Files/PowerShell/7/pwsh.exe -Comma
 _() { local port_number="$1"; /mnt/c/Program\ Files/PowerShell/7/pwsh.exe -Command "netsh interface portproxy delete v4tov4 listenport=${port_number} listenaddress=0.0.0.0; Remove-NetFirewallRule -DisplayName 'WSL Port${port_number} Forwarding'"; }; _ 11434
 ```
 
-### モバイルホットスポットに接続した**端末 192.168.137.115:11434** にゲートウェイ経由でつなげる
+### モバイルホットスポット
 
-```powershell:両者同じポート番号でポートフォワード
-netsh interface portproxy add v4tov4 listenport=11434 listenaddress=0.0.0.0 connectport=11434 connectaddress=192.168.137.115
+#### モバイルホットスポットにつなげた**端末 192.168.137.xxx:11434** にローカルゲートウェイ経由でつなげる
+
+```powershell:ローカルと端末を両者同じポート番号でポートフォワード
+netsh interface portproxy add v4tov4 listenport=11434 listenaddress=0.0.0.0 connectport=11434 connectaddress=192.168.137.xxx
 ```
 
 ```bash:つなげてみる
