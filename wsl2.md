@@ -97,6 +97,7 @@ _() { local port_number="$1"; /mnt/c/Program\ Files/PowerShell/7/pwsh.exe -Comma
 #### wsl からモバイルホットスポットにつなげた**端末 192.168.137.xxx:11434** にローカルゲートウェイ経由でつなげる
 
 ```powershell:ローカルと端末を両者の同じポート番号でポートフォワード
+New-NetFirewallRule -DisplayName "MyPersonalRule" -Direction Inbound -LocalPort 11434 -Protocol TCP -Action Allow;
 netsh interface portproxy add v4tov4 listenport=11434 listenaddress=0.0.0.0 connectport=11434 connectaddress=192.168.137.xxx
 ```
 
@@ -104,18 +105,12 @@ netsh interface portproxy add v4tov4 listenport=11434 listenaddress=0.0.0.0 conn
 GATEWAY_IP=$(ip route show | grep default | awk '{print $3}') && echo "Windows Host IP: $GATEWAY_IP" && curl -v http://$GATEWAY_IP:11434
 ```
 
-#### 使う必要があるか不明 firewall
-
 ```firewall 設定を探す
 Get-NetFirewallRule -DisplayName "MyPersonal*"
 ```
 
 ```firewall 設定を消す
 Remove-NetFirewallRule -DisplayName "MyPersonal*"
-```
-
-```firewall 穴あけの設定をする
-New-NetFirewallRule -DisplayName "MyPersonalRule" -Direction Inbound -LocalPort 11434 -Protocol TCP -Action Allow; netsh interface portproxy add v4tov4 listenport=11434 listenaddress=0.0.0.0 connectport=11434 connectaddress=192.168.137.115
 ```
 
 #### すっきりしたいとき
