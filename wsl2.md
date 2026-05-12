@@ -98,14 +98,10 @@ _() { local port_number="$1"; /mnt/c/Program\ Files/PowerShell/7/pwsh.exe -Comma
 
 ```powershell:🔛ローカルと端末を両者の同じポート番号でポートフォワード
 & {
-  param($port, $ipaddr)
+  param($ipaddr, $port)
   New-NetFirewallRule -DisplayName "MyPersonalRule" -Direction Inbound -LocalPort $port -Protocol TCP -Action Allow
   netsh interface portproxy add v4tov4 listenport=$port listenaddress=0.0.0.0 connectport=$port connectaddress=$ipaddr
-} 11434 "192.168.137.xxx"
-```
-
-```bash:試しに curl でつなげてみる
-GATEWAY_IP=$(ip route show | grep default | awk '{print $3}') && echo "Windows Host IP: $GATEWAY_IP" && curl -v http://$GATEWAY_IP:11434
+} "192.168.137.xxx" 11434
 ```
 
 ```powershell:ℹ️firewall 設定を探す
@@ -123,7 +119,11 @@ netsh interface portproxy show v4tov4 | Select-String "0\.0\.0\.0" | ForEach-Obj
 }
 ```
 
-#### すっきりしたいとき
+```bash:試しに curl でつなげてみる
+GATEWAY_IP=$(ip route show | grep default | awk '{print $3}') && echo "Windows Host IP: ${GATEWAY_IP}" && curl -v http://${GATEWAY_IP}:11434
+```
+
+#### 手動ですっきりしたいとき
 
 ```ℹ️powershell
 netsh interface portproxy show v4tov4
