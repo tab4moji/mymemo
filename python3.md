@@ -19,6 +19,36 @@ _ python3 # 関数実行
 alias pycall='_() { local PYTHON_CMD="python3"; local PIP_DIR_PATH="$(${PYTHON_CMD} -m pip show pip | grep Location | cut -d':' -f2)"; local PYTHON_SUBCMD="$1"; shift; PYTHONWARNINGS="ignore:The global interpreter lock:RuntimeWarning" ${PYTHON_CMD} ${PIP_DIR_PATH}/${PYTHON_SUBCMD}/__main__.py $@; }; _'
 ```
 
+### pytest
+
+pytestのカバレッジ結果（`coverage.json`）を特定のフォルダに出力するには、`pytest-cov`の`--cov-report`オプションを使って出力先のファイルパスを指定すればいい。具体的には、オプションに`json:出力先パス`を渡すだけだ。 [pytest-cov.readthedocs](https://pytest-cov.readthedocs.io/en/latest/reporting.html)
+
+#### コマンドラインで指定する方法
+コマンド実行時に引数として指定する場合は、以下のように記述する。コロン（`:`）の後に、フォルダを含めた出力先ファイルパスを指定する仕組みだ。 [pytest-cov.readthedocs](https://pytest-cov.readthedocs.io/en/latest/config.html)
+
+```bash
+# srcディレクトリのカバレッジを計測し、reportsフォルダ内にcoverage.jsonを出力する
+pytest --cov=src --cov-report=json:reports/coverage.json
+```
+
+#### 設定ファイルで指定する方法
+毎回コマンドラインで指定するのが面倒な場合は、`pyproject.toml`や`pytest.ini`のデフォルト設定（`addopts`）に組み込んでおくのがおすすめだ。 [qiita](https://qiita.com/ssc-yshikeda/items/d39facb5db154d69681c)
+
+**`pyproject.toml` を使う場合:**
+```toml
+[tool.pytest.ini_options]
+# 常にカバレッジを計測し、指定フォルダにJSON出力する
+addopts = "--cov=src --cov-report=json:reports/coverage.json"
+```
+
+**`pytest.ini` を使う場合:**
+```ini
+[pytest]
+addopts = --cov=src --cov-report=json:reports/coverage.json
+```
+
+なお、出力先のフォルダ（上記の例だと`reports`フォルダ）は、テスト実行時に自動的に生成されない場合がある。もしエラーになるようなら、テスト実行前にそのフォルダを作成しておくか、シェルスクリプトやタスクランナーで事前にディレクトリを生成するステップを挟むようにしてくれ。
+
 ### ruff check で除外したい
 
 Ruffで特定のディレクトリを解析対象から外すには、設定ファイル（`pyproject.toml` または `ruff.toml`）を使うのが一番スマートだ。
