@@ -59,6 +59,15 @@ function spawn () {
 }
 ```
 
+```bash:tty2esc ログ中のエスケープシーケンスの全種類
+cat log.tty | grep -oE $'\\x1B\\\\[[0-9;]*[a-zA-Z]' | cat -v | sort -u
+```
+
+```bash:tty2txt TTYログから最終結果だけを表示する(要: python3 -m pip install -U pip pyte)
+python3 -c 'import sys,pyte; d=sys.stdin.read(); s=pyte.HistoryScreen(200,2000,history=20000); pyte.Stream(s).feed(d); print("\n".join(l.rstrip() for l in list(s.history.top)+s.display if l.rstrip()))'
+```
+
+
 ### 俺が考えた最強の grep / find + vim
 
 ```bash:grep/find+vim
