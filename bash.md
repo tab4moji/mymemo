@@ -64,9 +64,45 @@ cat log.tty | grep -oE $'\\x1B\\\\[[0-9;]*[a-zA-Z]' | cat -v | sort -u
 ```
 
 ```bash:tty2txt TTYログから最終結果だけを表示する(要: python3 -m pip install -U pip pyte)
-python3 -c 'import sys, pyte; WIDTH = 2000; HEIGHT = 4000; HIST = 20000; d = sys.stdin.read(); s = pyte.HistoryScreen(WIDTH, HEIGHT, history=HIST); pyte.Stream(s).feed(d); rows = list(s.history.top) + s.display; out = []; for row in rows:; row = row.rstrip(" "); if not out:; out.append(row); continue; prev = out[-1]; if prev != "" and row != "" and len(prev) >= WIDTH:; out[-1] = prev + row; else:; out.append(row); prev_blank = False; for line in out:; blank = (line == ""); if blank and prev_blank:; continue; sys.stdout.write(line + "\n"); prev_blank = blank '
+python3 -c $'import sys, pyte\n\nWIDTH = 2000\nHEIGHT = 4000\nHIST = 20000\n\nd = sys.stdin.read()\ns = pyte.HistoryScreen(WIDTH, HEIGHT, history=HIST)\npyte.Stream(s).feed(d)\n\nrows = list(s.history.top) + s.display\n\nout = []\nfor row in rows:\n    row = row.rstrip(" ")\n    if not out:\n        out.append(row)\n        continue\n\n    prev = out[-1]\n    if prev != "" and row != "" and len(prev) >= WIDTH:\n        out[-1] = prev + row\n    else:\n        out.append(row)\n\nprev_blank = False\nfor line in out:\n    blank = (line == "")\n    if blank and prev_blank:\n        continue\n    sys.stdout.write(line + "\\n")\n    prev_blank = blank\n'
 ```
 
+```bash:tty2txt TTYログから最終結果だけを表示する(要: python3 -m pip install -U pip pyte)
+python3 -c '
+import sys, pyte
+
+WIDTH = 2000
+HEIGHT = 4000
+HIST = 20000
+
+d = sys.stdin.read()
+s = pyte.HistoryScreen(WIDTH, HEIGHT, history=HIST)
+pyte.Stream(s).feed(d)
+
+rows = list(s.history.top) + s.display
+
+out = []
+for row in rows:
+    row = row.rstrip(" ")
+    if not out:
+        out.append(row)
+        continue
+
+    prev = out[-1]
+    if prev != "" and row != "" and len(prev) >= WIDTH:
+        out[-1] = prev + row
+    else:
+        out.append(row)
+
+prev_blank = False
+for line in out:
+    blank = (line == "")
+    if blank and prev_blank:
+        continue
+    sys.stdout.write(line + "\n")
+    prev_blank = blank
+'
+```
 
 ### 俺が考えた最強の grep / find + vim
 
