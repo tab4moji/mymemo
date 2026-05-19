@@ -64,7 +64,7 @@ cat log.tty | grep -oE $'\\x1B\\\\[[0-9;]*[a-zA-Z]' | cat -v | sort -u
 ```
 
 ```bash:tty2txt TTYログから最終結果だけを表示する(要: python3 -m pip install -U pip pyte)
-python3 -c 'import sys,pyte; d=sys.stdin.read(); s=pyte.HistoryScreen(200,2000,history=20000); pyte.Stream(s).feed(d); print("\n".join(l.rstrip() for l in list(s.history.top)+s.display if l.rstrip()))'
+python3 -c 'import sys, pyte; WIDTH = 2000; HEIGHT = 4000; HIST = 20000; d = sys.stdin.read(); s = pyte.HistoryScreen(WIDTH, HEIGHT, history=HIST); pyte.Stream(s).feed(d); rows = list(s.history.top) + s.display; out = []; for row in rows:; row = row.rstrip(" "); if not out:; out.append(row); continue; prev = out[-1]; if prev != "" and row != "" and len(prev) >= WIDTH:; out[-1] = prev + row; else:; out.append(row); prev_blank = False; for line in out:; blank = (line == ""); if blank and prev_blank:; continue; sys.stdout.write(line + "\n"); prev_blank = blank '
 ```
 
 
