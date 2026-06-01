@@ -131,6 +131,10 @@ nice -n 19
 
 このコマンドを ~/.local/bin/timestamp にでも保存。
 
+```bash:使用例
+_() { local __CMD_LINE="$@"; nice -n 19 bash -c "{ source ~/.bashrc; time unbuffer ${__CMD_LINE}; }" 2>&1 | timestamp '[%Y-%m-%d %H:%M:%S.%.3S %Z]' | tee >(ansifilter > runlog.$(date +%Y_%m%d_%H%M_%S).log); }; _ 'ls -alF --color=auto ./'
+```
+
 ```python:timestamp
 #!/usr/bin/env python3
 
