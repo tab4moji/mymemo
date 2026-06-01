@@ -1,3 +1,27 @@
+## show/hide administrator on logon
+
+```text:hide_admin_on_logon.reg
+Windows Registry Editor Version 5.00
+
+[HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon\SpecialAccounts]
+
+[HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon\SpecialAccounts\UserList]
+"Administrator"=dword:00000000
+
+```
+
+```text:show_admin_on_logon.reg
+Windows Registry Editor Version 5.00
+
+[HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon\SpecialAccounts]
+
+[HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon\SpecialAccounts\UserList]
+"Administrator"=-
+
+```
+
+## powershll on tasktray
+
 結論から言うと、**「スタートアップフォルダに『最小化』設定のショートカットを作る」**のが一番確実だ。
 ただし、タスクトレイ（右下の領域）に入れるには、タスクマネージャ側の設定も1つだけ必要になる。
 
