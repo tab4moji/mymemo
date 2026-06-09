@@ -215,6 +215,12 @@ if __name__ == "__main__":
 ping -O -c 3 -i 2 -W 1 8.8.8.8 2>&1 | timestamp '[%Y-%m-%d %H:%M:%S %Z]' | tee runlog.$(date +%Y_%m%d_%H%M_%S).log
 ```
 
+### メモ
+
+```bash:ps
+alias pp='ps ax | grep -vw "\(systemd\|rsyslogd\|plan9\|wsl-pro-service\|snapd\|snapfuse\|cron\|init\|agetty\|login\|polkit\|unattended-upgrades\|sd-pam\)" | grep -v "\-bash" | grep -v "ps ax" | grep -v "sshd:"'
+```
+
 ### 俺が考えた最強の cp
 
 #### cpコマンドを便利化したい。
