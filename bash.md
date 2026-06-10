@@ -221,6 +221,12 @@ ping -O -c 3 -i 2 -W 1 8.8.8.8 2>&1 | timestamp '[%Y-%m-%d %H:%M:%S %Z]' | tee r
 alias pp='ps ax | grep -vw "\(systemd\|rsyslogd\|plan9\|wsl-pro-service\|snapd\|snapfuse\|cron\|init\|agetty\|login\|polkit\|unattended-upgrades\|sd-pam\)" | grep -v "\-bash" | grep -v "ps ax" | grep -v "sshd:"'
 ```
 
+```text
+# /etc/hosts に追記
+8.8.8.8 dns.google
+8.8.4.4 dns.google
+```
+
 ```bash:DNS (dig:bind9-dnsutils)
 dig @8.8.8.8 dns.google
 dig +short @8.8.8.8 dns.google
