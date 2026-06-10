@@ -222,7 +222,7 @@ alias pp='ps ax | grep -vw "\(systemd\|rsyslogd\|plan9\|wsl-pro-service\|snapd\|
 ```
 
 ```text
-# /etc/hosts に追記
+# /etc/hosts (C:\Windows\System32\drivers\etc\hosts) に追記
 8.8.8.8 dns.google
 8.8.4.4 dns.google
 ```
