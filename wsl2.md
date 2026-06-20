@@ -3,7 +3,7 @@
 ### WSLがAdministratorなのかどうか
 
 ```bash:Admin権限なら True
-"/mnt/c/Program Files/PowerShell/7/pwsh.exe" -NoProfile -Command "[bool]([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)"
+/mnt/c/Program\ Files/WindowsApps/Microsoft.PowerShell_7.6.2.0_x64__8wekyb3d8bbwe/pwsh.exe -NoProfile -Command "[bool]([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)"
 ```
 
 ### WSL の動作優先度を少し落とす
@@ -11,7 +11,7 @@
 RealTime High AboveNormal Normal BelowNormal Idle
 
 ```bash:WSL の動作優先度を少し落とす
-"/mnt/c/Program Files/PowerShell/7/pwsh.exe" -NoProfile -Command "\$ErrorActionPreference = 'Stop'; try { Get-Process vmmemWSL | ForEach-Object { \$_.PriorityClass = 'BelowNormal' } } catch { Write-Host \"Error: \$(\$_.Exception.Message)\" }"
+/mnt/c/Program\ Files/WindowsApps/Microsoft.PowerShell_7.6.2.0_x64__8wekyb3d8bbwe/pwsh.exe -NoProfile -Command "\$ErrorActionPreference = 'Stop'; try { Get-Process vmmemWSL | ForEach-Object { \$_.PriorityClass = 'BelowNormal' } } catch { Write-Host \"Error: \$(\$_.Exception.Message)\" }"
 ```
 
 ### Windows Terminal
@@ -80,16 +80,16 @@ WSL2はWindowsを再起動したりWSLをシャットダウンしたりするた
 IPが変わるとフォワーディング先が迷子になるため、起動のたびに手順2の `netsh` の `connectaddress` を新しいIPで上書き更新する必要がある。
 
 ```bash:🔛ネットワーク開通
-/mnt/c/Program\ Files/WindowsApps/Microsoft.PowerShell_7.6.2.0_x64__8wekyb3d8bbwe/pwsh.exe6.2.0_x64__8wekyb3d8bbwe/pwsh.exe6.2.0_x64__8wekyb3d8bbwe/pwsh.exe6.2.0_x64__8wekyb3d8bbwe/pwsh.exe6.2.0_x64__8wekyb3d8bbwe/pwsh.exe6.2.0_x64__8wekyb3d8bbwe/pwsh.exe6.2.0_x64__8wekyb3d8bbwe/pwsh.exe6.2.0_x64__8wekyb3d8bbwe/pwsh.exes/PowerShell/7/pwsh.exe -Command "netsh interface portproxy add v4tov4 listenport=${port_number} listenaddress=0.0.0.0 connectport=${port_number} connectaddress=$(ip addr | \grep -E 'global eth[0-9]' | sed -E 's/[ \t\/:]+/ /g' | cut -d' ' -f3); New-NetFirewallRule -DisplayName 'WSL Port${port_number} Forwarding' -Direction Inbound -Action Allow -Protocol TCP -LocalPort ${port_number}; netsh interface portproxy show v4tov4; Get-NetFirewallRule -DisplayName 'WSL Port${port_number} Forwarding'"; }; _ 11434
+/mnt/c/Program\ Files/WindowsApps/Microsoft.PowerShell_7.6.2.0_x64__8wekyb3d8bbwe/pwsh.exe -Command "netsh interface portproxy add v4tov4 listenport=${port_number} listenaddress=0.0.0.0 connectport=${port_number} connectaddress=$(ip addr | \grep -E 'global eth[0-9]' | sed -E 's/[ \t\/:]+/ /g' | cut -d' ' -f3); New-NetFirewallRule -DisplayName 'WSL Port${port_number} Forwarding' -Direction Inbound -Action Allow -Protocol TCP -LocalPort ${port_number}; netsh interface portproxy show v4tov4; Get-NetFirewallRule -DisplayName 'WSL Port${port_number} Forwarding'"; }; _ 11434
 ```
 
 ```bash:ℹ️確認
-/mnt/c/Program\ Files/PowerShell/7/pwsh.exe -Command 'Get-NetFirewallRule | Where-Object { [string]::IsNullOrWhiteSpace($_.DisplayGroup) } | Select-Object DisplayName, Name, Direction, Action | Format-Table -AutoSize'
-/mnt/c/Program\ Files/PowerShell/7/pwsh.exe -Command "netsh interface portproxy show v4tov4"
+/mnt/c/Program\ Files/WindowsApps/Microsoft.PowerShell_7.6.2.0_x64__8wekyb3d8bbwe/pwsh.exe -Command 'Get-NetFirewallRule | Where-Object { [string]::IsNullOrWhiteSpace($_.DisplayGroup) } | Select-Object DisplayName, Name, Direction, Action | Format-Table -AutoSize'
+/mnt/c/Program\ Files/WindowsApps/Microsoft.PowerShell_7.6.2.0_x64__8wekyb3d8bbwe/pwsh.exe -Command "netsh interface portproxy show v4tov4"
 ```
 
 ```bash:⛔ネットワーク閉鎖
-_() { local port_number="$1"; /mnt/c/Program\ Files/PowerShell/7/pwsh.exe -Command "netsh interface portproxy delete v4tov4 listenport=${port_number} listenaddress=0.0.0.0; Remove-NetFirewallRule -DisplayName 'WSL Port${port_number} Forwarding'"; }; _ 11434
+_() { local port_number="$1"; /mnt/c/Program\ Files/WindowsApps/Microsoft.PowerShell_7.6.2.0_x64__8wekyb3d8bbwe/pwsh.exe -Command "netsh interface portproxy delete v4tov4 listenport=${port_number} listenaddress=0.0.0.0; Remove-NetFirewallRule -DisplayName 'WSL Port${port_number} Forwarding'"; }; _ 11434
 ```
 
 ### モバイルホットスポット
@@ -363,7 +363,7 @@ $Global:LastExitCode = Main
 #### usbipd-winインストールを試みる(すでに入っていれば修復か更新が走る)
 
 ```bash
-win_home="$(wslpath -u "$("/mnt/c/Program Files/PowerShell/7/pwsh.exe" -NoProfile -Command "\$env:USERPROFILE")")"; "${win_home%%$'\r'}/AppData/Local/Microsoft/WindowsApps/winget.exe" install usbipd-win
+win_home="$(wslpath -u /mnt/c/Program\ Files/WindowsApps/Microsoft.PowerShell_7.6.2.0_x64__8wekyb3d8bbwe/pwsh.exe -NoProfile -Command "\$env:USERPROFILE")")"; "${win_home%%$'\r'}/AppData/Local/Microsoft/WindowsApps/winget.exe" install usbipd-win
 ```
 
 #### デバイスをバインドしている
