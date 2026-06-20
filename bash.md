@@ -217,6 +217,10 @@ ping -O -c 3 -i 2 -W 1 8.8.8.8 2>&1 | timestamp '[%Y-%m-%d %H:%M:%S %Z]' | tee r
 
 ### メモ
 
+```bash:id_rsa
+chmod u=rw,g=,o= ~/.ssh/id_rsa
+```
+
 ```bash:ps
 alias pp='ps ax | grep -vw "\(systemd\|rsyslogd\|plan9\|wsl-pro-service\|snapd\|snapfuse\|cron\|init\|agetty\|login\|polkit\|unattended-upgrades\|sd-pam\)" | grep -v "\-bash" | grep -v "ps ax" | grep -v "sshd:"'
 ```
