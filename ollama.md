@@ -170,3 +170,8 @@ def main() -> None:
 if __name__ == "__main__":
     main()
 ```
+
+```powershell
+sudo "$(wslpath -u "$(powershell "where.exe pwsh" | sed -E "/^$/d" | iconv -t utf-8 | tail -1)")" -ExecutionPolicy Bypass -File $(wslpath -w ~/myworks/ollama/start.ps1)
+```
+
