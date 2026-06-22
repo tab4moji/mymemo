@@ -93,3 +93,53 @@ if (!(Test-Path $PROFILE)) { New-Item -ItemType File -Path $PROFILE -Force }
 # 3. メモ帳で開く
 notepad $PROFILE
 ```
+
+
+### python3.14t on windows/pwsh
+
+#### python3 インストール
+
+```powershell
+winget install --id Python.Python.3.14 --exact --override "/quiet InstallAllUsers=1 PrependPath=1 Include_doc=0 Include_tcltk=0 Include_test=0 Include_freethreaded=1"
+```
+
+#### python3 のPATHを通す
+
+```powershell
+# 1. 実行可能かチェック
+$cmdName = "python3.14t"
+if (Get-Command $cmdName -ErrorAction SilentlyContinue) {
+    Write-Output "$cmdName は既にPATHが通っている。"
+} else {
+    Write-Output "$cmdName が認識されないため、自動修復を開始する..."
+
+    # 2. 実体パスを検索
+    $searchPaths = @("C:\Program Files\Python314", "$env:LOCALAPPDATA\Programs\Python\Python314")
+    $found = Get-ChildItem -Path $searchPaths -Filter "$cmdName.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+
+    if (-not $found) {
+        Write-Output "エラー: $cmdName.exe がシステム上に見つからない。インストールをやり直せ。"
+    } else {
+        $targetPath = $found.Directory.FullName
+        Write-Output "実体パスを発見: $targetPath"
+
+        # 3. ユーザーの環境変数(永続PATH)に追加
+        $userPath = [Environment]::GetEnvironmentVariable("Path", "User")
+        if ($userPath -notmatch [regex]::Escape($targetPath)) {
+            $newUserPath = $userPath.TrimEnd(';') + ";" + $targetPath
+            [Environment]::SetEnvironmentVariable("Path", $newUserPath, "User")
+            Write-Output "永続的なユーザー環境変数(PATH)に登録した。"
+        }
+
+        # 4. 現在のセッションのPATHに追加 (再起動なしで即使うため)
+        if ($env:PATH -notmatch [regex]::Escape($targetPath)) {
+            $env:PATH = $env:PATH.TrimEnd(';') + ";" + $targetPath
+            Write-Output "現在のセッションのPATHに反映した。"
+        }
+
+        Write-Output "自動修復完了。$cmdName が使用可能になった。"
+    }
+}
+```
+
+
