@@ -2,11 +2,8 @@
 
 ### pwsh
 
-```powershell.exe
+```bash: powershell.exe / pwsh.exe
 alias powershell.exe='/mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe -NoProfile –ExecutionPolicy Bypass -NonInteractive'
-```
-
-```pwsh.exe
 alias pwsh.exe='$(wslpath -u "$(powershell.exe "where.exe pwsh" | sed -E "/^$/d" | iconv -t utf-8 | tail -1)" -NoProfile –ExecutionPolicy Bypass -NonInteractive )'
 ```
 
