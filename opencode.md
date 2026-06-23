@@ -4,6 +4,12 @@
 
 エージェントコーディング CLI ツール。
 
+### 噂
+
+- サーバー側の ctx サイズは、32 Ki 以上じゃないと使い物にならない
+- お仕事の種類によって接続先を変更できるらしい
+  - https://opencode.ai/docs/ja/agents/#json
+
 ### インストール
 
 ```bash
@@ -39,9 +45,5 @@ if [[ $(which opencode) ]]; then opencode uninstall && { rm -rf ~/.cache/opencod
   }
 }
 ```
-
-### ウワサの噂
-
-- サーバー側の ctx サイズは、32 Ki 以上じゃないと使い物にならない
 
 ###
