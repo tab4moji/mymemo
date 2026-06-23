@@ -13,7 +13,7 @@ if [[ ! $(which opencode) ]]; then \curl -fsSL https://opencode.ai/install | bas
 ### アンインストール
 
 ```bash
-if [[ $(which opencode) ]]; then opencode uninstall; rm -rf ~/.opencode; rm -rf ~/.config/opencode; rm -rf ~/.cache/opencode; fi
+if [[ $(which opencode) ]]; then opencode uninstall && { rm -rf ~/.opencode; rm -rf ~/.config/opencode; rm -rf ~/.cache/opencode; }; fi
 ```
 
 ### opencode.json 設定
