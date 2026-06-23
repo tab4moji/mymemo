@@ -2,7 +2,9 @@
 
 ### 概要
 
-https://opencode.ai/docs/ja
+- https://opencode.ai/
+- https://github.com/anomalyco/opencode
+
 エージェントコーディング CLI ツール。
 
 ### 噂
@@ -46,5 +48,12 @@ if [[ $(which opencode) ]]; then opencode uninstall && { rm -rf ~/.cache/opencod
   }
 }
 ```
+
+### メモ
+
+- 会話やコマンドでディレクトリー名を扱うときには必ず最後に/を付けること(例: ~/.config/)。
+- ファイルを探すときは、-name または -iname でワイルドカードを加えた find コマンドを使うこと。
+
+- このプロジェクトを解析したい。ドキュメントファイルとソースコードファイルに何があるか一覧を探して、./.work/docs_and_codes.md に現在時刻とともに記録して。
 
 ###
