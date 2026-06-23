@@ -7,13 +7,13 @@
 ### インストール
 
 ```bash
-if [[ ! $(which opencode) ]]; then \curl -fsSL https://opencode.ai/install | bash; fi
+if [[ ! $(which opencode) ]]; then \curl -fsSL https://opencode.ai/install | bash && mkdir -p ~/.config/opencode/; fi
 ```
 
 ### アンインストール
 
 ```bash
-if [[ $(which opencode) ]]; then opencode uninstall && { rm -rf ~/.opencode; rm -rf ~/.config/opencode; rm -rf ~/.cache/opencode; }; fi
+if [[ $(which opencode) ]]; then opencode uninstall && { rm -rf ~/.cache/opencode; rm -rf ~/.config/opencode; rm -rf ~/.opencode; }; fi
 ```
 
 ### opencode.json 設定
