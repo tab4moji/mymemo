@@ -582,3 +582,16 @@ setup_alsa_main() {
 
 setup_alsa_main
 ```
+
+### GPU check with WSL2
+
+```bash
+uv run python -c "
+import torch
+print('1. GPU Available:', torch.cuda.is_available())
+print('2. Device Count :', torch.cuda.device_count())
+if torch.cuda.is_available():
+    print('3. Device Name  :', torch.cuda.get_device_name(0))
+print('4. HIP Version  :', torch.version.hip)
+"
+```
