@@ -2,6 +2,7 @@
 
 ### 概要
 
+https://opencode.ai/docs/ja
 エージェントコーディング CLI ツール。
 
 ### 噂
