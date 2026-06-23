@@ -51,7 +51,7 @@ if [[ $(which opencode) ]]; then opencode uninstall && { rm -rf ~/.cache/opencod
 
 ### メモ
 
-```markdown
+```markdown:システム指示
 - 会話やコマンドでディレクトリー名を扱うときには必ず最後に/を付けること(例: ~/.config/)。
 - ファイルを探すときは、-name または -iname でワイルドカードを加えた find コマンドを使うこと。
 - 作業記録を書くときは、記録ファイルへ現在時刻を含んだタイトルで日記形式で作業内容を追加書き込みすること。
@@ -59,7 +59,7 @@ if [[ $(which opencode) ]]; then opencode uninstall && { rm -rf ~/.cache/opencod
   - date +%Y_%m%d_%H%M_%S
 ```
 
-```markdown
+```markdown:コード分析
 - このプロジェクトを解析したい。そのために、まずドキュメントファイルとソースコードファイルに何があるか一覧を探して、./.works/docs_and_codes_<現在時刻>.md というファイル名に記録すること本文中にも現在時刻を記録すること。
 ```
 
