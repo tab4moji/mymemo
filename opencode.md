@@ -51,7 +51,7 @@ if [[ $(which opencode) ]]; then opencode uninstall && { rm -rf ~/.cache/opencod
 
 ### メモ
 
-```markdown:システム指示
+```markdown:システム指示 ./AGENTS.md
 - 会話やコマンドでディレクトリー名を扱うときには必ず最後に/を付けること(例: ~/.config/)。
 - ファイルを探すときは、ls コマンドを使わずに、-name または -iname でワイルドカードを加えた find コマンドを使うこと。
 - 作業記録を書くときは、記録ファイルへ現在時刻を含んだタイトルで日記形式で作業内容を追加書き込みすること。
