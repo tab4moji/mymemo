@@ -87,7 +87,7 @@ WSL2はWindowsを再起動したりWSLをシャットダウンしたりするた
 IPが変わるとフォワーディング先が迷子になるため、起動のたびに手順2の `netsh` の `connectaddress` を新しいIPで上書き更新する必要がある。
 
 ```bash:🔛ネットワーク開通
-pwsh.exe -Command "netsh interface portproxy add v4tov4 listenport=${port_number} listenaddress=0.0.0.0 connectport=${port_number} connectaddress=$(ip addr | \grep -E 'global eth[0-9]' | sed -E 's/[ \t\/:]+/ /g' | cut -d' ' -f3); New-NetFirewallRule -DisplayName 'WSL Port${port_number} Forwarding' -Direction Inbound -Action Allow -Protocol TCP -LocalPort ${port_number}; netsh interface portproxy show v4tov4; Get-NetFirewallRule -DisplayName 'WSL Port${port_number} Forwarding'"; }; _ 11434
+_() { local port_number="$1"; pwsh "netsh interface portproxy add v4tov4 listenport=${port_number} listenaddress=0.0.0.0 connectport=${port_number} connectaddress=$(ip addr | \grep -E 'global eth[0-9]' | sed -E 's/[ \t\/:]+/ /g' | cut -d' ' -f3); New-NetFirewallRule -DisplayName 'WSL Port${port_number} Forwarding' -Direction Inbound -Action Allow -Protocol TCP -LocalPort ${port_number}; netsh interface portproxy show v4tov4; Get-NetFirewallRule -DisplayName 'WSL Port${port_number} Forwarding'"; }; _ 11434
 ```
 
 ```bash:ℹ️確認
