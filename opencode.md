@@ -83,7 +83,7 @@ OpenCodeを完全ローカルで動かし、意図しない外部通信を防ぐ
   "provider": {
     "ollama": {
       "npm": "@ai-sdk/openai-compatible",
-      "name": "Local LLM",
+      "name": "Ollama",
       "options": {
         "baseURL": "http://192.168.123.123:11434/v1"
       },
