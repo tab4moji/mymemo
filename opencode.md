@@ -12,6 +12,7 @@
 - サーバー側の ctx サイズは、32 Ki 以上じゃないと使い物にならない
 - お仕事の種類によって接続先を変更できるらしい
   - https://opencode.ai/docs/ja/agents/#json
+- cocoindex-code がいいらしい
 
 ### インストール
 
@@ -85,7 +86,7 @@ OpenCodeを完全ローカルで動かし、意図しない外部通信を防ぐ
       "npm": "@ai-sdk/openai-compatible",
       "name": "Ollama",
       "options": {
-        "baseURL": "http://192.168.123.123:11434/v1"
+        "baseURL": "http://192.168.0.11:11434/v1"
       },
       "models": {
         "gemma4-12b-coder": {
@@ -153,6 +154,10 @@ export OPENCODE_DISABLE_MODELS_FETCH=true
 
 ```markdown:コード分析
 - このプロジェクトに含まれるドキュメントファイルとソースコードファイルに何があるか一覧を探して "./.works/docs_and_codes_<現在時刻>.md" というファイル名に記録せよ。本文中にも現在時刻を記録せよ。
+```
+
+```
+uv tool install --upgrade 'cocoindex-code[full]'
 ```
 
 ###
