@@ -142,4 +142,30 @@ if (Get-Command $cmdName -ErrorAction SilentlyContinue) {
 }
 ```
 
+### 自動実行(タスク スケジューラー)
 
+#### タスク一覧
+
+```powershell:タスク一覧
+schtasks /query | Select-String "Schtask_"
+```
+
+#### タスク削除
+
+```powershell:タスク削除
+$task_name = 'WSL'
+schtasks /delete /tn "Schtask_${task_name}" /f
+```
+
+#### ユーザーログオン時のタスク作成(ONLOGON)
+
+```powershell:タスク作成
+$task_name = 'WSL'
+$action = 'powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Minimized -Command "wsl \"~\""'
+schtasks /Create /TN "Schtask_${task_name}" /SC ONLOGON /RL HIGHEST /TR $action /F
+```
+- ProcessWindowStyle
+  - https://learn.microsoft.com/ja-jp/dotnet/api/system.diagnostics.processwindowstyle?view=net-10.0#-----
+  - Normal, Hidden, Minimized, Maximized
+
+##
