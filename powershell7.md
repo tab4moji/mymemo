@@ -172,8 +172,12 @@ schtasks /Create /TN "Schtask_${task_name}" /SC ONLOGON /RL HIGHEST /TR $action 
 
 #### 更新プログラムのチェック
 
+```powershell:準備
+Install-Module -Name PSWindowsUpdate -Force -AllowClobber; Import-Module PSWindowsUpdate
+```
+
 ```powershell:更新プログラムのチェック
-Install-Module -Name PSWindowsUpdate -Force -AllowClobber; Import-Module PSWindowsUpdate; Get-WindowsUpdate
+Get-WindowsUpdate
 ```
 
 #### 全て適用
