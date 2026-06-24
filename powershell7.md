@@ -168,4 +168,18 @@ schtasks /Create /TN "Schtask_${task_name}" /SC ONLOGON /RL HIGHEST /TR $action 
   - https://learn.microsoft.com/ja-jp/dotnet/api/system.diagnostics.processwindowstyle?view=net-10.0#-----
   - Normal, Hidden, Minimized, Maximized
 
+### Windows Updtate
+
+#### 更新プログラムのチェック
+
+```powershell:更新プログラムのチェック
+Install-Module -Name PSWindowsUpdate -Force -AllowClobber; Import-Module PSWindowsUpdate; Get-WindowsUpdate
+```
+
+#### 全て適用
+
+```powershell:全て適用
+Install-WindowsUpdate -AcceptAll -AutoReboot
+```
+
 ##
