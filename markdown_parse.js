@@ -2,7 +2,7 @@
  * Type: module
  * Scope: global
  * Created: 2026-06-25T08:29:34+09:00
- * Last Updated: 2026-06-25T08:39:55+09:00
+ * Last Updated: 2026-06-25T08:43:55+09:00
  * Status: ACTIVE
  */
 
@@ -101,7 +101,18 @@ function parseMarkdownToHtml(markdownText) {
     const renderer = new marked.Renderer();
 
     // 見出しのカスタムレンダリング（アンカーIDとコピー用アンカータグを付与）
-    renderer.heading = function({ text, depth }) {
+    // 旧引数(text, depth)と新引数({text, depth})の両方に対応する防衛設計
+    renderer.heading = function(arg1, arg2) {
+        let text = '';
+        let depth = 2;
+        if (typeof arg1 === 'object' && arg1 !== null) {
+            text = arg1.text || '';
+            depth = arg1.depth || 2;
+        } else {
+            text = arg1 || '';
+            depth = arg2 || 2;
+        }
+
         const cleanText = text.replace(/<[^>]*>/g, '');
         const escapedText = cleanText.trim()
             .toLowerCase()
@@ -115,7 +126,18 @@ function parseMarkdownToHtml(markdownText) {
     };
 
     // コードブロックのカスタムレンダリング
-    renderer.code = function({ text, lang: infoStr }) {
+    // 旧引数(text, lang)と新引数({text, lang})の両方に対応する防衛設計
+    renderer.code = function(arg1, arg2) {
+        let text = '';
+        let infoStr = '';
+        if (typeof arg1 === 'object' && arg1 !== null) {
+            text = arg1.text || '';
+            infoStr = arg1.lang || '';
+        } else {
+            text = arg1 || '';
+            infoStr = arg2 || '';
+        }
+
         const info = (infoStr || '').trim();
         let lang = '';
         let title = '';
@@ -139,7 +161,9 @@ function parseMarkdownToHtml(markdownText) {
 
     marked.use({ renderer });
     const rawHtml = marked.parse(fixedText);
-    return DOMPurify.sanitize(rawHtml);
+    
+    // DOMPurifyでカスタムデータ属性 (data-anchor) の保持を許可する
+    return DOMPurify.sanitize(rawHtml, { ALLOW_DATA_ATTR: true });
 }
 
 // グローバルオブジェクトに公開

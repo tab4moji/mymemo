@@ -2,7 +2,7 @@
  * Type: module
  * Scope: global
  * Created: 2026-06-25T08:29:34+09:00
- * Last Updated: 2026-06-25T08:39:55+09:00
+ * Last Updated: 2026-06-25T08:43:55+09:00
  * Status: ACTIVE
  */
 
@@ -28,7 +28,7 @@ function initTheme() {
 function setTheme(theme) {
     const themeLink = document.getElementById('theme-style');
     if (themeLink) {
-        themeLink.href = `markdown_${theme}.css`;
+        themeLink.href = `markdown_${theme}.css?t=${new Date().getTime()}`;
     }
     document.documentElement.setAttribute('data-theme', theme);
     localStorage.setItem('markdown-theme', theme);
