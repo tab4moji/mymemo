@@ -173,7 +173,7 @@ schtasks /Create /TN "Schtask_${task_name}" /SC ONLOGON /RL HIGHEST /TR $action 
 #### 更新プログラムのチェック
 
 ```powershell:更新プログラムのチェック
-powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Minimized -Command "Install-Module -Name PSWindowsUpdate -Force -AllowClobber; Import-Module PSWindowsUpdate; Get-WindowsUpdate"
+Install-Module -Name PSWindowsUpdate -Force -AllowClobber; Import-Module PSWindowsUpdate; Get-WindowsUpdate
 ```
 
 メモ: Uninstall-Module PSWindowsUpdate -AllVersions -Force
@@ -181,7 +181,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Minimized -Comman
 #### 全て適用
 
 ```powershell:全て適用
-powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Minimized -Command "Install-WindowsUpdate"
+Install-Module -Name PSWindowsUpdate -Force -AllowClobber; Import-Module PSWindowsUpdate; Install-WindowsUpdate -AcceptAll
 ```
 
 ##
