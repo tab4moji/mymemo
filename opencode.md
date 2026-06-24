@@ -79,12 +79,19 @@ OpenCodeを完全ローカルで動かし、意図しない外部通信を防ぐ
   "$schema": "https://opencode.ai/config.json",
   "autoupdate": false,
   "share": "disabled",
+  "model": "ollama/gemma4-12b-coder",
   "provider": {
-    "local-llm": {
+    "ollama": {
       "npm": "@ai-sdk/openai-compatible",
       "name": "Local LLM",
       "options": {
-        "baseURL": "http://127.0.0.1:11434/v1"
+        "baseURL": "http://192.168.123.123:11434/v1"
+      },
+      "models": {
+        "gemma4-12b-coder": {
+          "name": "gemma4-12b-coder",
+          "tools": true
+        }
       }
     }
   },
