@@ -1,4 +1,12 @@
 /**
+ * Type: module
+ * Scope: global
+ * Created: 2026-06-25T08:29:34+09:00
+ * Last Updated: 2026-06-25T08:39:55+09:00
+ * Status: ACTIVE
+ */
+
+/**
  * Markdown解析およびカスタムレンダリングモジュール
  */
 
@@ -91,6 +99,20 @@ function fixNestedCodeBlocks(text) {
 function parseMarkdownToHtml(markdownText) {
     const fixedText = fixNestedCodeBlocks(markdownText);
     const renderer = new marked.Renderer();
+
+    // 見出しのカスタムレンダリング（アンカーIDとコピー用アンカータグを付与）
+    renderer.heading = function({ text, depth }) {
+        const cleanText = text.replace(/<[^>]*>/g, '');
+        const escapedText = cleanText.trim()
+            .toLowerCase()
+            .replace(/\s+/g, '-')
+            .replace(/[^\u3000-\u30fe\u4e00-\u9faf\u3040-\u309f\u30a0-\u30ff\uff00-\uffef\w\-]+/g, '');
+        
+        return `<h${depth} id="${escapedText}" class="markdown-heading">` +
+               `${text}` +
+               `<span class="heading-anchor" data-anchor="#${escapedText}">🔗</span>` +
+               `</h${depth}>\n`;
+    };
 
     // コードブロックのカスタムレンダリング
     renderer.code = function({ text, lang: infoStr }) {

@@ -1,3 +1,11 @@
+/**
+ * Type: module
+ * Scope: global
+ * Created: 2026-06-25T08:29:34+09:00
+ * Last Updated: 2026-06-25T08:39:55+09:00
+ * Status: ACTIVE
+ */
+
 const FOLD_THRESHOLD = 20;
 const SHOW_LINES = 10;
 
@@ -195,5 +203,28 @@ document.addEventListener('DOMContentLoaded', () => {
     const themeBtn = document.getElementById('theme-toggle-btn');
     if (themeBtn) {
         themeBtn.addEventListener('click', toggleTheme);
+    }
+
+    // 見出しのアンカークリック時のコピーイベント (イベントデリゲーション)
+    const contentDiv = document.getElementById('content');
+    if (contentDiv) {
+        contentDiv.addEventListener('click', (e) => {
+            const anchor = e.target.closest('.heading-anchor');
+            if (anchor) {
+                const anchorValue = anchor.getAttribute('data-anchor');
+                if (anchorValue) {
+                    const url = window.location.href.split('#')[0] + anchorValue;
+                    navigator.clipboard.writeText(url).then(() => {
+                        const originalText = anchor.textContent;
+                        anchor.textContent = ' Copied!';
+                        setTimeout(() => {
+                            anchor.textContent = originalText;
+                        }, 1500);
+                    }).catch(err => {
+                        console.error('Could not copy anchor URL: ', err);
+                    });
+                }
+            }
+        });
     }
 });

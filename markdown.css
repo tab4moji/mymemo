@@ -204,3 +204,28 @@ body {
     display: block;
 }
 
+/* --- Heading Anchors --- */
+.markdown-heading {
+    position: relative;
+}
+
+.heading-anchor {
+    margin-left: 8px;
+    font-size: 0.8em;
+    cursor: copy;
+    opacity: 0;
+    transition: opacity 0.2s ease-in-out, color 0.2s;
+    color: var(--text-muted);
+    user-select: none;
+}
+
+.markdown-heading:hover .heading-anchor {
+    opacity: 0.8;
+}
+
+.heading-anchor:hover {
+    opacity: 1 !important;
+    color: var(--accent-color);
+}
+
+
