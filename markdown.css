@@ -1,0 +1,206 @@
+@import url("https://cdnjs.cloudflare.com/ajax/libs/github-markdown-css/5.8.1/github-markdown.min.css");
+
+body {
+    background-color: var(--bg-color);
+    color: var(--text-main);
+    font-family: 'Roboto', sans-serif;
+    margin: 0;
+    transition: background-color 0.3s, color 0.3s;
+}
+
+.markdown-body {
+    box-sizing: border-box;
+    min-width: 200px;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 45px;
+    background-color: var(--bg-color);
+    color: var(--text-main);
+    transition: background-color 0.3s, color 0.3s;
+}
+
+/* --- Heading Overrides (見出しスタイルの変更) --- */
+
+/* H2: ページトップ・センタリング・ハッキリタイトル */
+.markdown-body h2 {
+    text-align: center;
+    font-size: 2em;
+    padding-bottom: 0.5em;
+    border-bottom: 3px solid var(--accent-color); /* アクセントカラーで太線 */
+    margin-top: 1.5em;
+    margin-bottom: 1em;
+    color: var(--text-main);
+}
+
+/* H3: 旧H2相当 (セクション区切り・下線あり) */
+.markdown-body h3 {
+    font-size: 1.5em;
+    padding-bottom: 0.3em;
+    border-bottom: 1px solid var(--border-color);
+    margin-top: 1.5em;
+    margin-bottom: 16px;
+}
+
+/* H4: 旧H3相当 (サブセクション・下線なし) */
+.markdown-body h4 {
+    font-size: 1.25em;
+    font-weight: 600;
+    border-bottom: none;
+    margin-top: 1.5em;
+    margin-bottom: 16px;
+}
+
+/* --- Code Block Container --- */
+.code-wrapper {
+    margin-bottom: 16px;
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    overflow: hidden;
+    background-color: var(--surface-color);
+    transition: border-color 0.3s, background-color 0.3s;
+}
+
+/* --- Header --- */
+.code-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: var(--header-bg);
+    padding: 8px 16px;
+    border-bottom: 1px solid var(--border-color);
+    font-size: 13px;
+    color: var(--text-muted);
+    user-select: none;
+    transition: background-color 0.3s, border-color 0.3s, color 0.3s;
+}
+
+.header-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.code-title {
+    font-weight: 700;
+    color: var(--text-main);
+    transition: color 0.3s;
+}
+
+.code-lang {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    opacity: 0.8;
+}
+
+/* --- Copy Button --- */
+.copy-btn {
+    background-color: transparent;
+    border: 1px solid var(--border-color);
+    color: var(--text-muted);
+    border-radius: 6px;
+    padding: 4px 10px;
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.2s;
+    flex-shrink: 0;
+}
+.copy-btn:hover {
+    background-color: var(--btn-hover);
+    color: var(--text-main);
+    border-color: var(--text-muted);
+}
+
+/* --- Pre / Code --- */
+.code-wrapper pre {
+    margin: 0 !important;
+    padding: 16px !important;
+    background-color: var(--surface-color) !important;
+    border: none !important;
+    border-radius: 0 !important;
+    overflow-x: auto;
+    transition: background-color 0.3s !important;
+}
+
+.code-wrapper code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    line-height: 1.5;
+    background-color: transparent !important;
+}
+
+/* --- Snip Marker --- */
+.snip-line {
+    display: block;
+    margin: 8px 0;
+    padding: 8px;
+    background-color: rgba(168, 199, 250, 0.1);
+    color: var(--accent-color);
+    text-align: center;
+    font-style: italic;
+    cursor: pointer;
+    border-radius: 4px;
+    font-size: 12px;
+    transition: background-color 0.2s, color 0.2s;
+    user-select: none;
+}
+.snip-line:hover {
+    background-color: rgba(168, 199, 250, 0.2);
+    text-decoration: underline;
+}
+
+@media (max-width: 767px) {
+    .markdown-body { padding: 20px; }
+}
+#error-message {
+    color: #ff897d; display: none; text-align: center; margin-top: 50px;
+}
+
+/* --- Theme Toggle Button --- */
+.theme-toggle-btn {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background-color: var(--surface-color);
+    border: 1px solid var(--border-color);
+    color: var(--text-main);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 1000;
+}
+
+.theme-toggle-btn:hover {
+    transform: scale(1.1) rotate(15deg);
+    background-color: var(--header-bg);
+    border-color: var(--accent-color);
+    box-shadow: 0 6px 16px rgba(0,0,0,0.25);
+}
+
+.theme-toggle-btn:active {
+    transform: scale(0.95);
+}
+
+/* Icon visibility based on theme */
+[data-theme="dark"] .theme-toggle-btn .sun-icon {
+    display: block;
+}
+[data-theme="dark"] .theme-toggle-btn .moon-icon {
+    display: none;
+}
+
+[data-theme="light"] .theme-toggle-btn .sun-icon {
+    display: none;
+}
+[data-theme="light"] .theme-toggle-btn .moon-icon {
+    display: block;
+}
+

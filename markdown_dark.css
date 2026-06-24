@@ -1,0 +1,12 @@
+@import url("https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css");
+
+:root {
+    --bg-color: #131314;
+    --surface-color: #1E1F20;
+    --header-bg: #2D2E30;
+    --border-color: #444746;
+    --text-main: #E3E3E3;
+    --text-muted: #C4C7C5;
+    --accent-color: #A8C7FA;
+    --btn-hover: #3C4043;
+}

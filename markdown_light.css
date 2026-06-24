@@ -1,0 +1,17 @@
+@import url("https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-light.min.css");
+
+:root {
+    --bg-color: #ffffff;
+    --surface-color: #f6f8fa;
+    --header-bg: #eaeef2;
+    --border-color: #d0d7de;
+    --text-main: #24292f;
+    --text-muted: #57606a;
+    --accent-color: #0969da;
+    --btn-hover: #ebecf0;
+}
+
+/* ライトテーマ時に github-markdown-css がダークにならないように明示的に指定 */
+.markdown-body {
+    color-scheme: light;
+}
