@@ -53,7 +53,7 @@ if [[ $(which opencode) ]]; then opencode uninstall && { rm -rf ~/.cache/opencod
 
 【概要・結論】
 
-指定されたURL（`https://opencode.ai/config.json`）は、ターミナルで動作するオープンソースのAIコーディングアシスタント「OpenCode」の設定ファイル（`opencode.json`）のJSONスキーマ定義だ。
+このURL（`https://opencode.ai/config.json`）は、ターミナルで動作するオープンソースのAIコーディングアシスタント「OpenCode」の設定ファイル（`opencode.json`）のJSONスキーマ定義だ。
 
 社内利用においてソースコードや入力データを社外に出さない（完全ローカル・エアギャップ化する）ためには、クラウドのAIモデルではなくローカルLLMを利用する構成にした上で、OpenCodeのテレメトリ（利用状況送信）、共有機能、自動アップデート、Web検索ツールへのアクセスを無効化する設定をこのスキーマに沿って記述する必要がある。
 
@@ -116,8 +116,6 @@ OpenCodeを完全ローカルで動かし、意図しない外部通信を防ぐ
 #### 3. ハードウェアを活用したローカルLLM環境の構築
 
 コードを社外に出さないためには、推論を行うLLM自体をローカルで動かす必要がある。利用可能なハードウェア環境の中で最もスペックの高い「Windows11 (Ryzen7 7735HS, 32GB RAM + RX 9060 XT 16GB)」のマシンをホストとして活用するのが最適だ。
-
-このマシンのGPUリソース（16GB VRAM）とシステムメモリ（32GB）があれば、Qwen2.5-CoderやGemma 2などの高性能なコーディング特化モデルを十分に動作させられる。Windows上でOllamaまたはLM Studioをサーバーモードで起動し、上記の `opencode.json` の `baseURL` をそのマシンのIPアドレスとポートに指定すれば、ネットワーク内の他の端末（WSL上のUbuntu 24.04や、Motorola edge 50s proのUserLAnd上のUbuntu）からも安全にAIコーディング支援を利用できる。
 
 #### 4. 補足：環境変数による完全な通信遮断
 
