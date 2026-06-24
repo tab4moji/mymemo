@@ -156,7 +156,7 @@ export OPENCODE_DISABLE_MODELS_FETCH=true
 - このプロジェクトに含まれるドキュメントファイルとソースコードファイルに何があるか一覧を探して "./.works/docs_and_codes_<現在時刻>.md" というファイル名に記録せよ。本文中にも現在時刻を記録せよ。
 ```
 
-```
+```bash
 uv tool install --upgrade 'cocoindex-code[full]'
 ```
 
