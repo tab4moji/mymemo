@@ -49,6 +49,90 @@ if [[ $(which opencode) ]]; then opencode uninstall && { rm -rf ~/.cache/opencod
 }
 ```
 
+### 企業向け opencode.json 設定
+
+【概要・結論】
+
+指定されたURL（`https://opencode.ai/config.json`）は、ターミナルで動作するオープンソースのAIコーディングアシスタント「OpenCode」の設定ファイル（`opencode.json`）のJSONスキーマ定義だ。
+
+社内利用においてソースコードや入力データを社外に出さない（完全ローカル・エアギャップ化する）ためには、クラウドのAIモデルではなくローカルLLMを利用する構成にした上で、OpenCodeのテレメトリ（利用状況送信）、共有機能、自動アップデート、Web検索ツールへのアクセスを無効化する設定をこのスキーマに沿って記述する必要がある。
+
+【詳細・具体的な説明】
+
+OpenCodeを完全ローカルで動かし、意図しない外部通信を防ぐための具体的な設定方法と構成を解説する。
+
+#### 1. 設定ファイルの配置とスキーマ指定
+
+設定ファイルは用途に合わせて以下の場所に作成する。
+
+* グローバル設定：LinuxやWSLなら `~/.config/opencode/opencode.json`、Windowsネイティブなら `C:\Users\ユーザ名\.config\opencode\opencode.json`
+* プロジェクト設定：対象プロジェクトのルートディレクトリに `opencode.json`
+
+作成したファイルの先頭に、指定されたURLをスキーマとして設定する。これにより、エディタでの入力補完や構文チェックが有効になる。
+
+#### 2. 社外通信を遮断する `opencode.json` の設定例
+
+以下の設定を記述することで、外部APIやクラウドLLMへのデータ送信を防ぐことができる。
+
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "autoupdate": false,
+  "share": "disabled",
+  "provider": {
+    "local-llm": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Local LLM",
+      "options": {
+        "baseURL": "http://127.0.0.1:11434/v1"
+      }
+    }
+  },
+  "defaultFallback": [],
+  "permission": {
+    "websearch": "deny",
+    "webfetch": "deny",
+    "share": "deny",
+    "read": {
+      "*.env*": "deny",
+      "*.pem": "deny"
+    }
+  },
+  "experimental": {
+    "openTelemetry": false
+  }
+}
+
+```
+
+**設定のポイント：**
+
+* **`provider`**: OpenAIやAnthropicなどの外部プロバイダを外し、`@ai-sdk/openai-compatible` を利用してローカルのAPIエンドポイント（例はOllamaのデフォルトポート）へ向ける。
+* **`autoupdate: false`**: アプリケーションの自動更新を停止する。
+* **`share: "disabled"`**: セッションをURLで共有する機能を無効化する。
+* **`permission`**: OpenCodeが自律的にWeb検索(`websearch`, `webfetch`)を行って外部サイトにアクセスするのを防ぐ。また、`.env`や秘密鍵などの機密ファイルを誤って読み込まないように制限をかける。
+* **`experimental.openTelemetry`**: 内部のテレメトリ機能を無効化する。
+
+#### 3. ハードウェアを活用したローカルLLM環境の構築
+
+コードを社外に出さないためには、推論を行うLLM自体をローカルで動かす必要がある。利用可能なハードウェア環境の中で最もスペックの高い「Windows11 (Ryzen7 7735HS, 32GB RAM + RX 9060 XT 16GB)」のマシンをホストとして活用するのが最適だ。
+
+このマシンのGPUリソース（16GB VRAM）とシステムメモリ（32GB）があれば、Qwen2.5-CoderやGemma 2などの高性能なコーディング特化モデルを十分に動作させられる。Windows上でOllamaまたはLM Studioをサーバーモードで起動し、上記の `opencode.json` の `baseURL` をそのマシンのIPアドレスとポートに指定すれば、ネットワーク内の他の端末（WSL上のUbuntu 24.04や、Motorola edge 50s proのUserLAnd上のUbuntu）からも安全にAIコーディング支援を利用できる。
+
+#### 4. 補足：環境変数による完全な通信遮断
+
+2026年時点のOpenCodeの挙動に関する開発コミュニティの報告によると、設定ファイルの指定だけでは、モデルリストの取得（models.devへのアクセス）などで微小な外部通信が発生する場合がある。
+これを完全に防ぎ、社内ネットワーク内に閉じ込めるには、OpenCodeの起動時に以下の環境変数を併用するのが有効だ。
+
+```bash
+export OPENCODE_DISABLE_AUTOUPDATE=true
+export OPENCODE_DISABLE_SHARE=true
+export OPENCODE_DISABLE_MODELS_FETCH=true
+
+```
+
+これらを `~/.bashrc` や `~/.zshrc` に記述しておくことで、意図しない外部へのデータ流出をより強固に防ぐことができる。
+
 ### メモ
 
 ```markdown:システム指示 ~/.config/opencode/AGENTS.md
