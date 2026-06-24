@@ -165,7 +165,7 @@ $action = 'powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Minimi
 schtasks /Create /TN "Schtask_${task_name}" /SC ONLOGON /RL HIGHEST /TR $action /F
 ```
 - ProcessWindowStyle
-  - https://learn.microsoft.com/ja-jp/dotnet/api/system.diagnostics.processwindowstyle?view=net-10.0#-----
+  - https://learn.microsoft.com/dotnet/api/system.diagnostics.processwindowstyle?view=net-10.0#-----
   - Normal, Hidden, Minimized, Maximized
 
 ### Windows Updtate
@@ -183,5 +183,9 @@ Install-Module -Name PSWindowsUpdate -Force -AllowClobber; Import-Module PSWindo
 ```powershell:全て適用
 Install-Module -Name PSWindowsUpdate -Force -AllowClobber; Import-Module PSWindowsUpdate; Install-WindowsUpdate -AcceptAll
 ```
+
+### コンピューターの状態
+
+https://learn.microsoft.com/powershell/scripting/samples/changing-computer-state?view=powershell-7.6#shutting-down-or-restarting-a-computer
 
 ##
