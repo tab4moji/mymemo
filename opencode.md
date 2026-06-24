@@ -2,10 +2,12 @@
 
 ### 概要
 
+エージェントコーディング CLI ツール。
+
+### 公式サイト
+
 - https://opencode.ai/
 - https://github.com/anomalyco/opencode
-
-エージェントコーディング CLI ツール。
 
 ### 噂
 
