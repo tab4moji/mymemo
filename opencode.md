@@ -33,84 +33,31 @@ if [[ $(which opencode) ]]; then opencode uninstall && { rm -rf ~/.cache/opencod
 ```json:~/.config/opencode/opencode.json
 {
   "$schema": "https://opencode.ai/config.json",
-  "model": "ollama/gemma4-12b-coder",
+  "model": "ollama_host/gemma4:12b",
   "provider": {
-    "ollama": {
+    "ollama_host": {
       "npm": "@ai-sdk/openai-compatible",
-      "name": "Ollama",
+      "name": "Ollama on Internal Server",
       "options": {
-        "baseURL": "http://192.168.0.11:11434/v1"
+        "baseURL": "http://192.168.0.11:11434/v1",
       },
       "models": {
         "gemma4-12b-coder": {
-          "name": "gemma4-12b-coder",
+          "name": "gemma4-12b",
+          "max_tokens": 32768,
+          "tools": true
+        },
+        "gemma4:12b": {
+          "name": "gemma4:12b",
+          "max_tokens": 32768,
           "tools": true
         }
       }
     }
   },
-  "mcp": {
-    "cocoindex-code": {
-      "type": "local",
-      "command": [
-        "ccc",
-        "mcp"
-      ],
-      "environment": {
-        "OLLAMA_API_BASE": "http://192.168.0.11:11434"
-      }
-    }
-  }
-}
-```
-
-### 企業向け opencode.json 設定
-
-【概要・結論】
-
-このURL（`https://opencode.ai/config.json`）は、ターミナルで動作するオープンソースのAIコーディングアシスタント「OpenCode」の設定ファイル（`opencode.json`）のJSONスキーマ定義だ。
-
-社内利用においてソースコードや入力データを社外に出さない（完全ローカル・エアギャップ化する）ためには、クラウドのAIモデルではなくローカルLLMを利用する構成にした上で、OpenCodeのテレメトリ（利用状況送信）、共有機能、自動アップデート、Web検索ツールへのアクセスを無効化する設定をこのスキーマに沿って記述する必要がある。
-
-【詳細・具体的な説明】
-
-OpenCodeを完全ローカルで動かし、意図しない外部通信を防ぐための具体的な設定方法と構成を解説する。
-
-#### 1. 設定ファイルの配置とスキーマ指定
-
-設定ファイルは用途に合わせて以下の場所に作成する。
-
-* グローバル設定：LinuxやWSLなら `~/.config/opencode/opencode.json`、Windowsネイティブなら `C:\Users\ユーザ名\.config\opencode\opencode.json`
-* プロジェクト設定：対象プロジェクトのルートディレクトリに `opencode.json`
-
-作成したファイルの先頭に、指定されたURLをスキーマとして設定する。これにより、エディタでの入力補完や構文チェックが有効になる。
-
-#### 2. 社外通信を遮断する `opencode.json` の設定例
-
-以下の設定を記述することで、外部APIやクラウドLLMへのデータ送信を防ぐことができる。
-
-```json
-{
-  "$schema": "https://opencode.ai/config.json",
+  "enabled_providers": ["ollama_host"],
   "autoupdate": false,
   "share": "disabled",
-  "model": "ollama/gemma4-12b-coder",
-  "provider": {
-    "ollama": {
-      "npm": "@ai-sdk/openai-compatible",
-      "name": "Ollama",
-      "options": {
-        "baseURL": "http://192.168.0.11:11434/v1"
-      },
-      "models": {
-        "gemma4-12b-coder": {
-          "name": "gemma4-12b-coder",
-          "tools": true
-        }
-      }
-    }
-  },
-  "defaultFallback": [],
   "permission": {
     "websearch": "deny",
     "webfetch": "deny",
@@ -122,36 +69,47 @@ OpenCodeを完全ローカルで動かし、意図しない外部通信を防ぐ
   },
   "experimental": {
     "openTelemetry": false
+  },
+  "mcp": {
+    "cocoindex-code": {
+      "type": "local",
+      "command": [
+        "uvx",
+        "--prerelease=explicit",
+        "--with",
+        "cocoindex>=1.0.0a16",
+        "cocoindex-code@latest"
+      ]
+    }
   }
 }
-
 ```
 
-**設定のポイント：**
+### opencode と ollama の会話をチラ見
 
-* **`provider`**: OpenAIやAnthropicなどの外部プロバイダを外し、`@ai-sdk/openai-compatible` を利用してローカルのAPIエンドポイント（例はOllamaのデフォルトポート）へ向ける。
-* **`autoupdate: false`**: アプリケーションの自動更新を停止する。
-* **`share: "disabled"`**: セッションをURLで共有する機能を無効化する。
-* **`permission`**: OpenCodeが自律的にWeb検索(`websearch`, `webfetch`)を行って外部サイトにアクセスするのを防ぐ。また、`.env`や秘密鍵などの機密ファイルを誤って読み込まないように制限をかける。
-* **`experimental.openTelemetry`**: 内部のテレメトリ機能を無効化する。
+```bash:opencodeデバッグ
+DB=~/.local/share/opencode/opencode.db
+LAST_FILE=/tmp/opencode_last_ts
 
-#### 3. ハードウェアを活用したローカルLLM環境の構築
+sqlite3 "$DB" "SELECT COALESCE(max(time_created), 0) FROM part;" < /dev/null > "$LAST_FILE"
+echo "監視開始 (last=$(cat $LAST_FILE))"
 
-コードを社外に出さないためには、推論を行うLLM自体をローカルで動かす必要がある。利用可能なハードウェア環境の中で最もスペックの高い「Windows11 (Ryzen7 7735HS, 32GB RAM + RX 9060 XT 16GB)」のマシンをホストとして活用するのが最適だ。
+inotifywait -m -e modify "${DB}-wal" 2>/dev/null | while IFS= read -r _; do
+  LAST=$(cat "$LAST_FILE")
 
-#### 4. 補足：環境変数による完全な通信遮断
+  sqlite3 "$DB" \
+    "SELECT time_created, json_extract(data, '$.type'), substr(data, 1, 120)
+     FROM part
+     WHERE time_created > ${LAST}
+     ORDER BY time_created ASC;" < /dev/null \
+  | while IFS='|' read -r ts type data; do
+      TIME=$(date -d "@$((ts / 1000))" '+%H:%M:%S')
+      echo "[$TIME][$type] $data"
+      echo "$ts" > "$LAST_FILE"
+    done
 
-2026年時点のOpenCodeの挙動に関する開発コミュニティの報告によると、設定ファイルの指定だけでは、モデルリストの取得（models.devへのアクセス）などで微小な外部通信が発生する場合がある。
-これを完全に防ぎ、社内ネットワーク内に閉じ込めるには、OpenCodeの起動時に以下の環境変数を併用するのが有効だ。
-
-```bash
-export OPENCODE_DISABLE_AUTOUPDATE=true
-export OPENCODE_DISABLE_SHARE=true
-export OPENCODE_DISABLE_MODELS_FETCH=true
-
+done
 ```
-
-これらを `~/.bashrc` や `~/.zshrc` に記述しておくことで、意図しない外部へのデータ流出をより強固に防ぐことができる。
 
 ### メモ
 
@@ -174,5 +132,17 @@ export OPENCODE_DISABLE_MODELS_FETCH=true
 ```bash:cocoindex_code_search
 uv tool install --upgrade 'cocoindex-code[full]'
 ```
+
+2026年時点のOpenCodeの挙動に関する開発コミュニティの報告によると、設定ファイルの指定だけでは、モデルリストの取得（models.devへのアクセス）などで微小な外部通信が発生する場合がある。
+これを完全に防ぎ、社内ネットワーク内に閉じ込めるには、OpenCodeの起動時に以下の環境変数を併用するのが有効だ。
+
+```bash
+export OPENCODE_DISABLE_AUTOUPDATE=true
+export OPENCODE_DISABLE_SHARE=true
+export OPENCODE_DISABLE_MODELS_FETCH=true
+
+```
+
+これらを `~/.bashrc` や `~/.zshrc` に記述しておくことで、意図しない外部へのデータ流出をより強固に防ぐことができる。
 
 ###
