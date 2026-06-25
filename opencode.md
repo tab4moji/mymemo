@@ -85,6 +85,14 @@ if [[ $(which opencode) ]]; then opencode uninstall && { rm -rf ~/.cache/opencod
 }
 ```
 
+### 起動時の注意
+
+OpenCode 本体が起動時に models.dev からモデルカタログを取得する通信を無効化。
+
+```bash
+export OPENCODE_DISABLE_MODELS_FETCH=true
+```
+
 ### opencode と ollama の会話をチラ見
 
 ```bash:opencodeデバッグ

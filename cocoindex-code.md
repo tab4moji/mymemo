@@ -25,7 +25,16 @@ embedding:
   model: ollama/embeddinggemma:300m
 envs:
   OLLAMA_API_BASE: "http://127.0.0.1:11434"
+  COCOINDEX_TELEMETRY_DISABLED: 1
   OPENAI_API_KEY: "あなたのAPIキー"
+```
+
+### 起動時の注意
+
+MCPとして追加した cocoindex-code の匿名利用データの送信を無効化。
+
+```bash
+export COCOINDEX_TELEMETRY_DISABLED=1
 ```
 
 ### プロジェクトでの使用例
