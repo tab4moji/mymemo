@@ -57,8 +57,47 @@ async function loadMarkdown() {
         contentDiv.innerHTML = cleanHtml;
 
         contentDiv.querySelectorAll('a').forEach(link => {
-            link.setAttribute('target', '_blank');
-            link.setAttribute('rel', 'noopener noreferrer');
+            const href = link.getAttribute('href');
+            if (!href) return;
+
+            // 1. ページ内アンカーリンクの場合
+            if (href.startsWith('#')) {
+                return;
+            }
+
+            // 2. 外部リンクの場合
+            if (href.startsWith('http://') || href.startsWith('https://')) {
+                link.setAttribute('target', '_blank');
+                link.setAttribute('rel', 'noopener noreferrer');
+                return;
+            }
+
+            // 3. ローカルのマークダウンファイルへの相対リンクの場合
+            const mdRegex = /\.(md|markdown)$/i;
+            const hashIndex = href.indexOf('#');
+            const pathPart = hashIndex !== -1 ? href.slice(0, hashIndex) : href;
+            const hashPart = hashIndex !== -1 ? href.slice(hashIndex) : '';
+
+            if (mdRegex.test(pathPart)) {
+                const parts = filename.split('/');
+                parts.pop();
+                const baseDir = parts.length > 0 ? parts.join('/') + '/' : '';
+
+                try {
+                    const dummyBase = 'http://dummy/';
+                    const resolvedUrl = new URL(baseDir + pathPart, dummyBase);
+                    let newContent = resolvedUrl.pathname.slice(1);
+                    newContent = newContent.replace(mdRegex, '');
+
+                    link.setAttribute('href', `markdown.html?content=${newContent}${hashPart}`);
+                    link.removeAttribute('target');
+                } catch (e) {
+                    console.error('Failed to resolve relative path:', e);
+                }
+            } else {
+                link.setAttribute('target', '_blank');
+                link.setAttribute('rel', 'noopener noreferrer');
+            }
         });
 
         processCodeBlocks();
