@@ -103,6 +103,17 @@ async function loadMarkdown() {
         processCodeBlocks();
         document.title = filename;
 
+        // ハッシュがあればその要素にスクロール
+        if (window.location.hash) {
+            const targetId = decodeURIComponent(window.location.hash.slice(1));
+            const targetElem = document.getElementById(targetId);
+            if (targetElem) {
+                setTimeout(() => {
+                    targetElem.scrollIntoView({ behavior: 'smooth' });
+                }, 100);
+            }
+        }
+
     } catch (error) {
         console.error(error);
         contentDiv.style.display = 'none';
@@ -266,4 +277,36 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
+
+    // リンクのクリックイベントのハンドリング（SPA風の高速同一ページ遷移）
+    if (contentDiv) {
+        contentDiv.addEventListener('click', (e) => {
+            const link = e.target.closest('a');
+            if (!link) return;
+
+            const href = link.getAttribute('href');
+            if (!href) return;
+
+            // ローカルのマークダウン遷移リンクかチェック
+            if (href.startsWith('markdown.html?content=')) {
+                // 修飾キーが押されている場合や、左クリック以外はブラウザ標準の挙動（別タブで開く等）に任せる
+                if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) {
+                    return;
+                }
+
+                e.preventDefault(); // デフォルトの遷移を阻止
+                
+                // ブラウザ履歴に追加
+                history.pushState(null, '', href);
+                
+                // 再ロード
+                loadMarkdown();
+            }
+        });
+    }
+
+    // 履歴の「戻る」「進む」に対応
+    window.addEventListener('popstate', () => {
+        loadMarkdown();
+    });
 });
