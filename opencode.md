@@ -14,7 +14,7 @@
 - サーバー側の ctx サイズは、32 Ki 以上じゃないと使い物にならない
 - お仕事の種類によって接続先を変更できるらしい
   - https://opencode.ai/docs/ja/agents/#json
-- cocoindex-code がいいらしい
+- [cocoindex-code](https://tab4moji.github.io/mymemo/?content=cocoindex-code) がいいらしい
 
 ### インストール
 
@@ -122,15 +122,11 @@ done
   - date +%Y_%m%d_%H%M_%S
 - 文章の最後に「？」などがあって明確に質問文になっていたら、コード修正やコード実行などはせずに、質問に回答だけをすること。知らない、分からない、未だやっていないことがあれば正直に回答すること。
 - 作業を依頼されたら、依頼された作業だけをせよ。依頼が終わったら、すぐに日本語で完了した内容とできなかったことを報告すること。
-- cocoindex_search を使える場合、コードを調査するときには必ず cocoindex_search を使うこと。```
+- cocoindex-code を使える場合、コードを調査するときには必ず cocoindex-code を使うこと。```
 ```
 
 ```markdown:コード分析
 - このプロジェクトに含まれるドキュメントファイルとソースコードファイルに何があるか一覧を探して "./.works/docs_and_codes_<現在時刻>.md" というファイル名に記録せよ。本文中にも現在時刻を記録せよ。
-```
-
-```bash:cocoindex_code_search
-uv tool install --upgrade 'cocoindex-code[full]'
 ```
 
 2026年時点のOpenCodeの挙動に関する開発コミュニティの報告によると、設定ファイルの指定だけでは、モデルリストの取得（models.devへのアクセス）などで微小な外部通信が発生する場合がある。
