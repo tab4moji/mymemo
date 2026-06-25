@@ -145,4 +145,4 @@ export OPENCODE_DISABLE_MODELS_FETCH=true
 
 これらを `~/.bashrc` や `~/.zshrc` に記述しておくことで、意図しない外部へのデータ流出をより強固に防ぐことができる。
 
-###
+##
