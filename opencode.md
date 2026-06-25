@@ -39,7 +39,7 @@ if [[ $(which opencode) ]]; then opencode uninstall && { rm -rf ~/.cache/opencod
       "npm": "@ai-sdk/openai-compatible",
       "name": "Ollama on Internal Server",
       "options": {
-        "baseURL": "http://192.168.0.11:11434/v1",
+        "baseURL": "http://192.168.0.11:11434/v1"
       },
       "models": {
         "gemma4-12b-coder": {
