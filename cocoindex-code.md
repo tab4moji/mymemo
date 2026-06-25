@@ -32,13 +32,7 @@ envs:
 
 - https://github.com/cocoindex-io/cocoindex-code#manual-cli-usage
 
-```bash:フルネームで呼び出し
-cocoindex-code init && \
-cocoindex-code index && \
-cocoindex-code search "最初に動かす関数は、どこ？"
-```
-
-```bash:エイリアスで呼び出し
+```bash:実行
 ccc init && \
 ccc index && \
 ccc search "最初に動かす関数は、どこ？"
