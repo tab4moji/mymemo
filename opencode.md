@@ -87,11 +87,16 @@ if [[ $(which opencode) ]]; then opencode uninstall && { rm -rf ~/.cache/opencod
 
 ### 起動時の注意
 
-OpenCode 本体が起動時に models.dev からモデルカタログを取得する通信を無効化。
+2026年時点のOpenCodeの挙動に関する開発コミュニティの報告によると、設定ファイルの指定だけでは、モデルリストの取得（models.devへのアクセス）などで微小な外部通信が発生する場合がある。
+これを完全に防ぎ、社内ネットワーク内に閉じ込めるには、OpenCodeの起動時に以下の環境変数を併用するのが有効だ。
 
 ```bash
+export OPENCODE_DISABLE_AUTOUPDATE=true
+export OPENCODE_DISABLE_SHARE=true
 export OPENCODE_DISABLE_MODELS_FETCH=true
 ```
+
+これらを `~/.bashrc` や `~/.zshrc` に記述しておくことで、意図しない外部へのデータ流出をより強固に防ぐことができる。
 
 ### opencode と ollama の会話をチラ見
 
@@ -136,17 +141,5 @@ done
 ```markdown:コード分析
 - このプロジェクトに含まれるドキュメントファイルとソースコードファイルに何があるか一覧を探して "./.works/docs_and_codes_<現在時刻>.md" というファイル名に記録せよ。本文中にも現在時刻を記録せよ。
 ```
-
-2026年時点のOpenCodeの挙動に関する開発コミュニティの報告によると、設定ファイルの指定だけでは、モデルリストの取得（models.devへのアクセス）などで微小な外部通信が発生する場合がある。
-これを完全に防ぎ、社内ネットワーク内に閉じ込めるには、OpenCodeの起動時に以下の環境変数を併用するのが有効だ。
-
-```bash
-export OPENCODE_DISABLE_AUTOUPDATE=true
-export OPENCODE_DISABLE_SHARE=true
-export OPENCODE_DISABLE_MODELS_FETCH=true
-
-```
-
-これらを `~/.bashrc` や `~/.zshrc` に記述しておくことで、意図しない外部へのデータ流出をより強固に防ぐことができる。
 
 ##
