@@ -269,6 +269,8 @@ if __name__ == '__main__':
     sys.exit(main())
 ```
 
+### 使い方サンプル
+
 ```bash
 pi@raspberrypi:~$
 pi@raspberrypi:~$ isolate --silent '["192.168.0.123:11434"]' bash

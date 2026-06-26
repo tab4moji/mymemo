@@ -16,6 +16,13 @@
   - https://opencode.ai/docs/ja/agents/#json
 - [cocoindex-code](https://tab4moji.github.io/mymemo/?content=cocoindex-code) がいいらしい
 
+### 不安なら
+
+iptables とかを使いましょう
+
+- https://tab4moji.github.io/mymemo/?content=isolate
+
+
 ### インストール
 
 ```bash
@@ -89,6 +96,8 @@ if [[ $(which opencode) ]]; then opencode uninstall && { rm -rf ~/.cache/opencod
 
 2026年時点のOpenCodeの挙動に関する開発コミュニティの報告によると、設定ファイルの指定だけでは、モデルリストの取得（models.devへのアクセス）などで微小な外部通信が発生する場合がある。
 これを完全に防ぎ、社内ネットワーク内に閉じ込めるには、OpenCodeの起動時に以下の環境変数を併用するのが有効だ。
+
+- https://tab4moji.github.io/mymemo/?content=isolate
 
 ```bash
 export OPENCODE_DISABLE_AUTOUPDATE=true
