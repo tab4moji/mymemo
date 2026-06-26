@@ -1,6 +1,8 @@
 ## ネットワークサンドボックス
 
-### isolate
+### サンドボックス用プログラム
+
+ネットワーク的に閉じ込めるためのサンプル
 
 ```python:isolate
 #!/usr/bin/env python3
