@@ -386,7 +386,8 @@ def main():
     return status
 
 if __name__ == '__main__':
-    sys.exit(main())```
+    sys.exit(main())
+```
 
 ### 使い方サンプル
 
