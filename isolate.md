@@ -4,6 +4,27 @@
 
 ネットワーク的に閉じ込めるためのサンプル
 
+#### help
+
+```bash
+$ isolate
+usage: isolate [-h] [-s] [--no-filter] targets_json ...
+
+AIエージェント隔離実行ツール
+
+positional arguments:
+  targets_json  許可IP:PORT、IPのみ、またはCIDRサブネット (例: '["192.168.0.123:11434"]',
+                '["192.168.0.123"]', '["192.168.0.0/24"]')
+  command       コマンド
+
+options:
+  -h, --help    show this help message and exit
+  -s, --silent  違反を継続
+  --no-filter   フィルタなし
+```
+
+#### python コード
+
 ```python:isolate
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
