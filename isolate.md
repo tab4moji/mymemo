@@ -312,8 +312,12 @@ def main():
     parser = argparse.ArgumentParser(description="AIエージェント隔離実行ツール")
     parser.add_argument('-s', '--silent', action='store_true', help='違反を継続')
     parser.add_argument('--no-filter', action='store_true', help='フィルタなし')
-    parser.add_argument('targets_json', help='許可IP:PORT または IPのみ (例: \'["192.168.0.123:11434"]\', \'["192.168.0.123"]\')')
+    parser.add_argument('targets_json', help='許可IP:PORT、IPのみ、またはCIDRサブネット (例: \'["192.168.0.123:11434"]\', \'["192.168.0.123"]\', \'["192.168.0.0/24"]\')')
     parser.add_argument('command', nargs=argparse.REMAINDER, help='コマンド')
+
+    if len(sys.argv) == 1:
+        parser.print_help()
+        return 0
 
     args = parser.parse_args()
     if not args.command:
@@ -382,8 +386,7 @@ def main():
     return status
 
 if __name__ == '__main__':
-    sys.exit(main())
-```
+    sys.exit(main())```
 
 ### 使い方サンプル
 
