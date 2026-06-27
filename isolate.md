@@ -13,7 +13,7 @@
   - IPセグメントの衝突を回避するため 10.222.0.0/24 を採用
   - TTY制御およびICMP/TCP両対応のログ監視
   - クォートされた単一文字列コマンド("ping 8.8.8.8"など)の自動分割実行
-更新履歴: 10 2026-06-26
+更新履歴: 10 2026-06-26 / 11 2026-06-27 TTY設定の完全保存・復元機能の追加 / 12 2026-06-27 エスケープシーケンスによる端末状態復帰（カーソル表示・マウス追跡無効化等）の追加 / 13 2026-06-27 端末復元出力をstderrに変更、文字色リセットと改行を追加 / 14 2026-06-27 os.systemを完全に排除し、run_sys_cmdに統一 / 15 2026-06-27 許可リストにIPアドレスのみ（ポート省略）が指定された場合のデフォルトポート（11434）補完処理を追加
 """
 
 import sys
@@ -26,6 +26,8 @@ import time
 import re
 import signal
 import shlex
+import termios
+import ipaddress
 
 NS_NAME = "ISOLATE"
 VETH_H = "iso_h"
@@ -39,6 +41,81 @@ journal_proc = None
 child_proc = None
 cleanup_done = False
 violation_event = threading.Event()
+original_tty_attrs = None
+
+def parse_target(target_str):
+    # Strip brackets for IPv6 if present
+    if target_str.startswith("["):
+        close_idx = target_str.find("]")
+        if close_idx != -1:
+            ip_part = target_str[1:close_idx]
+            port_part = target_str[close_idx+1:]
+            if port_part.startswith(":"):
+                return ip_part, port_part[1:]
+            else:
+                return ip_part, None
+
+    # If the whole string is a valid IP address/network, it has no port
+    try:
+        ipaddress.ip_network(target_str, strict=False)
+        return target_str, None
+    except ValueError:
+        pass
+
+    if ":" in target_str:
+        parts = target_str.rsplit(":", 1)
+        if parts[1].isdigit():
+            return parts[0], parts[1]
+            
+    return target_str, None
+
+def format_target(host, port):
+    if ":" in host and not host.startswith("["):
+        host_str = f"[{host}]"
+    else:
+        host_str = host
+    if port:
+        return f"{host_str}:{port}"
+    return host_str
+
+def check_targets_contradiction(targets):
+    parsed = []
+    for t in targets:
+        host_or_subnet, port = parse_target(t)
+        net = None
+        try:
+            net = ipaddress.ip_network(host_or_subnet, strict=False)
+        except ValueError:
+            pass
+        parsed.append({
+            'raw': t,
+            'host_or_subnet': host_or_subnet,
+            'port': port,
+            'network': net
+        })
+
+    for i in range(len(parsed)):
+        for j in range(i + 1, len(parsed)):
+            t1 = parsed[i]
+            t2 = parsed[j]
+            
+            overlap = False
+            if t1['network'] is not None and t2['network'] is not None:
+                if t1['network'].version == t2['network'].version:
+                    n1 = t1['network']
+                    n2 = t2['network']
+                    if (n1.network_address in n2 and n1.broadcast_address in n2) or \
+                       (n2.network_address in n1 and n2.broadcast_address in n1):
+                        overlap = True
+            else:
+                if t1['host_or_subnet'].lower() == t2['host_or_subnet'].lower():
+                    overlap = True
+            
+            if overlap:
+                if t1['port'] != t2['port']:
+                    return True, t1['raw'], t2['raw']
+                    
+    return False, None, None
 
 def run_sys_cmd(cmd_list, ignore_error=False):
     status = True
@@ -68,16 +145,16 @@ def setup_network(targets, no_filter):
     status = True
     host_ips = get_host_ips()
 
-    os.system(f"sudo ip link del {VETH_H} 2>/dev/null")
-    os.system(f"sudo ip netns del {NS_NAME} 2>/dev/null")
-    os.system(f"sudo iptables -t nat -D PREROUTING -i {VETH_H} -j {CHAIN_NAME}_NAT 2>/dev/null")
-    os.system(f"sudo iptables -t nat -D POSTROUTING -s {GUEST_IP}/32 -j MASQUERADE 2>/dev/null")
-    os.system(f"sudo iptables -D FORWARD -o {VETH_H} -m state --state ESTABLISHED,RELATED -j ACCEPT 2>/dev/null")
-    os.system(f"sudo iptables -D FORWARD -i {VETH_H} -j {CHAIN_NAME} 2>/dev/null")
-    os.system(f"sudo iptables -F {CHAIN_NAME} 2>/dev/null")
-    os.system(f"sudo iptables -X {CHAIN_NAME} 2>/dev/null")
-    os.system(f"sudo iptables -t nat -F {CHAIN_NAME}_NAT 2>/dev/null")
-    os.system(f"sudo iptables -t nat -X {CHAIN_NAME}_NAT 2>/dev/null")
+    run_sys_cmd(["sudo", "ip", "link", "del", VETH_H], ignore_error=True)
+    run_sys_cmd(["sudo", "ip", "netns", "del", NS_NAME], ignore_error=True)
+    run_sys_cmd(["sudo", "iptables", "-t", "nat", "-D", "PREROUTING", "-i", VETH_H, "-j", f"{CHAIN_NAME}_NAT"], ignore_error=True)
+    run_sys_cmd(["sudo", "iptables", "-t", "nat", "-D", "POSTROUTING", "-s", f"{GUEST_IP}/32", "-j", "MASQUERADE"], ignore_error=True)
+    run_sys_cmd(["sudo", "iptables", "-D", "FORWARD", "-o", VETH_H, "-m", "state", "--state", "ESTABLISHED,RELATED", "-j", "ACCEPT"], ignore_error=True)
+    run_sys_cmd(["sudo", "iptables", "-D", "FORWARD", "-i", VETH_H, "-j", CHAIN_NAME], ignore_error=True)
+    run_sys_cmd(["sudo", "iptables", "-F", CHAIN_NAME], ignore_error=True)
+    run_sys_cmd(["sudo", "iptables", "-X", CHAIN_NAME], ignore_error=True)
+    run_sys_cmd(["sudo", "iptables", "-t", "nat", "-F", f"{CHAIN_NAME}_NAT"], ignore_error=True)
+    run_sys_cmd(["sudo", "iptables", "-t", "nat", "-X", f"{CHAIN_NAME}_NAT"], ignore_error=True)
 
     commands = [
         ["sudo", "ip", "netns", "add", NS_NAME],
@@ -102,9 +179,7 @@ def setup_network(targets, no_filter):
         run_sys_cmd(["sudo", "iptables", "-t", "nat", "-I", "PREROUTING", "1", "-i", VETH_H, "-j", f"{CHAIN_NAME}_NAT"])
 
         for target in targets:
-            parts = target.split(":")
-            ip = parts[0]
-            port = parts[1] if len(parts) > 1 else None
+            ip, port = parse_target(target)
 
             if ip in host_ips:
                 if port:
@@ -126,10 +201,8 @@ def setup_network(targets, no_filter):
         run_sys_cmd(["sudo", "iptables", "-A", CHAIN_NAME, "-i", VETH_H, "-d", HOST_IP, "-j", "ACCEPT"])
         
         for target in targets:
-            parts = target.split(":")
-            ip = parts[0]
-            if len(parts) > 1:
-                port = parts[1]
+            ip, port = parse_target(target)
+            if port:
                 run_sys_cmd(["sudo", "iptables", "-A", CHAIN_NAME, "-i", VETH_H, "-p", "tcp", "--dport", port, "-d", ip, "-j", "ACCEPT"])
             else:
                 run_sys_cmd(["sudo", "iptables", "-A", CHAIN_NAME, "-i", VETH_H, "-d", ip, "-j", "ACCEPT"])
@@ -176,24 +249,37 @@ def cleanup():
     status = True
     if not cleanup_done:
         cleanup_done = True
-        os.system(f"sudo pkill -9 -f 'ip netns exec {NS_NAME}' 2>/dev/null")
+        run_sys_cmd(["sudo", "pkill", "-9", "-f", f"ip netns exec {NS_NAME}"], ignore_error=True)
         if journal_proc is not None and journal_proc.poll() is None:
             journal_proc.terminate()
             journal_proc.wait(timeout=1)
 
-        os.system(f"sudo iptables -t nat -D PREROUTING -i {VETH_H} -j {CHAIN_NAME}_NAT 2>/dev/null")
-        os.system(f"sudo iptables -t nat -D POSTROUTING -s {GUEST_IP}/32 -j MASQUERADE 2>/dev/null")
-        os.system(f"sudo iptables -D FORWARD -o {VETH_H} -m state --state ESTABLISHED,RELATED -j ACCEPT 2>/dev/null")
-        os.system(f"sudo iptables -D FORWARD -i {VETH_H} -j {CHAIN_NAME} 2>/dev/null")
-        os.system(f"sudo iptables -F {CHAIN_NAME} 2>/dev/null")
-        os.system(f"sudo iptables -X {CHAIN_NAME} 2>/dev/null")
-        os.system(f"sudo iptables -t nat -F {CHAIN_NAME}_NAT 2>/dev/null")
-        os.system(f"sudo iptables -t nat -X {CHAIN_NAME}_NAT 2>/dev/null")
-        os.system(f"sudo ip netns del {NS_NAME} 2>/dev/null")
-        os.system(f"sudo ip link del {VETH_H} 2>/dev/null")
+        run_sys_cmd(["sudo", "iptables", "-t", "nat", "-D", "PREROUTING", "-i", VETH_H, "-j", f"{CHAIN_NAME}_NAT"], ignore_error=True)
+        run_sys_cmd(["sudo", "iptables", "-t", "nat", "-D", "POSTROUTING", "-s", f"{GUEST_IP}/32", "-j", "MASQUERADE"], ignore_error=True)
+        run_sys_cmd(["sudo", "iptables", "-D", "FORWARD", "-o", VETH_H, "-m", "state", "--state", "ESTABLISHED,RELATED", "-j", "ACCEPT"], ignore_error=True)
+        run_sys_cmd(["sudo", "iptables", "-D", "FORWARD", "-i", VETH_H, "-j", CHAIN_NAME], ignore_error=True)
+        run_sys_cmd(["sudo", "iptables", "-F", CHAIN_NAME], ignore_error=True)
+        run_sys_cmd(["sudo", "iptables", "-X", CHAIN_NAME], ignore_error=True)
+        run_sys_cmd(["sudo", "iptables", "-t", "nat", "-F", f"{CHAIN_NAME}_NAT"], ignore_error=True)
+        run_sys_cmd(["sudo", "iptables", "-t", "nat", "-X", f"{CHAIN_NAME}_NAT"], ignore_error=True)
+        run_sys_cmd(["sudo", "ip", "netns", "del", NS_NAME], ignore_error=True)
+        run_sys_cmd(["sudo", "ip", "link", "del", VETH_H], ignore_error=True)
 
-        os.system("stty sane 2>/dev/null")
-        os.system("reset 2>/dev/null")
+        if original_tty_attrs is not None:
+            try:
+                termios.tcsetattr(sys.stdin.fileno(), termios.TCSADRAIN, original_tty_attrs)
+            except Exception:
+                pass
+        else:
+            run_sys_cmd(["stty", "sane"], ignore_error=True)
+
+        # 端末制御エスケープシーケンスの復元（カーソル表示、マウス追跡無効化、代替バッファ終了、文字色リセット、改行）
+        if sys.stderr.isatty():
+            try:
+                sys.stderr.write("\x1b[?25h\x1b[?1000l\x1b[?1002l\x1b[?1003l\x1b[?1006l\x1b[?1049l\x1b[0m\n")
+                sys.stderr.flush()
+            except Exception:
+                pass
 
         if block_counts:
             print("\n=== 終了レポート ===", file=sys.stderr)
@@ -208,11 +294,25 @@ def signal_handler(sig, frame):
     return None
 
 def main():
+    """
+    Type: function
+    Scope: global
+    Created: 2026-06-27T08:59:45+09:00
+    Last Updated: 2026-06-27T09:00:00+09:00
+    Status: ACTIVE
+    """
+    global original_tty_attrs
+    if sys.stdin.isatty():
+        try:
+            original_tty_attrs = termios.tcgetattr(sys.stdin.fileno())
+        except Exception:
+            pass
+
     status = 0
     parser = argparse.ArgumentParser(description="AIエージェント隔離実行ツール")
     parser.add_argument('-s', '--silent', action='store_true', help='違反を継続')
     parser.add_argument('--no-filter', action='store_true', help='フィルタなし')
-    parser.add_argument('targets_json', help='許可IP:PORT (例: \'["192.168.0.123:11434"]\')')
+    parser.add_argument('targets_json', help='許可IP:PORT または IPのみ (例: \'["192.168.0.123:11434"]\', \'["192.168.0.123"]\')')
     parser.add_argument('command', nargs=argparse.REMAINDER, help='コマンド')
 
     args = parser.parse_args()
@@ -226,6 +326,11 @@ def main():
         print("[Error] JSON解析失敗", file=sys.stderr)
         return 1
 
+    is_contradictory, t1, t2 = check_targets_contradiction(targets)
+    if is_contradictory:
+        print(f"[Error] ターゲット指定に矛盾があります: {t1} と {t2}", file=sys.stderr)
+        return 1
+
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
 
@@ -237,6 +342,16 @@ def main():
             threading.Thread(target=monitor_logs, args=(args.silent,), daemon=True).start()
 
         primary_target = targets[0] if targets else "127.0.0.1:11434"
+        pt_host, pt_port = parse_target(primary_target)
+        if pt_port is None:
+            pt_port = "11434"
+        if "/" in pt_host:
+            try:
+                net = ipaddress.ip_network(pt_host, strict=False)
+                pt_host = str(net.network_address)
+            except ValueError:
+                pass
+        primary_target = format_target(pt_host, pt_port)
         exec_env = os.environ.copy()
         exec_user = os.environ.get("SUDO_USER", os.environ.get("USER", "root"))
 
