@@ -16,9 +16,7 @@
   - https://opencode.ai/docs/ja/agents/#json
 - [cocoindex-code](https://tab4moji.github.io/mymemo/?content=cocoindex-code) がいいらしい
 
-### 不安なら
-
-iptables とかを使いましょう
+勝手なアクセスが不安なら、ip netns / iptables とかを使いましょう
 
 - https://tab4moji.github.io/mymemo/?content=isolate
 
