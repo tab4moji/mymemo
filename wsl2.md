@@ -10,7 +10,7 @@ alias pwsh.exe='$(wslpath -u "$(powershell.exe "where.exe pwsh" | sed -E "/^$/d"
 ### WSLがAdministratorなのかどうか
 
 ```bash:Admin権限なら True
-pwsh.exe -Command "[bool]([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)"
+pwsh "[bool]([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)"
 ```
 
 ### WSL の動作優先度を少し落とす
@@ -18,7 +18,7 @@ pwsh.exe -Command "[bool]([Security.Principal.WindowsPrincipal][Security.Princip
 RealTime High AboveNormal Normal BelowNormal Idle
 
 ```bash:WSL の動作優先度を少し落とす
-pwsh.exe -Command "\$ErrorActionPreference = 'Stop'; try { Get-Process vmmemWSL | ForEach-Object { \$_.PriorityClass = 'BelowNormal' } } catch { Write-Host \"Error: \$(\$_.Exception.Message)\" }"
+pwsh "\$ErrorActionPreference = 'Stop'; try { Get-Process vmmemWSL | ForEach-Object { \$_.PriorityClass = 'BelowNormal' } } catch { Write-Host \"Error: \$(\$_.Exception.Message)\" }"
 ```
 
 ### Windows Terminal
@@ -56,7 +56,7 @@ WSL2のネットワークはWindowsホストから独立した仮想ネットワ
 3. Windowsのファイアウォールで該当ポートの外部からの通信を許可する。
 
 ```bash:💻WindowsホストのIPアドレス
-pwsh.exe -Command 'Get-NetAdapter | Where-Object { $_.Status -eq "Up" -and $_.Name -notmatch "vEthernet|Loopback" } | Get-NetIPAddress -AddressFamily IPv4 | Select-Object -ExpandProperty IPAddress' | tr -d '\r'
+pwsh 'Get-NetAdapter | Where-Object { $_.Status -eq "Up" -and $_.Name -notmatch "vEthernet|Loopback" } | Get-NetIPAddress -AddressFamily IPv4 | Select-Object -ExpandProperty IPAddress' | tr -d '\r'
 ```
 
 ```bash:🐧WSLのWindows内IPアドレス
@@ -64,22 +64,22 @@ ip addr | \grep -E "global eth[0-9]" | sed -E 's/[ \t\/:]+/ /g' | cut -d' ' -f3
 ```
 
 ```bash:🔛sshネットワーク開通
-pwsh.exe -Command "netsh interface portproxy add v4tov4 listenport=22 listenaddress=0.0.0.0 connectport=22 connectaddress=$(ip addr | \grep -E "global eth[0-9]" | sed -E 's/[ \t\/:]+/ /g' | cut -d' ' -f3)"
-pwsh.exe -Command "New-NetFirewallRule -DisplayName 'WSL SSH Forwarding' -Direction Inbound -Action Allow -Protocol TCP -LocalPort 22"
-pwsh.exe -Command "netsh interface portproxy show v4tov4"
-pwsh.exe -Command "Get-NetFirewallRule -DisplayName 'WSL SSH Forwarding'"
+pwsh "netsh interface portproxy add v4tov4 listenport=22 listenaddress=0.0.0.0 connectport=22 connectaddress=$(ip addr | \grep -E "global eth[0-9]" | sed -E 's/[ \t\/:]+/ /g' | cut -d' ' -f3)"
+pwsh "New-NetFirewallRule -DisplayName 'WSL SSH Forwarding' -Direction Inbound -Action Allow -Protocol TCP -LocalPort 22"
+pwsh "netsh interface portproxy show v4tov4"
+pwsh "Get-NetFirewallRule -DisplayName 'WSL SSH Forwarding'"
 ```
 
 ```bash:ℹ️確認
-pwsh.exe -Command 'Get-NetFirewallRule | Where-Object { [string]::IsNullOrWhiteSpace($_.DisplayGroup) } | Select-Object DisplayName, Name, Direction, Action | Format-Table -AutoSize'
-pwsh.exe -Command "netsh interface portproxy show v4tov4"
+pwsh 'Get-NetFirewallRule | Where-Object { [string]::IsNullOrWhiteSpace($_.DisplayGroup) } | Select-Object DisplayName, Name, Direction, Action | Format-Table -AutoSize'
+pwsh "netsh interface portproxy show v4tov4"
 ```
 
 ```bash:⛔sshネットワーク閉鎖
-pwsh.exe -Command "netsh interface portproxy delete v4tov4 listenport=22 listenaddress=0.0.0.0"
-pwsh.exe -Command "Remove-NetFirewallRule -DisplayName 'WSL SSH Forwarding'"
-pwsh.exe -Command "netsh interface portproxy show v4tov4"
-pwsh.exe -Command "Get-NetFirewallRule -DisplayName 'WSL SSH Forwarding'"
+pwsh "netsh interface portproxy delete v4tov4 listenport=22 listenaddress=0.0.0.0"
+pwsh "Remove-NetFirewallRule -DisplayName 'WSL SSH Forwarding'"
+pwsh "netsh interface portproxy show v4tov4"
+pwsh "Get-NetFirewallRule -DisplayName 'WSL SSH Forwarding'"
 ```
 
 ##### 🔰WSL再起動時の注意点
@@ -91,12 +91,12 @@ _() { local port_number="$1"; pwsh "netsh interface portproxy add v4tov4 listenp
 ```
 
 ```bash:ℹ️確認
-pwsh.exe -Command 'Get-NetFirewallRule | Where-Object { [string]::IsNullOrWhiteSpace($_.DisplayGroup) } | Select-Object DisplayName, Name, Direction, Action | Format-Table -AutoSize'
-pwsh.exe -Command "netsh interface portproxy show v4tov4"
+pwsh 'Get-NetFirewallRule | Where-Object { [string]::IsNullOrWhiteSpace($_.DisplayGroup) } | Select-Object DisplayName, Name, Direction, Action | Format-Table -AutoSize'
+pwsh "netsh interface portproxy show v4tov4"
 ```
 
 ```bash:⛔ネットワーク閉鎖
-_() { local port_number="$1"; pwsh.exe -Command "netsh interface portproxy delete v4tov4 listenport=${port_number} listenaddress=0.0.0.0; Remove-NetFirewallRule -DisplayName 'WSL Port${port_number} Forwarding'"; }; _ 11434
+_() { local port_number="$1"; pwsh "netsh interface portproxy delete v4tov4 listenport=${port_number} listenaddress=0.0.0.0; Remove-NetFirewallRule -DisplayName 'WSL Port${port_number} Forwarding'"; }; _ 11434
 ```
 
 ### モバイルホットスポット
