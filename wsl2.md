@@ -21,6 +21,67 @@ RealTime High AboveNormal Normal BelowNormal Idle
 pwsh "\$ErrorActionPreference = 'Stop'; try { Get-Process vmmemWSL | ForEach-Object { \$_.PriorityClass = 'BelowNormal' } } catch { Write-Host \"Error: \$(\$_.Exception.Message)\" }"
 ```
 
+### WSL を起動
+
+```pwsh
+<#
+=============================================================================
+目的: WSLの稼働状態に応じたスマート起動を行う
+機能:
+  - 稼働中のWSLディストリビューションの有無を確認する。
+  - 1つも稼働していない場合は、シャットダウンと更新処理を実行してから起動する。
+  - 1つでも稼働中の場合は、そのまま起動処理を行う。
+更新履歴:
+  - 001: 2026-06-30 新規作成
+=============================================================================
+#>
+
+function Start-WslEnvironment {
+    $success = $false
+    try {
+        # wsl.exeの出力を配列として取得
+        $statusOutput = wsl.exe --list --verbose 2>&1
+
+        # ガード節: wslコマンド自体が失敗した場合
+        if ($LASTEXITCODE -ne 0) {
+            throw "WSLコマンドの実行に失敗した。WSLがインストールされていないか、壊れている可能性がある。"
+        }
+
+        # 稼働中のディストリビューションを検索
+        $isRunning = $false
+        foreach ($line in $statusOutput) {
+            # wsl.exeの出力形式(UTF-16LE)に起因するpwshのNull文字混入をサニタイズ
+            $cleanLine = $line -replace "`0", ""
+            if ($cleanLine -match "\bRunning\b") {
+                $isRunning = $true
+                break
+            }
+        }
+
+        # 判定結果に応じた処理の分岐
+        if (-not $isRunning) {
+            Write-Host "稼働中のディストリビューションはありません。メンテナンスを実行します..."
+            wsl.exe --shutdown
+            wsl.exe --update
+        }
+
+        # WSLのホームディレクトリでデフォルトディストリビューションを起動
+        wsl.exe "~"
+        $success = $true
+
+    } catch {
+        # エラー専用ストリームへ出力
+        Write-Error $_.Exception.Message
+    }
+
+    return $success
+}
+
+# 処理の実行
+Start-WslEnvironment
+```
+
+
 ### Windows Terminal
 
 #### CTRL-H を Backspace にする
