@@ -18,7 +18,7 @@ pwsh "[bool]([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIde
 RealTime High AboveNormal Normal BelowNormal Idle
 
 ```bash:WSL の動作優先度を少し落とす
-pwsh "\$ErrorActionPreference = 'Stop'; try { Get-Process vmmemWSL | ForEach-Object { \$_.PriorityClass = 'BelowNormal' } } catch { Write-Host \"Error: \$(\$_.Exception.Message)\" }"
+pwsh "\$ErrorActionPreference = 'Stop'; try { Get-Process vmmemWSL | ForEach-Object { \$_.PriorityClass = 'BelowNormal'; Write-Host \"Success: \$(\$_.Name) (ID:\$(\$_.Id))\" } } catch { Write-Host \"Error: \$(\$_.Exception.Message)\" }"
 ```
 
 ### WSL を起動
