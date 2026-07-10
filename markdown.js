@@ -125,8 +125,27 @@ async function loadMarkdown() {
 
         // ハッシュがあればその要素にスクロール
         if (window.location.hash) {
-            const targetId = decodeURIComponent(window.location.hash.slice(1));
-            const targetElem = document.getElementById(targetId);
+            const rawHash = window.location.hash.slice(1);
+            const targetId = decodeURIComponent(rawHash);
+            
+            let targetElem = document.getElementById(targetId);
+            
+            if (!targetElem) {
+                // 長い日本語などの旧ハッシュ値でアクセスされた場合、正規化してハッシュ値を計算してマッチさせる
+                const normalized = targetId.trim()
+                    .toLowerCase()
+                    .replace(/\s+/g, '-')
+                    .replace(/[^\u3000-\u30fe\u4e00-\u9faf\u3040-\u309f\u30a0-\u30ff\uff00-\uffef\w\-]+/g, '');
+                
+                const hashId = window.MarkdownParser.generateHash(normalized);
+                targetElem = document.getElementById(hashId);
+                
+                if (targetElem) {
+                    // アドレスバーのURLを短いハッシュに書き換える（履歴は増やさない）
+                    history.replaceState(null, '', window.location.pathname + window.location.search + `#${hashId}`);
+                }
+            }
+
             if (targetElem) {
                 setTimeout(() => {
                     targetElem.scrollIntoView({ behavior: 'smooth' });
