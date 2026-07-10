@@ -62,6 +62,15 @@ async function loadMarkdown() {
 
             // 1. ページ内アンカーリンクの場合
             if (href.startsWith('#')) {
+                const rawHash = href.slice(1);
+                const decodedHash = decodeURIComponent(rawHash);
+                const normalized = decodedHash.trim()
+                    .toLowerCase()
+                    .replace(/\s+/g, '-')
+                    .replace(/[^\u3000-\u30fe\u4e00-\u9faf\u3040-\u309f\u30a0-\u30ff\uff00-\uffef\w\-]+/g, '');
+                
+                const hashId = window.MarkdownParser.generateHash(normalized);
+                link.setAttribute('href', `#${hashId}`);
                 return;
             }
 
@@ -76,7 +85,18 @@ async function loadMarkdown() {
             const mdRegex = /\.(md|markdown)$/i;
             const hashIndex = href.indexOf('#');
             const pathPart = hashIndex !== -1 ? href.slice(0, hashIndex) : href;
-            const hashPart = hashIndex !== -1 ? href.slice(hashIndex) : '';
+            const rawHashPart = hashIndex !== -1 ? href.slice(hashIndex + 1) : '';
+
+            let hashPart = '';
+            if (rawHashPart) {
+                const decodedHash = decodeURIComponent(rawHashPart);
+                const normalized = decodedHash.trim()
+                    .toLowerCase()
+                    .replace(/\s+/g, '-')
+                    .replace(/[^\u3000-\u30fe\u4e00-\u9faf\u3040-\u309f\u30a0-\u30ff\uff00-\uffef\w\-]+/g, '');
+                const hashId = window.MarkdownParser.generateHash(normalized);
+                hashPart = `#${hashId}`;
+            }
 
             if (mdRegex.test(pathPart)) {
                 const parts = filename.split('/');

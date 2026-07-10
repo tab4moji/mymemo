@@ -96,6 +96,47 @@ function fixNestedCodeBlocks(text) {
  * @param {string} markdownText 
  * @returns {string} サニタイズ済みHTML文字列
  */
+/**
+ * 与えられた文字列から 8文字以内の URL-safe Base64 ハッシュ値を生成する
+ * FNV-1a 64bitハッシュを元に 48bit (6バイト) のデータを生成して Base64化する
+ * @param {string} str 
+ * @returns {string} 8文字のURL-safe Base64ハッシュ値
+ */
+function generateHash(str) {
+    if (!str) return '';
+    let hash = 14695981039346656037n; // FNV offset basis 64-bit
+    const prime = 1099511628211n; // FNV prime 64-bit
+    
+    const encoder = new TextEncoder();
+    const bytes = encoder.encode(str);
+    
+    for (let i = 0; i < bytes.length; i++) {
+        hash ^= BigInt(bytes[i]);
+        hash = (hash * prime) & 0xffffffffffffffffn;
+    }
+    
+    // 64-bitのうち、上位6バイト（48ビット）を抽出してBase64にする
+    const hashBytes = new Uint8Array(6);
+    for (let i = 0; i < 6; i++) {
+        hashBytes[i] = Number((hash >> BigInt(40 - i * 8)) & 0xffn);
+    }
+    
+    let binary = '';
+    for (let i = 0; i < 6; i++) {
+        binary += String.fromCharCode(hashBytes[i]);
+    }
+    
+    return btoa(binary)
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_')
+        .replace(/=/g, ''); // ちょうど8文字
+}
+
+/**
+ * MarkdownテキストをHTMLにパースし、サニタイズした結果を返す
+ * @param {string} markdownText 
+ * @returns {string} サニタイズ済みHTML文字列
+ */
 function parseMarkdownToHtml(markdownText) {
     const fixedText = fixNestedCodeBlocks(markdownText);
     const renderer = new marked.Renderer();
@@ -119,9 +160,11 @@ function parseMarkdownToHtml(markdownText) {
             .replace(/\s+/g, '-')
             .replace(/[^\u3000-\u30fe\u4e00-\u9faf\u3040-\u309f\u30a0-\u30ff\uff00-\uffef\w\-]+/g, '');
         
-        return `<h${depth} id="${escapedText}" class="markdown-heading">` +
+        const hashId = generateHash(escapedText);
+        
+        return `<h${depth} id="${hashId}" class="markdown-heading">` +
                `${text}` +
-               `<span class="heading-anchor" data-anchor="#${escapedText}">🔗</span>` +
+               `<span class="heading-anchor" data-anchor="#${hashId}">🔗</span>` +
                `</h${depth}>\n`;
     };
 
@@ -169,5 +212,6 @@ function parseMarkdownToHtml(markdownText) {
 // グローバルオブジェクトに公開
 window.MarkdownParser = {
     fixNestedCodeBlocks,
-    parseMarkdownToHtml
+    parseMarkdownToHtml,
+    generateHash
 };
