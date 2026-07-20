@@ -2,9 +2,9 @@
 
 ### pwsh
 
-```bash: powershell.exe / pwsh.exe
+```bash: powershell.exe / pwsh
 alias powershell.exe='/mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe -NoProfile –ExecutionPolicy Bypass -NonInteractive'
-alias pwsh.exe='$(wslpath -u "$(powershell.exe "where.exe pwsh" | sed -E "/^$/d" | iconv -t utf-8 | tail -1)" -NoProfile –ExecutionPolicy Bypass -NonInteractive )'
+alias pwsh='$(wslpath -u "$(powershell.exe "where.exe pwsh" | sed -E "/^$/d" | iconv -t utf-8 | tail -1)" -NoProfile –ExecutionPolicy Bypass -NonInteractive )'
 ```
 
 ### WSLがAdministratorなのかどうか
@@ -431,7 +431,7 @@ $Global:LastExitCode = Main
 #### usbipd-winインストールを試みる(すでに入っていれば修復か更新が走る)
 
 ```bash
-win_home="$(wslpath -u pwsh.exe -NoProfile -Command "\$env:USERPROFILE")")"; "${win_home%%$'\r'}/AppData/Local/Microsoft/WindowsApps/winget.exe" install usbipd-win
+win_home="$(wslpath -u pwsh -NoProfile -Command "\$env:USERPROFILE")")"; "${win_home%%$'\r'}/AppData/Local/Microsoft/WindowsApps/winget.exe" install usbipd-win
 ```
 
 #### デバイスをバインドしている
