@@ -20,13 +20,13 @@ alias pwsh='_() {
             then
 
                 shift
-                "${powershell_path}" -NoProfile -NonInteractive –ExecutionPolicy Bypass -Command "$(wslpath -w ${ps1_filename_upath}) "$@"" | sed -E "s/\r/\n/g"
+                "${powershell_path}" -NoProfile -NonInteractive –ExecutionPolicy Bypass -Command "$(wslpath -w ${ps1_filename_upath}) "$@"" | sed -E "s/\r//g"
                 local exit_status=$?
 
             elif [[ "$@" != "" ]]
             then
 
-                "${powershell_path}" -NoProfile -NonInteractive –ExecutionPolicy Bypass -Command "$@" | sed -E "s/\r/\n/g"
+                "${powershell_path}" -NoProfile -NonInteractive –ExecutionPolicy Bypass -Command "$@" | sed -E "s/\r//g"
                 local exit_status=$?
 
             else
@@ -39,8 +39,7 @@ alias pwsh='_() {
         }
         local_pwsh "$@"
     };
-    _
-'
+    _'
 ```
 
 ### WSLがAdministratorなのかどうか
