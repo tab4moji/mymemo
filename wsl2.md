@@ -4,7 +4,7 @@
 
 ```bash: powershell.exe / pwsh
 alias powershell.exe='/mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe'
-alias pwsh.exe='$(wslpath -u "$(powershell.exe -NoProfile –ExecutionPolicy Bypass -NonInteractive "where.exe pwsh" | sed -E "/^$/d" | iconv -t utf-8 | tail -1)")'
+alias pwsh.exe="$(wslpath -u "$(powershell.exe -NoProfile –ExecutionPolicy Bypass -NonInteractive "where.exe pwsh" | iconv -t utf-8 | sed -E 's/\r//g' | tail -1)")"
 alias pwsh='_() {
         chcp_com () {
             /mnt/c/Windows/System32/chcp.com "$@" 2>/dev/null
