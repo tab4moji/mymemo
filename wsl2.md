@@ -14,24 +14,22 @@ alias pwsh='_() {
             local ps1_filename_upath="$1"
             local ps1_filename_upath="$(wslpath -u "${ps1_filename_upath}" 2>/dev/null || echo "${ps1_filename_upath}")"
 
-            local powershell_path="/mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe"
-
             if [[ -f "${ps1_filename_upath}" ]]
             then
 
                 shift
-                "${powershell_path}" -NoProfile -NonInteractive –ExecutionPolicy Bypass -Command "$(wslpath -w ${ps1_filename_upath}) "$@"" | sed -E "s/\r//g"
+                pwsh.exe -NoProfile -NonInteractive –ExecutionPolicy Bypass -Command "$(wslpath -w ${ps1_filename_upath}) "$@"" | sed -E "s/\r//g"
                 local exit_status=$?
 
             elif [[ "$@" != "" ]]
             then
 
-                "${powershell_path}" -NoProfile -NonInteractive –ExecutionPolicy Bypass -Command "$@" | sed -E "s/\r//g"
+                pwsh.exe -NoProfile -NonInteractive –ExecutionPolicy Bypass -Command "$@" | sed -E "s/\r//g"
                 local exit_status=$?
 
             else
 
-                "${powershell_path}" -NoProfile -NonInteractive –ExecutionPolicy Bypass -NoExit "cd ~/"
+                pwsh.exe -NoProfile -NonInteractive –ExecutionPolicy Bypass -NoExit "cd ~/"
                 local exit_status=$?
             fi
 
