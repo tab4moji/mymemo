@@ -10,7 +10,7 @@ alias pwsh='_() {
             /mnt/c/Windows/System32/chcp.com "$@" 2>/dev/null
         }
 
-        _() {
+        local_pwsh() {
             local ps1_filename_upath="$1"
             local ps1_filename_upath="$(wslpath -u "${ps1_filename_upath}" 2>/dev/null || echo "${ps1_filename_upath}")"
 
@@ -37,7 +37,7 @@ alias pwsh='_() {
 
             return ${exit_status}
         }
-        _ "$@"
+        local_pwsh "$@"
     };
     _
 '
