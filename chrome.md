@@ -1,6 +1,6 @@
 ## Chrome を操りたい
 
-### pwsh
+### chrome 起動
 
 ```bash: powershell.exe / pwsh
 alias powershell.exe='/mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe'
@@ -44,7 +44,7 @@ alias pwsh='_() {
 pwsh 'taskkill /F /IM chrome.exe /T; & "C:\Program Files\Google\Chrome\Application\chrome.exe" --remote-debugging-port=9222 --remote-allow-origins=* --user-data-dir="C:\Users\pi\remote_chrome\"; netsh interface portproxy add v4tov6 listenport=9222 listenaddress=0.0.0.0 connectaddress=::1 connectport=9222; netsh interface portproxy show v4tov6'
 ```
 
-### pwsh
+### python コードによる制御 (selenium)
 
 ```python
 """
