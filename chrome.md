@@ -1,4 +1,4 @@
-## WSLを快適にしたい
+## Chrome を操りたい
 
 ### pwsh
 
@@ -43,6 +43,8 @@ alias pwsh='_() {
 ```bash
 pwsh 'taskkill /F /IM chrome.exe /T; & "C:\Program Files\Google\Chrome\Application\chrome.exe" --remote-debugging-port=9222 --remote-allow-origins=* --user-data-dir="C:\Users\pi\remote_chrome\"; netsh interface portproxy add v4tov6 listenport=9222 listenaddress=0.0.0.0 connectaddress=::1 connectport=9222; netsh interface portproxy show v4tov6'
 ```
+
+### pwsh
 
 ```python
 """
