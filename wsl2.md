@@ -3,8 +3,44 @@
 ### pwsh
 
 ```bash: powershell.exe / pwsh
-alias powershell.exe='/mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe -NoProfile –ExecutionPolicy Bypass -NonInteractive'
-alias pwsh='$(wslpath -u "$(powershell.exe "where.exe pwsh" | sed -E "/^$/d" | iconv -t utf-8 | tail -1)" -NoProfile –ExecutionPolicy Bypass -NonInteractive )'
+alias powershell.exe='/mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe'
+alias pwsh.exe='$(wslpath -u "$(powershell.exe -NoProfile –ExecutionPolicy Bypass -NonInteractive "where.exe pwsh" | sed -E "/^$/d" | iconv -t utf-8 | tail -1)")'
+alias pwsh='_() {
+        chcp_com () {
+            /mnt/c/Windows/System32/chcp.com "$@" 2>/dev/null
+        }
+
+        _() {
+            local ps1_filename_upath="$1"
+            local ps1_filename_upath="$(wslpath -u "${ps1_filename_upath}" 2>/dev/null || echo "${ps1_filename_upath}")"
+
+            local powershell_path="/mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe"
+
+            if [[ -f "${ps1_filename_upath}" ]]
+            then
+
+                shift
+                "${powershell_path}" -NoProfile -NonInteractive –ExecutionPolicy Bypass -Command "$(wslpath -w ${ps1_filename_upath}) "$@"" | sed -E "s/\r/\n/g"
+                local exit_status=$?
+
+            elif [[ "$@" != "" ]]
+            then
+
+                "${powershell_path}" -NoProfile -NonInteractive –ExecutionPolicy Bypass -Command "$@" | sed -E "s/\r/\n/g"
+                local exit_status=$?
+
+            else
+
+                "${powershell_path}" -NoProfile -NonInteractive –ExecutionPolicy Bypass -NoExit "cd ~/"
+                local exit_status=$?
+            fi
+
+            return ${exit_status}
+        }
+        _ "$@"
+    };
+    _
+'
 ```
 
 ### WSLがAdministratorなのかどうか
