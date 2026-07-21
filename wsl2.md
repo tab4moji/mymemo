@@ -29,7 +29,7 @@ alias pwsh='_() {
 
             else
 
-                "$(pwsh.exe)" -NoProfile ExecutionPolicy Bypass -NoExit "cd ~/"
+                "$(pwsh.exe)" -ExecutionPolicy Bypass -NoExit -Command "cd ~/"
                 local exit_status=$?
             fi
 
