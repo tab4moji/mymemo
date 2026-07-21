@@ -18,18 +18,18 @@ alias pwsh='_() {
             then
 
                 shift
-                pwsh.exe -NoProfile -NonInteractive –ExecutionPolicy Bypass -Command "$(wslpath -w ${ps1_filename_upath}) "$@"" | sed -E "s/\r//g"
+                "pwsh.exe" -NoProfile -NonInteractive –ExecutionPolicy Bypass -Command "$(wslpath -w ${ps1_filename_upath}) "$@"" | sed -E "s/\r//g"
                 local exit_status=$?
 
             elif [[ "$@" != "" ]]
             then
 
-                pwsh.exe -NoProfile -NonInteractive –ExecutionPolicy Bypass -Command "$@" | sed -E "s/\r//g"
+                "pwsh.exe" -NoProfile -NonInteractive –ExecutionPolicy Bypass -Command "$@" | sed -E "s/\r//g"
                 local exit_status=$?
 
             else
 
-                pwsh.exe -NoProfile -NonInteractive –ExecutionPolicy Bypass -NoExit "cd ~/"
+                "pwsh.exe" -NoProfile -NonInteractive –ExecutionPolicy Bypass -NoExit "cd ~/"
                 local exit_status=$?
             fi
 
