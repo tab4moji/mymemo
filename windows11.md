@@ -77,3 +77,25 @@ rm ([Environment]::GetFolderPath("Startup") + "\TaskManagerMin.lnk")
 ```
 
 次は、「スタートアップにある他の不要なアプリをPowerShellで一掃する方法」でもやるか？
+
+### Windows Update
+
+```bash
+user1@MYWINPC26:nforexv$ pwsh "Install-Module -Name PSWindowsUpdate -Force -AllowClobber; Import-Module PSWindowsUpdate; Get-WindowsUpdate"
+                                                                                                                      ComputerName Status     KB          Size Title
+------------ ------     --          ---- -----
+MYWINPC26    -------    KB2267602    1GB Microsoft Defender Antivirus のセキュリティ インテリジェンス更新プログラム …
+MYWINPC26    -------                29MB Microsoft Corporation AudioProcessingObject Driver Update (1.0.4.7057)
+
+user1@MYWINPC26:nforexv$ pwsh "Install-Module -Name PSWindowsUpdate -Force -AllowClobber; Import-Module PSWindowsUpdate; Install-WindowsUpdate -AcceptAll"
+                                                                                                                      X ComputerName Result     KB          Size Title
+- ------------ ------     --          ---- -----
+1 MYWINPC26    Accepted   KB2267602    1GB Microsoft Defender Antivirus のセキュリティ インテリジェンス更新プログラ…
+1 MYWINPC26    Accepted               29MB Microsoft Corporation AudioProcessingObject Driver Update (1.0.4.7057)
+2 MYWINPC26    Downloaded KB2267602    1GB Microsoft Defender Antivirus のセキュリティ インテリジェンス更新プログラ…
+2 MYWINPC26    Downloaded             29MB Microsoft Corporation AudioProcessingObject Driver Update (1.0.4.7057)
+3 MYWINPC26    Installed  KB2267602    1GB Microsoft Defender Antivirus のセキュリティ インテリジェンス更新プログラ…
+3 MYWINPC26    Installed              29MB Microsoft Corporation AudioProcessingObject Driver Update (1.0.4.7057)
+
+user1@MYWINPC26:nforexv$
+```
