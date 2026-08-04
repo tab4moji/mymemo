@@ -37,7 +37,6 @@ embedding:
   model: ollama/embeddinggemma:300m
 envs:
   OLLAMA_API_BASE: "http://127.0.0.1:11434"
-  COCOINDEX_TELEMETRY_DISABLED: 1
   OPENAI_API_KEY: "あなたのAPIキー"
 ```
 
