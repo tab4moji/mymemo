@@ -695,3 +695,9 @@ if torch.cuda.is_available():
 print('4. HIP Version  :', torch.version.hip)
 "
 ```
+
+### external SDCard
+
+```bash
+lsusb | grep -v "Linux Foundation" | grep -v "root hub" || true && pwsh 'usbipd bind --busid 6-1; usbipd attach --wsl --busid 6-1' && sleep 1 && lsusb | grep -v "Linux Foundation" | grep -v "root hub" || true && sudo mkdir -p /mnt/sdcard && sleep 8 && sudo mount $(\ls -alF /dev/sd*1 | sed -E 's/ +/ /g' | cut -d' ' -f10) /mnt/sdcard
+```
