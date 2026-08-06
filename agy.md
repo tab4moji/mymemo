@@ -1,11 +1,15 @@
-```bash
+# Antigravity CLI
+
+## quota 表示
+
+```bash:インストール
 npm install -g antigravity-usage
 ```
 
-```bash
+```bash:アカウントログイン
 antigravity-usage login
 ```
 
-```bash
-antigravity-usage
+```bash:表示
+antigravity-usage quota
 ```
