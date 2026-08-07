@@ -59,6 +59,15 @@ function spawn () {
 }
 ```
 
+```bash:shebang
+#!/usr/bin/env -S bash -ic 'source "$0"'
+set -eu
+set +m; shopt -s lastpipe
+shopt -s extglob
+
+ll
+```
+
 ```bash:tty2esc ログ中のエスケープシーケンスの全種類
 cat log.tty | grep -oE $'\\x1B\\\\[[0-9;]*[a-zA-Z]' | cat -v | sort -u
 ```
