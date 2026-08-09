@@ -3,6 +3,7 @@
 ### 概要
 
 エージェントコーディング CLI ツール。
+勝手なアクセスが不安なら、[ip netns / iptables とかを使いましょう](./?content=litertlm)
 
 ### 公式サイト
 
@@ -15,10 +16,6 @@
 - お仕事の種類によって接続先を変更できるらしい
   - https://opencode.ai/docs/ja/agents/#json
 - [cocoindex-code](./?content=cocoindex-code) がいいらしい
-
-勝手なアクセスが不安なら、ip netns / iptables とかを使いましょう
-
-- https://tab4moji.github.io/mymemo/?content=isolate
 
 ### ホスト
 
