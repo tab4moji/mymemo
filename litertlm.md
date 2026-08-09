@@ -1,4 +1,4 @@
-## LiteRT-LM on windows
+## LiteRT-LM on Windows PWSH (powershell7)
 
 ### Gemma4-26B-A4B
 
