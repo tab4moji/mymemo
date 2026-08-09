@@ -2,6 +2,8 @@
 
 ### エージェントチック
 
+カレントディレクトリの *.sh *.bash *.py を検索して、それについてのドキュメントを ./.myagent_works/ 以下に作成する。
+
 ```bash:ドキュメント生成
 #!/usr/bin/env -S bash -ic 'source "$0"'
 set -eu
@@ -16,7 +18,7 @@ mkdir -p .myagent_works/
 # 対象ファイルを列挙する
 ################################################################
 
-find ./ -name "*.bash" -o -name "*.py" | grep -v "site-packages" | grep -vE "\/\." | sort -g | tee .myagent_works/target_files.lst
+find ./ -name "*.sh" -o -name "*.bash" -o -name "*.py" | grep -v "site-packages" | grep -vE "\/\." | sort -g | tee .myagent_works/target_files.lst
 echo "---- files."
 
 # 対象ファイルを mapfile してループする
