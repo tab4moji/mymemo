@@ -17,9 +17,9 @@
   - https://opencode.ai/docs/ja/agents/#json
 - [cocoindex-code](./?content=cocoindex-code) がいいらしい
 
-### ホスト
+### 推論エンジン
 
-- [LiteRT-LM](./?content=litertlm) 使ってます
+- [LiteRT-LM](./?content=litertlm) で [Gemma4-26B-AB](https://huggingface.co/litert-community/gemma-4-26B-A4B-it-litert-lm) を使ってます
 
 ### インストール
 
