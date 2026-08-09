@@ -14,12 +14,15 @@
 - サーバー側の ctx サイズは、32 Ki 以上じゃないと使い物にならない
 - お仕事の種類によって接続先を変更できるらしい
   - https://opencode.ai/docs/ja/agents/#json
-- [cocoindex-code](https://tab4moji.github.io/mymemo/?content=cocoindex-code) がいいらしい
+- [cocoindex-code](./?content=cocoindex-code) がいいらしい
 
 勝手なアクセスが不安なら、ip netns / iptables とかを使いましょう
 
 - https://tab4moji.github.io/mymemo/?content=isolate
 
+### ホスト
+
+- [LiteRT-LM](./?content=litertlm) 使ってます
 
 ### インストール
 
