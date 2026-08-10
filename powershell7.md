@@ -194,6 +194,8 @@ https://learn.microsoft.com/powershell/scripting/samples/changing-computer-state
 
 Windows Hello（顔認証、指紋認証、PIN）を利用して、パスワードレスで安全に SSH 接続を行うためのセットアップ手順です。
 
+- https://github.com/sirAndros/KeePassWinHello/issues/86
+
 #### 1. 既存の環境のクリーンアップと準備
 
 SSH 接続時のタイミング問題（競合によるエラー）を防ぐため、`ssh-agent` は使用せずにクライアントが直接認証を行う構成にします。
