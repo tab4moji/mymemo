@@ -194,8 +194,15 @@ https://learn.microsoft.com/powershell/scripting/samples/changing-computer-state
 
 Windows Hello（顔認証、指紋認証、PIN）を利用して、パスワードレスで安全に SSH 接続を行うためのセットアップ手順です。
 
+#### 0. パスキー認証問題
+
+顔 -> PIN -> 顔で回避可能
+
 - https://github.com/sirAndros/KeePassWinHello/issues/86
   - https://github.com/microsoft/terminal/issues/17373
+
+「Terminal から SSH を実行し、それが Windows Hello を呼び出した時に、ポップアップが一瞬で消える・裏に回る・フォーカスを失ってエラー（タイムアウト）になる」という問題は、**Windows Terminal (OpenConsole) と セキュアデスクトップ (CredentialUIBroker) 間の仕様の衝突**として、KeePass、1Password、Win32-OpenSSH などのリポジトリで共通して「Terminal 側のバグ・仕様」として扱われています。
+そのため、`conhost`（旧コマンドプロンプト）や `Git Bash` などの異なる描画コンソールを使うことが一番の回避策として定着しています。
 
 #### 1. 既存の環境のクリーンアップと準備
 
