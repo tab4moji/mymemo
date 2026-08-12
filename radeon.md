@@ -18,5 +18,5 @@ if ($amdProcs) {
 ```
 
 ```powershell
-start ":\Program Files\AMD\CNext\CNext\RadeonSoftware.exe"
+start "C:\Program Files\AMD\CNext\CNext\RadeonSoftware.exe"
 ```
