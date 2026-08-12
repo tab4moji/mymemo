@@ -1,6 +1,8 @@
 ## Radeon ノウハウ
 
-### AMD Adrenarin 終了
+### AMD Adrenarin リセット
+
+#### AMD Adrenarin 強制終了
 
 ```powershell
 # 説明(Description)またはプロセス名に "AMD" が含まれるプロセスをすべて取得
@@ -16,6 +18,8 @@ if ($amdProcs) {
     Write-Host "AMDに関連するプロセスは見つかりませんでした。"
 }
 ```
+
+#### AMD Adrenarin 再起動
 
 ```powershell
 start "C:\Program Files\AMD\CNext\CNext\RadeonSoftware.exe"
