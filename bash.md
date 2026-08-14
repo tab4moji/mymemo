@@ -224,6 +224,12 @@ if __name__ == "__main__":
 ping -O -c 3 -i 2 -W 1 8.8.8.8 2>&1 | timestamp '[%Y-%m-%d %H:%M:%S %Z]' | tee runlog.$(date +%Y_%m%d_%H%M_%S).log
 ```
 
+timestampではなくてtsとして保存して使う。
+
+```bash
+mkdir -p tmp && nice -n 19 bash -c '{ source ~/.bashrc; set -eo pipefail; time unbuffer ping -O -c 3 -i 2 -W 1 8.8.8.8; time unbuffer sleep 3; }' 2>&1 | ts '[%Y-%m-%d %H:%M:%S.%.3S %Z]' | tee >(ansifilter > tmp/runlog.$(date +%Y_%m%d_%H%M_%S).log)
+```
+
 ### メモ
 
 ```bash:id_rsa
