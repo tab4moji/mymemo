@@ -129,11 +129,11 @@ date +%Y_%m%d_%H%M_%S
 ### 優先度下げて実行
 
 ```bash:sleepで試す。
-nice -n 19 sleep 3
+nice -n 19 ionice -c 3 sleep 3
 ```
 
 ```bash
-nice -n 19
+nice -n 19 ionice -c 3
 ```
 
 ### ログにタイムスタンプ
@@ -141,7 +141,7 @@ nice -n 19
 このコマンドを ~/.local/bin/timestamp にでも保存。
 
 ```bash:使用例
-_() { local __CMD_LINE="$@"; nice -n 19 bash -c "{ source ~/.bashrc; time unbuffer ${__CMD_LINE}; }" 2>&1 | timestamp '[%Y-%m-%d %H:%M:%S.%.3S %Z]' | tee >(ansifilter > runlog.$(date +%Y_%m%d_%H%M_%S).log); }; _ 'ls -alF --color=auto ./'
+_() { local __CMD_LINE="$@"; nice -n 19 ionice -c 3 bash -c "{ source ~/.bashrc; time unbuffer ${__CMD_LINE}; }" 2>&1 | timestamp '[%Y-%m-%d %H:%M:%S.%.3S %Z]' | tee >(ansifilter > runlog.$(date +%Y_%m%d_%H%M_%S).log); }; _ 'ls -alF --color=auto ./'
 ```
 
 ```python:timestamp
@@ -227,7 +227,7 @@ ping -O -c 3 -i 2 -W 1 8.8.8.8 2>&1 | timestamp '[%Y-%m-%d %H:%M:%S %Z]' | tee r
 timestampではなくてtsとして保存して使う。
 
 ```bash
-mkdir -p tmp && nice -n 19 bash -c '{ source ~/.bashrc; set -eo pipefail; time unbuffer ping -O -c 3 -i 2 -W 1 8.8.8.8; time unbuffer sleep 3; }' 2>&1 | ts '[%Y-%m-%d %H:%M:%S.%.3S %Z]' | tee >(ansifilter > tmp/runlog.$(date +%Y_%m%d_%H%M_%S).log)
+mkdir -p tmp && nice -n 19 ionice -c 3 bash -c '{ source ~/.bashrc; set -eo pipefail; time unbuffer ping -O -c 3 -i 2 -W 1 8.8.8.8; time unbuffer sleep 3; }' 2>&1 | ts '[%Y-%m-%d %H:%M:%S.%.3S %Z]' | tee >(ansifilter > tmp/runlog.$(date +%Y_%m%d_%H%M_%S).log)
 ```
 
 ### メモ
