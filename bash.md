@@ -128,12 +128,12 @@ date +%Y_%m%d_%H%M_%S
 
 ### 優先度下げて実行
 
-```bash:sleepで試す。
-nice -n 19 ionice -c 3 sleep 3
+```bash
+alias relax='nice -n 19 ionice -c 3'
 ```
 
-```bash
-nice -n 19 ionice -c 3
+```bash:sleepで試す。
+relax sleep 3
 ```
 
 ### ログにタイムスタンプ
