@@ -1,8 +1,8 @@
 ## OpenCode でエージェント
 
-### まだ確認中のエージェント
+### エージェント風 bash スクリプト
 
-カレントディレクトリの *.sh *.bash *.py *.c *.cpp *.rust を検索して、それについてのドキュメントを ./.myagent_works/ 以下に作成する。
+カレントディレクトリの *.sh *.bash *.py *.c *.cpp *.rust を検索して、それについてのドキュメントを .opencode_agent_works/documents/ 以下に作成する。
 
 ```bash:ドキュメント生成
 #!/usr/bin/env -S bash -ic 'source "$0"'
@@ -256,7 +256,7 @@ EOS
 }
 ```
 
-### メモ
+### ここからは雑多な OpenCode を使うためのメモ
 
 ```markdown:コード分析
 - このプロジェクトに含まれるドキュメントファイルとソースコードファイルに何があるか一覧を探して "./.works/docs_and_codes_<現在時刻>.md" というファイル名に記録せよ。本文中にも現在時刻を記録せよ。
