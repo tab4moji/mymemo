@@ -2,7 +2,7 @@
 
 ### まだ確認中のエージェント
 
-カレントディレクトリの *.sh *.bash *.py を検索して、それについてのドキュメントを ./.myagent_works/ 以下に作成する。
+カレントディレクトリの *.sh *.bash *.py *.c *.cpp *.rust を検索して、それについてのドキュメントを ./.myagent_works/ 以下に作成する。
 
 ```bash:ドキュメント生成
 #!/usr/bin/env -S bash -ic 'source "$0"'
@@ -18,7 +18,7 @@ mkdir -p .opencode_agent_works/
 # 対象ファイルを列挙する
 ################################################################
 
-find . -type f \( -name "*.bash" -o -name "*.py" \) -printf "%h~\t%p\n" | LC_ALL=C sort | cut -f2 | grep -v "site-packages" | grep -vw tmp | grep -vE "\/\." | tee .opencode_agent_works/target_files.lst
+find . -type f \( -name "*.bash" -o -name "*.sh" -o -name "*.c" -o -name "*.cpp" -o -name "*.rust" -o -name "*.py" \) -printf "%h~\t%p\n" | LC_ALL=C sort | cut -f2 | grep -v "site-packages" | grep -vw tmp | grep -vE "\/\." | tee .opencode_agent_works/target_files.lst
 echo "---- files."
 echo
 
