@@ -94,24 +94,25 @@ if (!(Test-Path $PROFILE)) { New-Item -ItemType File -Path $PROFILE -Force }
 notepad $PROFILE
 ```
 
+### python3 on windows/pwsh
 
-### python3.14t on windows/pwsh
+#### python3.12 インストール方法１
 
-#### python3 インストール
-
-```powershell:uv
+```powershell:uvセットアップ
 winget install --id=astral-sh.uv -e
 ```
 
-```powershell:python
+```powershell:pythonセットアップ
 uv python install 3.12; uv python update-shell
 $pyDir = Split-Path (uv python find 3.12); $env:PATH = "$pyDir;$env:PATH"
 ```
 
-```powershell:python
+```powershell:python動作確認
 $pyDir = Split-Path (uv python find 3.12); $env:PATH = "$pyDir;$env:PATH"
 python --version
 ```
+
+#### python3.14t インストール
 
 ```powershell
 winget install --id Python.Python.3.14 --exact --override "/quiet InstallAllUsers=1 PrependPath=1 Include_doc=0 Include_tcltk=0 Include_test=0 Include_freethreaded=1"
