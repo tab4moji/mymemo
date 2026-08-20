@@ -99,6 +99,20 @@ notepad $PROFILE
 
 #### python3 インストール
 
+```powershell:uv
+winget install --id=astral-sh.uv -e
+```
+
+```powershell:python
+uv python install 3.12; uv python update-shell
+$pyDir = Split-Path (uv python find 3.12); $env:PATH = "$pyDir;$env:PATH"
+```
+
+```powershell:python
+$pyDir = Split-Path (uv python find 3.12); $env:PATH = "$pyDir;$env:PATH"
+python --version
+```
+
 ```powershell
 winget install --id Python.Python.3.14 --exact --override "/quiet InstallAllUsers=1 PrependPath=1 Include_doc=0 Include_tcltk=0 Include_test=0 Include_freethreaded=1"
 ```
