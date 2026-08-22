@@ -38,7 +38,7 @@ if [[ $(which opencode) ]]; then opencode uninstall && { rm -rf ~/.cache/opencod
 ```json:~/.config/opencode/opencode.json
 {
   "$schema": "https://opencode.ai/config.json",
-  "model": "ollama_host/gemma4:12b",
+  "model": "ollama_host/gemma4-26b-a4b",
   "provider": {
     "ollama_host": {
       "npm": "@ai-sdk/openai-compatible",
@@ -47,13 +47,8 @@ if [[ $(which opencode) ]]; then opencode uninstall && { rm -rf ~/.cache/opencod
         "baseURL": "http://192.168.0.11:11434/v1"
       },
       "models": {
-        "gemma4-12b-coder": {
-          "name": "gemma4-12b",
-          "max_tokens": 32768,
-          "tools": true
-        },
-        "gemma4:12b": {
-          "name": "gemma4:12b",
+        "gemma4-26b-a4b": {
+          "name": "gemma4-26b-a4b",
           "max_tokens": 32768,
           "tools": true
         }
