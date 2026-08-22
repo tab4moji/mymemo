@@ -5,15 +5,14 @@
 #### セットアップ
 
 ```powershell:セットアップ
-PS C:\Users\pi> # 仮想環境の作成と有効化
-PS C:\Users\pi> python -m venv .venv
-PS C:\Users\pi> .\.venv\Scripts\Activate.ps1
-(.venv) PS C:\Users\pi\litertlm> pip install litert-lm
-(.venv) PS C:\Users\pi\litertlm> litert-lm import `
->>   --from-huggingface-repo=litert-community/gemma-4-26B-A4B-it-litert-lm `
->>   gemma-4-26B-A4B-it-gpu.litertlm `
->>   gemma4-26b-a4b
-(.venv) PS C:\Users\pi\litertlm> edit C:\Users\pi\.litert-lm\config.json
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+```
+
+```powershell:セットアップ
+python -m pip install -U pip litert-lm
+litert-lm import ` --from-huggingface-repo=litert-community/gemma-4-26B-A4B-it-litert-lm ` gemma-4-26B-A4B-it-gpu.litertlm ` gemma4-26b-a4b
+edit C:\Users\pi\.litert-lm\config.json
 ```
 
 ```json
@@ -33,9 +32,12 @@ PS C:\Users\pi> .\.venv\Scripts\Activate.ps1
 #### Gemma4 起動
 
 ```powershell:Gemma4 起動
-PS C:\Users\pi> python -m venv .venv
-PS C:\Users\pi> .\.venv\Scripts\Activate.ps1
-(.venv) PS C:\Users\pi\litertlm> litert-lm serve --port 11434
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+```
+
+```powershell:Gemma4 起動
+litert-lm serve --port 11434
 ```
 
 ##
