@@ -8,10 +8,11 @@
 PS C:\Users\pi> # 仮想環境の作成と有効化
 PS C:\Users\pi> python -m venv .venv
 PS C:\Users\pi> .\.venv\Scripts\Activate.ps1
+(.venv) PS C:\Users\pi\litertlm> pip install litert-lm
 (.venv) PS C:\Users\pi\litertlm> litert-lm import `
 >>   --from-huggingface-repo=litert-community/gemma-4-26B-A4B-it-litert-lm `
 >>   gemma-4-26B-A4B-it-gpu.litertlm `
->>   gemma4-26b-coder
+>>   gemma4-26b-a4b
 (.venv) PS C:\Users\pi\litertlm> edit C:\Users\pi\.litert-lm\config.json
 ```
 
@@ -21,7 +22,7 @@ PS C:\Users\pi> .\.venv\Scripts\Activate.ps1
     "backend": "gpu"
   },
   "models": {
-    "gemma4-26b-coder": {
+    "gemma4-26b-a4b": {
       "max_num_tokens": 32768,
       "backend": "gpu"
     }
