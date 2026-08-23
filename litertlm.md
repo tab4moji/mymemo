@@ -4,13 +4,15 @@
 
 ### 推論エンジンをインストールする
 
+[LiteRT-LM CLI](https://pypi.org/project/litert-lm/) をインストールする。
+
 ```powershell:念のためvenvセットアップ
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 ```
 
 ```powershell:セットアップ
-python -m pip install -U pip [litert-lm](https://pypi.org/project/litert-lm/)
+python -m pip install -U pip litert-lm
 ```
 
 #### 推論エンジンを起動する
@@ -23,9 +25,13 @@ python -m pip install -U pip [litert-lm](https://pypi.org/project/litert-lm/)
 litert-lm serve --port 11434
 ```
 
-### 推論モデル
+### LiteRT-LM 用の推論モデル
+
+LiteRT-LM 推論エンジンでは、[Hugging Face](https://huggingface.co/) で公開されている [litert-lm モデル](https://huggingface.co/models?library=litert-lm&sort=modified) を使える。
 
 #### Gemma4-26B-A4B
+
+Gemma4-26B-A4B をインポートする。
 
 ```powershell:Gemma4-26B-A4B
 litert-lm import ` --from-huggingface-repo=litert-community/gemma-4-26B-A4B-it-litert-lm ` gemma-4-26B-A4B-it-gpu.litertlm ` gemma4-26b-a4b
