@@ -5,7 +5,8 @@
 ### 推論エンジンをインストールする
 
 [LiteRT-LM CLI](https://pypi.org/project/litert-lm/) をインストールする。
-たぶん OpenAI 互換 API。
+たぶん [OpenAI 互換](https://developers.google.com/edge/litert-lm/cli/openai_server) API。
+これが[説明書](https://developers.google.com/edge/litert-lm/cli)。
 
 ```powershell:念のためvenvセットアップ
 python -m venv .venv
