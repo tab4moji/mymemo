@@ -10,8 +10,7 @@ pwsh "\$ErrorActionPreference = 'Stop'; try { Get-Process vmmemWSL | ForEach-Obj
 
 ### pwsh
 
-wsl から powershell や pwsh(powershell7) を呼び出せるようにしておくと bash から Windows ホストを制御できて便利。
-[./wsl2_with_pwsh.jpg](./wsl2_with_pwsh.jpg)
+wsl から powershell や pwsh(powershell7) を呼び出せるようにしておくと [bash から Windows ホストを制御できて便利](./wsl2_with_pwsh.jpg)。
 
 ```bash: powershell.exe / pwsh
 alias powershell.exe='/mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe'
