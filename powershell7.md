@@ -127,7 +127,7 @@ uv で python3.12 をインストール。
 uv python list --only-installed
 uv python install 3.12
 uv python update-shell
-uv pip install pip
+uv pip install --upgrade pip
 ```
 
 #### python3.12 アンインストール

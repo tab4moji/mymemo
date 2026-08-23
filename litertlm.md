@@ -12,7 +12,7 @@
 面倒くさいので [uv](./?content=pwsh#RufQy7KM) を使う。
 
 ```powershell:インストール
-uv pip install pip litert-lm
+uv pip install --upgrade pip litert-lm
 ```
 
 ### LiteRT-LM 用の推論モデル
