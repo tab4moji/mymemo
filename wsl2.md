@@ -2,6 +2,8 @@
 
 ### pwsh
 
+wsl から powershell や pwsh(powershell7) を呼び出せるようにしておくと bash から Windows ホストを制御できて便利。
+
 ```bash: powershell.exe / pwsh
 alias powershell.exe='/mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe'
 alias pwsh.exe="$(wslpath -u "$(powershell.exe -NoProfile –ExecutionPolicy Bypass -NonInteractive "where.exe pwsh" | iconv -t utf-8 | sed -E 's/\r//g' | tail -1)")"
@@ -41,6 +43,8 @@ alias pwsh='_() {
 ```
 
 ### WSLがAdministratorなのかどうか
+
+wsl が Windows の Admin 権限を持っているかどうかを調べておく。
 
 ```bash:Admin権限なら True
 pwsh "[bool]([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)"
