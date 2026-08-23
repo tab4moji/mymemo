@@ -105,15 +105,17 @@ notepad $PROFILE
 
 まず Windows が勝手に用意しているダミースタブをオフにして、邪魔な `python.exe` を検索対象から外す。
 
-1. Windows の「**設定**」を開く（`Win + I`）
-2. 「**アプリ**」→「**アプリの詳細設定**」→「**アプリ実行エイリアス**」を開く
-3. 一覧にある **「アプリ インストーラー (python.exe)」** と **「アプリ インストーラー (python3.exe)」** のスイッチを **オフ** にする
-
 GUI同期しなくてもいいからさっさと健康になりたい場合はコレ。
 
 ```powershell:GUI同期しなくてもいいからさっさと健康になりたい場合
 Remove-Item "$env:LOCALAPPDATA\Microsoft\WindowsApps\python*.exe" -Force -ErrorAction SilentlyContinue
 ```
+
+操作方法がコロコロ変わってしまうGUIでやりたいなら2026/8/23だとコレ。
+
+1. Windows の「**設定**」を開く（`Win + I`）
+2. 「**アプリ**」→「**アプリの詳細設定**」→「**アプリ実行エイリアス**」を開く
+3. 一覧にある **「アプリ インストーラー (python.exe)」** と **「アプリ インストーラー (python3.exe)」** のスイッチを **オフ** にする
 
 winget で、uv をインストール。
 
