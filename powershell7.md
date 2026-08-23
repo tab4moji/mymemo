@@ -103,7 +103,7 @@ notepad $PROFILE
 
 #### uv をインストール
 
-winget で、uv をインストール。
+winget で uv をインストールする。
 
 ```powershell:uvインストール
 winget install --id=astral-sh.uv -e
