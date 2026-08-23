@@ -6,7 +6,7 @@
 ### 推論エンジンをインストールする
 
 [LiteRT-LM CLI](https://pypi.org/project/litert-lm/) をインストールする。
-たぶん [OpenAI 互換](https://developers.google.com/edge/litert-lm/cli/openai_server) API。
+たぶん [OpenAI 互換](https://developers.google.com/edge/litert-lm/cli/openai_server)。
 これが[説明書](https://developers.google.com/edge/litert-lm/cli)。
 
 素の pip は面倒くさいので [uv](./?content=pwsh#wvE9oadP) を使う。
