@@ -17,16 +17,6 @@ python -m venv .venv
 python -m pip install -U pip litert-lm
 ```
 
-#### 推論エンジンを起動する
-
-```powershell:念のためvenv
-.\.venv\Scripts\Activate.ps1
-```
-
-```powershell:推論エンジンをポート11434で受ける前提で起動
-litert-lm serve --port 11434
-```
-
 ### LiteRT-LM 用の推論モデル
 
 LiteRT-LM 推論エンジンで [Hugging Face](https://huggingface.co/) で公開されている [litert-lm モデル](https://huggingface.co/models?library=litert-lm&sort=modified) を使える。
@@ -55,6 +45,16 @@ edit C:\Users\pi\.litert-lm\config.json
     }
   }
 }
+```
+
+### 推論エンジンを起動する
+
+```powershell:念のためvenv
+.\.venv\Scripts\Activate.ps1
+```
+
+```powershell:推論エンジンをポート11434で受ける前提で起動
+litert-lm serve --port 11434
 ```
 
 ##
