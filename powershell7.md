@@ -21,21 +21,19 @@ winget upgrade --id Microsoft.PowerShell --source winget
 #### プロファイル作成 & 編集コマンド
 
 ```powershell
-PowerShell 7.5.4
-PS C:\> edit $PROFILE
-Error 0x80070003: 謖・ｮ壹＆繧後◆繝代せ縺瑚ｦ九▽縺九ｊ縺ｾ縺帙ｓ縲・
-PS C:\>
-```
-
-```powershell
 # 1. プロファイル用のフォルダが無ければ作る
 if (!(Test-Path (Split-Path $PROFILE))) { New-Item -ItemType Directory -Force -Path (Split-Path $PROFILE) }
 
 # 2. ファイルが無ければ空っぽのものを作る
 if (!(Test-Path $PROFILE)) { New-Item -ItemType File -Path $PROFILE -Force }
 
-# 3. メモ帳で開く
+# 3.『メモ帳』で開く
 notepad $PROFILE
+```
+
+```powershell
+PowerShell 7.5.4
+PS C:\> edit $PROFILE
 ```
 
 #### プロファイルの内容
