@@ -171,6 +171,12 @@ schtasks /Create /TN "Schtask_${task_name}" /SC ONLOGON /RL HIGHEST /TR $action 
   - https://learn.microsoft.com/dotnet/api/system.diagnostics.processwindowstyle?view=net-10.0#-----
   - Normal, Hidden, Minimized, Maximized
 
+### ディスプレイオフ
+
+```powershell
+(Add-Type '[DllImport("user32.dll")]public static extern int SendMessage(int hWnd, int hMsg, int wParam, int lParam);' -Name a -Pas)::SendMessage(-1,0x0112,0xF170,2)
+```
+
 ### Windows Updtate
 
 #### 更新プログラムのチェック
@@ -190,8 +196,6 @@ Install-Module -Name PSWindowsUpdate -Force -AllowClobber; Import-Module PSWindo
 ### コンピューターの状態
 
 https://learn.microsoft.com/powershell/scripting/samples/changing-computer-state?view=powershell-7.6#shutting-down-or-restarting-a-computer
-
-
 
 ### Windows PowerShell (Windows Hello) での SSH 鍵生成と接続設定
 
@@ -287,7 +291,7 @@ ssh ユーザー名@ホスト名
 
 実行すると、ターミナル上でのパスワード入力はスキップされ、Windows Hello のポップアップが表示されます。指紋・顔・PIN のいずれかで認証すれば即座にログインが完了します。
 
-## パスワードなし起動
+### パスワードなし起動
 
 ```pwsh
 netplwiz

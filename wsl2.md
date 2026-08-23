@@ -463,12 +463,6 @@ function Main {
 $Global:LastExitCode = Main
 ```
 
-### ディスプレイオフ
-
-```powershell
-(Add-Type '[DllImport("user32.dll")]public static extern int SendMessage(int hWnd, int hMsg, int wParam, int lParam);' -Name a -Pas)::SendMessage(-1,0x0112,0xF170,2)
-```
-
 ### wsl で USB デバイスをそれなりに使う
 
 #### usbipd-winインストールを試みる(すでに入っていれば修復か更新が走る)
