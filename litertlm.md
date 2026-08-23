@@ -63,4 +63,9 @@ litert-lm serve --port 11434
 
 記載中。
 
+```powershell:アンインストール
+uv pip uninstall litert-lm
+uv cache clean
+```
+
 ##
