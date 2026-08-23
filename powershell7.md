@@ -102,15 +102,75 @@ notepad $PROFILE
 winget install --id=astral-sh.uv -e
 ```
 
-```powershell:pythonセットアップ
+```powershell:python3.12セットアップ
+uv python list --only-installed
 uv python install 3.12
 uv python update-shell
-$pyDir = Split-Path (uv python find 3.12); $env:PATH = "$pyDir;$env:PATH"
+
+# プロファイルファイルがなければ作成
+if (!(Test-Path -Path $PROFILE)) {
+    New-Item -ItemType File -Path $PROFILE -Force | Out-Null
+}
+
+$startMarker = "# >>> uv python 3.12 path setup >>>"
+$endMarker   = "# <<< uv python 3.12 path setup <<<"
+
+# 挿入するスクリプトブロック
+$block = @"
+$startMarker
+if (Get-Command uv -ErrorAction SilentlyContinue) {
+    try {
+        `$pyDir = Split-Path (uv python find 3.12) -ErrorAction Stop
+        if (`$pyDir -and (Test-Path -Path `$pyDir)) {
+            `$env:PATH = "`$pyDir;`$env:PATH"
+        }
+    } catch {}
+}
+$endMarker
+"@
+
+# 既存のファイル内容を取得
+$content = Get-Content -Path $PROFILE -Raw -ErrorAction SilentlyContinue
+if (-not $content) { $content = "" }
+
+# 既存のマーカーブロックがあれば削除・置換
+$pattern = "(?s)" + [regex]::Escape($startMarker) + ".*?" + [regex]::Escape($endMarker) + "`r?`n?"
+if ($content -match $pattern) {
+    $content = $content -replace $pattern, ""
+}
+
+# 末尾に新しいブロックを追加して保存
+$newContent = ($content.TrimEnd() + "`r`n`r`n" + $block).TrimStart()
+Set-Content -Path $PROFILE -Value $newContent -Encoding utf8
+
+# 現在のセッションにも即座に反映
+. $PROFILE
+
+Write-Host "Python 3.12 のパス設定を `$PROFILE に恒久化しました。" -ForegroundColor Green
+python --version
 ```
 
-```powershell:python動作確認
-$pyDir = Split-Path (uv python find 3.12); $env:PATH = "$pyDir;$env:PATH"
-python --version
+```powershell:python3.12セットアップ解除
+if (Test-Path -Path $PROFILE) {
+    $startMarker = "# >>> uv python 3.12 path setup >>>"
+    $endMarker   = "# <<< uv python 3.12 path setup <<<"
+    $pattern     = "(?s)\r?\n?" + [regex]::Escape($startMarker) + ".*?" + [regex]::Escape($endMarker)
+
+    $content = Get-Content -Path $PROFILE -Raw
+    if ($content -match $pattern) {
+        $newContent = ($content -replace $pattern, "").TrimEnd() + "`r`n"
+        Set-Content -Path $PROFILE -Value $newContent -Encoding utf8
+        Write-Host "プロファイルから Python 3.12 のパス設定を削除しました。" -ForegroundColor Yellow
+        Write-Host "※現在のセッションの PATH を初期化するにはターミナルを再起動してください。" -ForegroundColor Cyan
+    } else {
+        Write-Host "該当する設定ブロックは見つかりませんでした。" -ForegroundColor DarkGray
+    }
+} else {
+    Write-Host "プロファイルファイルが存在しません。" -ForegroundColor DarkGray
+}
+uv python uninstall 3.12
+uv python update-shell
+uv python list --only-installed
 ```
 
 #### python3.14t インストール
