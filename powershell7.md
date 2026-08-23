@@ -24,6 +24,8 @@ winget upgrade --id Microsoft.PowerShell --source winget
 # Updated: 2026-01-19 (Fixed Ctrl+D)
 # =============================================================================
 
+Import-Module PSReadLine -ErrorAction SilentlyContinue
+
 # Emacsモード有効化
 # これだけで Ctrl+A/E/K/U/P/N... そして "Ctrl+D" も自動的にLinux風になる
 Set-PSReadLineOption -EditMode Emacs
@@ -61,6 +63,9 @@ Set-PSReadLineKeyHandler -Key "Ctrl+i" -ScriptBlock $TabAction
 # =============================================================================
 # My Aliases
 # =============================================================================
+
+function python { uv run python $args } 
+function python3 { uv run python $args } 
 
 function ll { Get-ChildItem -Force -Verbose $args }
 function la { Get-ChildItem -Force $args }
@@ -116,21 +121,6 @@ uv で python3.12 をインストール。
 uv python list --only-installed
 uv python install 3.12
 uv python update-shell
-
-Start-Process pwsh -Verb RunAs -ArgumentList "-NoProfile", "-Command", @'
-$allUsersProfile = "$PSHOME\profile.ps1"
-$code = @'
-if (Get-Command uv -ErrorAction SilentlyContinue) {
-    try {
-        $pyDir = Split-Path (uv python find 3.12) -ErrorAction Stop
-        if ($pyDir) {
-            $env:PATH = "$pyDir;$env:PATH"
-        }
-    } catch {}
-}
-'@
-Set-Content -Path $allUsersProfile -Value $code -Encoding utf8
-'@
 ```
 
 #### python3.12 アンインストール
@@ -138,7 +128,6 @@ Set-Content -Path $allUsersProfile -Value $code -Encoding utf8
 uv で python3.12 をアンインストール。
 
 ```powershell:python3.12セットアップ解除
-Start-Process pwsh -Verb RunAs -ArgumentList "-NoProfile", "-Command", "Remove-Item -Path '$PSHOME\profile.ps1' -Force -ErrorAction SilentlyContinue"
 uv python uninstall 3.12
 uv python update-shell
 uv python list --only-installed
