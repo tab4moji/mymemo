@@ -9,7 +9,7 @@
 たぶん [OpenAI 互換](https://developers.google.com/edge/litert-lm/cli/openai_server) API。
 これが[説明書](https://developers.google.com/edge/litert-lm/cli)。
 
-面倒くさいので [uv](./?content=pwsh#RufQy7KM) を使う。
+素の pip は面倒くさいので [uv](./?content=pwsh#wvE9oadP) を使う。
 
 ```powershell:インストール
 uv pip install --upgrade pip litert-lm
