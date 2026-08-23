@@ -9,13 +9,9 @@
 たぶん [OpenAI 互換](https://developers.google.com/edge/litert-lm/cli/openai_server) API。
 これが[説明書](https://developers.google.com/edge/litert-lm/cli)。
 
-```powershell:念のためvenvセットアップ
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-```
-
 ```powershell:インストール
-python -m pip install -U pip litert-lm
+# 面倒くさいので [uv](./?content=pwsh#RufQy7KM) を使う。
+uv pip install pip litert-lm
 ```
 
 ### LiteRT-LM 用の推論モデル

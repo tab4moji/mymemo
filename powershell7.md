@@ -103,7 +103,8 @@ winget install --id=astral-sh.uv -e
 ```
 
 ```powershell:pythonセットアップ
-uv python install 3.12; uv python update-shell
+uv python install 3.12
+uv python update-shell
 $pyDir = Split-Path (uv python find 3.12); $env:PATH = "$pyDir;$env:PATH"
 ```
 
