@@ -101,6 +101,14 @@ notepad $PROFILE
 
 ### python3 on windows/pwsh
 
+#### uv をインストール
+
+winget で、uv をインストール。
+
+```powershell:uvインストール
+winget install --id=astral-sh.uv -e
+```
+
 #### python3.12 インストール
 
 まず Windows が勝手に用意しているダミースタブをオフにして、邪魔な `python.exe` を検索対象から外す。
@@ -116,12 +124,6 @@ Remove-Item "$env:LOCALAPPDATA\Microsoft\WindowsApps\python*.exe" -Force -ErrorA
 1. Windows の「**設定**」を開く（`Win + I`）
 2. 「**アプリ**」→「**アプリの詳細設定**」→「**アプリ実行エイリアス**」を開く
 3. 一覧にある **「アプリ インストーラー (python.exe)」** と **「アプリ インストーラー (python3.exe)」** のスイッチを **オフ** にする
-
-winget で、uv をインストール。
-
-```powershell:uvインストール
-winget install --id=astral-sh.uv -e
-```
 
 uv で python3.12 をインストール。
 
