@@ -1,5 +1,6 @@
-## LiteRT-LM on Windows PWSH (powershell7)
+## LiteRT-LM on Windows with pwsh (powershell7)
 
+たぶん bash でも同じ。
 [LiteRT-LM](https://developers.google.com/edge/litert-lm) は、たぶんスマホ向けに作られた [TenrsorFlow Lite](https://www.tensorflow.org/lite/guide)(TFLite) 系の推論エンジン。
 
 ### 推論エンジンをインストールする
