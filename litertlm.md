@@ -1,17 +1,37 @@
 ## LiteRT-LM on Windows PWSH (powershell7)
 
-### Gemma4-26B-A4B
+[LiteRT-LM](https://developers.google.com/edge/litert-lm) は、たぶんスマホ向けに作られた [TenrsorFlow Lite](https://www.tensorflow.org/lite/guide)(TFLite) 系の推論エンジン。
 
-#### セットアップ
+### 推論エンジンをインストールする
 
-```powershell:セットアップ
+```powershell:念のためvenvセットアップ
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 ```
 
 ```powershell:セットアップ
-python -m pip install -U pip litert-lm
+python -m pip install -U pip [litert-lm](https://pypi.org/project/litert-lm/)
+```
+
+#### 推論エンジンを起動する
+
+```powershell:念のためvenv
+.\.venv\Scripts\Activate.ps1
+```
+
+```powershell:推論エンジンをポート11434で受ける前提で起動
+litert-lm serve --port 11434
+```
+
+### 推論モデル
+
+#### Gemma4-26B-A4B
+
+```powershell:Gemma4-26B-A4B
 litert-lm import ` --from-huggingface-repo=litert-community/gemma-4-26B-A4B-it-litert-lm ` gemma-4-26B-A4B-it-gpu.litertlm ` gemma4-26b-a4b
+```
+
+```powershell
 edit C:\Users\pi\.litert-lm\config.json
 ```
 
@@ -27,17 +47,6 @@ edit C:\Users\pi\.litert-lm\config.json
     }
   }
 }
-```
-
-#### Gemma4 起動
-
-```powershell:Gemma4 起動
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-```
-
-```powershell:Gemma4 起動
-litert-lm serve --port 11434
 ```
 
 ##
