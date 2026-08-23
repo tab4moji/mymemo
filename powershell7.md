@@ -111,46 +111,26 @@ uv python list --only-installed
 uv python install 3.12
 uv python update-shell
 
-# プロファイルファイルがなければ作成
-if (!(Test-Path -Path $PROFILE)) {
-    New-Item -ItemType File -Path $PROFILE -Force | Out-Null
-}
+# uv から Python 3.12 のディレクトリパスを取得
+$pyDir = Split-Path (uv python find 3.12) -ErrorAction Stop
 
-$startMarker = "# >>> uv python 3.12 path setup >>>"
-$endMarker   = "# <<< uv python 3.12 path setup <<<"
+# ユーザー環境変数 Path を取得し、配列に分解
+$userPath = [Environment]::GetEnvironmentVariable("Path", "User")
+$pathList = ($userPath -split ';') | Where-Object { $_ -ne "" }
 
-# 挿入するスクリプトブロック
-$block = @"
-$startMarker
-if (Get-Command uv -ErrorAction SilentlyContinue) {
-    try {
-        `$pyDir = Split-Path (uv python find 3.12) -ErrorAction Stop
-        if (`$pyDir -and (Test-Path -Path `$pyDir)) {
-            `$env:PATH = "`$pyDir;`$env:PATH"
-        }
-    } catch {}
-}
-$endMarker
-"@
+# 既存の登録があれば一旦除外し、先頭に新規追加して結合
+$filteredList = $pathList | Where-Object { $_ -ne $pyDir }
+$newPath = (@($pyDir) + $filteredList) -join ';'
 
-# 既存のファイル内容を取得
-$content = Get-Content -Path $PROFILE -Raw -ErrorAction SilentlyContinue
-if (-not $content) { $content = "" }
+# ユーザー環境変数に恒久保存
+[Environment]::SetEnvironmentVariable("Path", $newPath, "User")
 
-# 既存のマーカーブロックがあれば削除・置換
-$pattern = "(?s)" + [regex]::Escape($startMarker) + ".*?" + [regex]::Escape($endMarker) + "`r?`n?"
-if ($content -match $pattern) {
-    $content = $content -replace $pattern, ""
-}
+# 現在のセッションの PATH の先頭にも即時適用
+$sessionList = ($env:PATH -split ';') | Where-Object { $_ -ne "" -and $_ -ne $pyDir }
+$env:PATH = (@($pyDir) + $sessionList) -join ';'
 
-# 末尾に新しいブロックを追加して保存
-$newContent = ($content.TrimEnd() + "`r`n`r`n" + $block).TrimStart()
-Set-Content -Path $PROFILE -Value $newContent -Encoding utf8
-
-# 現在のセッションにも即座に反映
-. $PROFILE
-
-Write-Host "Python 3.12 のパス設定を `$PROFILE に恒久化しました。" -ForegroundColor Green
+Write-Host "【成功】ユーザー環境変数 Path の先頭に登録しました。" -ForegroundColor Green
+Write-Host "適用パス: $pyDir" -ForegroundColor Gray
 python --version
 ```
 
@@ -159,26 +139,28 @@ python --version
 uv で python3.12 をアンインストール。
 
 ```powershell:python3.12セットアップ解除
-if (Test-Path -Path $PROFILE) {
-    $startMarker = "# >>> uv python 3.12 path setup >>>"
-    $endMarker   = "# <<< uv python 3.12 path setup <<<"
-    $pattern     = "(?s)\r?\n?" + [regex]::Escape($startMarker) + ".*?" + [regex]::Escape($endMarker)
+# uv から Python 3.12 のディレクトリパスを取得
+$pyDir = Split-Path (uv python find 3.12) -ErrorAction SilentlyContinue
 
-    $content = Get-Content -Path $PROFILE -Raw
-    if ($content -match $pattern) {
-        $newContent = ($content -replace $pattern, "").TrimEnd() + "`r`n"
-        Set-Content -Path $PROFILE -Value $newContent -Encoding utf8
-        Write-Host "プロファイルから Python 3.12 のパス設定を削除しました。" -ForegroundColor Yellow
-        Write-Host "※現在のセッションの PATH を初期化するにはターミナルを再起動してください。" -ForegroundColor Cyan
-    } else {
-        Write-Host "該当する設定ブロックは見つかりませんでした。" -ForegroundColor DarkGray
-    }
-} else {
-    Write-Host "プロファイルファイルが存在しません。" -ForegroundColor DarkGray
+# パスが取得できない場合の安全策（uv で削除済みのケース等）
+if (-not $pyDir) {
+    Write-Host "uv から Python 3.12 のパスを解決できませんでした。" -ForegroundColor Yellow
 }
-uv python uninstall 3.12
-uv python update-shell
-uv python list --only-installed
+
+# ユーザー環境変数 Path から該当パスを削除して再保存
+$userPath = [Environment]::GetEnvironmentVariable("Path", "User")
+$newPath = (($userPath -split ';') | Where-Object { $_ -ne "" -and $_ -ne $pyDir }) -join ';'
+[Environment]::SetEnvironmentVariable("Path", $newPath, "User")
+
+# 現在のセッションの PATH からも削除
+$env:PATH = (($env:PATH -split ';') | Where-Object { $_ -ne "" -and $_ -ne $pyDir }) -join ';'
+
+Write-Host "【解除完了】ユーザー環境変数から Python 3.12 のパスを削除しました。" -ForegroundColor Yellow
+if (Get-Command python -ErrorAction SilentlyContinue) {
+    Write-Host "現在の Python: $((Get-Command python).Source)" -ForegroundColor Gray
+} else {
+    Write-Host "PATH 上に python コマンドは見つかりません。" -ForegroundColor DarkGray
+}
 ```
 
 #### python3.14t インストール
