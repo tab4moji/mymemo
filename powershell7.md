@@ -18,6 +18,30 @@ winget upgrade --id Microsoft.PowerShell --source winget
 
 ### Emacs風シェルにしたい
 
+#### プロファイル作成 & 編集コマンド
+
+```powershell
+PowerShell 7.5.4
+PS C:\> edit $PROFILE
+Error 0x80070003: 謖・ｮ壹＆繧後◆繝代せ縺瑚ｦ九▽縺九ｊ縺ｾ縺帙ｓ縲・
+PS C:\>
+```
+
+```powershell
+# 1. プロファイル用のフォルダが無ければ作る
+if (!(Test-Path (Split-Path $PROFILE))) { New-Item -ItemType Directory -Force -Path (Split-Path $PROFILE) }
+
+# 2. ファイルが無ければ空っぽのものを作る
+if (!(Test-Path $PROFILE)) { New-Item -ItemType File -Path $PROFILE -Force }
+
+# 3. メモ帳で開く
+notepad $PROFILE
+```
+
+#### プロファイルの内容
+
+pwsh に直接貼り付けても良し。
+
 ```powershell
 # =============================================================================
 # Linux/Emacs Style Keybindings for PowerShell
@@ -79,25 +103,6 @@ function touch {
 Set-Alias -Name clear -Value Clear-Host
 ```
 
-### プロファイル作成 & 編集コマンド
-
-```powershell
-PowerShell 7.5.4
-PS C:\> edit $PROFILE
-Error 0x80070003: 謖・ｮ壹＆繧後◆繝代せ縺瑚ｦ九▽縺九ｊ縺ｾ縺帙ｓ縲・
-PS C:\>
-```
-
-```powershell
-# 1. プロファイル用のフォルダが無ければ作る
-if (!(Test-Path (Split-Path $PROFILE))) { New-Item -ItemType Directory -Force -Path (Split-Path $PROFILE) }
-
-# 2. ファイルが無ければ空っぽのものを作る
-if (!(Test-Path $PROFILE)) { New-Item -ItemType File -Path $PROFILE -Force }
-
-# 3. メモ帳で開く
-notepad $PROFILE
-```
 
 ### 自動実行(タスク スケジューラー)
 
