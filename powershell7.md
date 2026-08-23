@@ -96,13 +96,17 @@ notepad $PROFILE
 
 ### python3 on windows/pwsh
 
-#### python3.12 インストール方法１
+#### python3.12 インストール
 
-```powershell:uvセットアップ
+winget で、uv をインストール。
+
+```powershell:uvインストール
 winget install --id=astral-sh.uv -e
 ```
 
-```powershell:python3.12セットアップ
+uv で python3.12 をインストール。
+
+```powershell:python3.12インストール
 uv python list --only-installed
 uv python install 3.12
 uv python update-shell
@@ -149,6 +153,10 @@ Set-Content -Path $PROFILE -Value $newContent -Encoding utf8
 Write-Host "Python 3.12 のパス設定を `$PROFILE に恒久化しました。" -ForegroundColor Green
 python --version
 ```
+
+#### python3.12 アンインストール
+
+uv で python3.12 をアンインストール。
 
 ```powershell:python3.12セットアップ解除
 if (Test-Path -Path $PROFILE) {
