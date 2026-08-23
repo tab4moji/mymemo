@@ -13,7 +13,7 @@ python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 ```
 
-```powershell:セットアップ
+```powershell:インストール
 python -m pip install -U pip litert-lm
 ```
 
@@ -56,5 +56,13 @@ edit C:\Users\pi\.litert-lm\config.json
 ```powershell:推論エンジンをポート11434で受ける前提で起動
 litert-lm serve --port 11434
 ```
+
+### 推論エンジンを停止する
+
+たぶん、*CTRL-C を長め*に押すと止まる。
+
+### 推論エンジンをアンインストール
+
+記載中。
 
 ##
