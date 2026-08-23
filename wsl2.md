@@ -8,7 +8,7 @@ RealTime High AboveNormal Normal BelowNormal Idle
 pwsh "\$ErrorActionPreference = 'Stop'; try { Get-Process vmmemWSL | ForEach-Object { \$_.PriorityClass = 'BelowNormal'; Write-Host \"Success: \$(\$_.Name) (ID:\$(\$_.Id))\" } } catch { Write-Host \"Error: \$(\$_.Exception.Message)\" }"; echo bfq | sudo tee /sys/block/sdc/queue/scheduler
 ```
 
-### pwsh
+### wsl から pwsh を使う
 
 wsl から powershell や pwsh(powershell7) を呼び出せるようにしておくと [bash から Windows ホストを制御できて便利](./wsl2_with_pwsh.jpg)。
 
