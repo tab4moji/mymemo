@@ -117,27 +117,20 @@ uv python list --only-installed
 uv python install 3.12
 uv python update-shell
 
-# uv から Python 3.12 のディレクトリパスを取得
-$pyDir = Split-Path (uv python find 3.12) -ErrorAction Stop
-
-# ユーザー環境変数 Path を取得し、配列に分解
-$userPath = [Environment]::GetEnvironmentVariable("Path", "User")
-$pathList = ($userPath -split ';') | Where-Object { $_ -ne "" }
-
-# 既存の登録があれば一旦除外し、先頭に新規追加して結合
-$filteredList = $pathList | Where-Object { $_ -ne $pyDir }
-$newPath = (@($pyDir) + $filteredList) -join ';'
-
-# ユーザー環境変数に恒久保存
-[Environment]::SetEnvironmentVariable("Path", $newPath, "User")
-
-# 現在のセッションの PATH の先頭にも即時適用
-$sessionList = ($env:PATH -split ';') | Where-Object { $_ -ne "" -and $_ -ne $pyDir }
-$env:PATH = (@($pyDir) + $sessionList) -join ';'
-
-Write-Host "【成功】ユーザー環境変数 Path の先頭に登録しました。" -ForegroundColor Green
-Write-Host "適用パス: $pyDir" -ForegroundColor Gray
-python --version
+Start-Process pwsh -Verb RunAs -ArgumentList "-NoProfile", "-Command", @'
+$allUsersProfile = "$PSHOME\profile.ps1"
+$code = @'
+if (Get-Command uv -ErrorAction SilentlyContinue) {
+    try {
+        $pyDir = Split-Path (uv python find 3.12) -ErrorAction Stop
+        if ($pyDir) {
+            $env:PATH = "$pyDir;$env:PATH"
+        }
+    } catch {}
+}
+'@
+Set-Content -Path $allUsersProfile -Value $code -Encoding utf8
+'@
 ```
 
 #### python3.12 アンインストール
@@ -145,28 +138,10 @@ python --version
 uv で python3.12 をアンインストール。
 
 ```powershell:python3.12セットアップ解除
-# uv から Python 3.12 のディレクトリパスを取得
-$pyDir = Split-Path (uv python find 3.12) -ErrorAction SilentlyContinue
-
-# パスが取得できない場合の安全策（uv で削除済みのケース等）
-if (-not $pyDir) {
-    Write-Host "uv から Python 3.12 のパスを解決できませんでした。" -ForegroundColor Yellow
-}
-
-# ユーザー環境変数 Path から該当パスを削除して再保存
-$userPath = [Environment]::GetEnvironmentVariable("Path", "User")
-$newPath = (($userPath -split ';') | Where-Object { $_ -ne "" -and $_ -ne $pyDir }) -join ';'
-[Environment]::SetEnvironmentVariable("Path", $newPath, "User")
-
-# 現在のセッションの PATH からも削除
-$env:PATH = (($env:PATH -split ';') | Where-Object { $_ -ne "" -and $_ -ne $pyDir }) -join ';'
-
-Write-Host "【解除完了】ユーザー環境変数から Python 3.12 のパスを削除しました。" -ForegroundColor Yellow
-if (Get-Command python -ErrorAction SilentlyContinue) {
-    Write-Host "現在の Python: $((Get-Command python).Source)" -ForegroundColor Gray
-} else {
-    Write-Host "PATH 上に python コマンドは見つかりません。" -ForegroundColor DarkGray
-}
+Start-Process pwsh -Verb RunAs -ArgumentList "-NoProfile", "-Command", "Remove-Item -Path '$PSHOME\profile.ps1' -Force -ErrorAction SilentlyContinue"
+uv python uninstall 3.12
+uv python update-shell
+uv python list --only-installed
 ```
 
 #### python3.14t インストール
