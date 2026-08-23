@@ -140,7 +140,7 @@ uv で python3.12 をアンインストール。
 
 ```powershell:python3.12セットアップ解除
 uv python uninstall 3.12
-uv cache clean
+uv cache prune
 uv python update-shell
 uv python list --only-installed
 ```

@@ -65,7 +65,7 @@ litert-lm serve --port 11434
 
 ```powershell:アンインストール
 uv pip uninstall litert-lm
-uv cache clean
+uv cache prune
 ```
 
 ##
