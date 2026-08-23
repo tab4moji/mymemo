@@ -64,8 +64,8 @@ Set-PSReadLineKeyHandler -Key "Ctrl+i" -ScriptBlock $TabAction
 # My Aliases
 # =============================================================================
 
-function python { uv run python $args } 
-function python3 { uv run python $args } 
+function python { uv run python $args }
+function python3 { uv run python $args }
 
 function ll { Get-ChildItem -Force -Verbose $args }
 function la { Get-ChildItem -Force $args }
