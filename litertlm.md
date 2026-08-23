@@ -1,11 +1,11 @@
 ## LiteRT-LM on Windows PWSH (powershell7)
 
 [LiteRT-LM](https://developers.google.com/edge/litert-lm) は、たぶんスマホ向けに作られた [TenrsorFlow Lite](https://www.tensorflow.org/lite/guide)(TFLite) 系の推論エンジン。
-たぶん OpenAI 互換 API。
 
 ### 推論エンジンをインストールする
 
 [LiteRT-LM CLI](https://pypi.org/project/litert-lm/) をインストールする。
+たぶん OpenAI 互換 API。
 
 ```powershell:念のためvenvセットアップ
 python -m venv .venv
@@ -28,7 +28,7 @@ litert-lm serve --port 11434
 
 ### LiteRT-LM 用の推論モデル
 
-LiteRT-LM 推論エンジンでは、[Hugging Face](https://huggingface.co/) で公開されている [litert-lm モデル](https://huggingface.co/models?library=litert-lm&sort=modified) を使える。
+LiteRT-LM 推論エンジンで [Hugging Face](https://huggingface.co/) で公開されている [litert-lm モデル](https://huggingface.co/models?library=litert-lm&sort=modified) を使える。
 
 #### Gemma4-26B-A4B
 
