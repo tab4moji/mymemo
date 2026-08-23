@@ -1,5 +1,13 @@
 ## WSLを快適にしたい
 
+### WSL の動作優先度を少し落とす
+
+RealTime High AboveNormal Normal BelowNormal Idle
+
+```bash:WSL の動作優先度を少し落とす
+pwsh "\$ErrorActionPreference = 'Stop'; try { Get-Process vmmemWSL | ForEach-Object { \$_.PriorityClass = 'BelowNormal'; Write-Host \"Success: \$(\$_.Name) (ID:\$(\$_.Id))\" } } catch { Write-Host \"Error: \$(\$_.Exception.Message)\" }"; echo bfq | sudo tee /sys/block/sdc/queue/scheduler
+```
+
 ### pwsh
 
 wsl から powershell や pwsh(powershell7) を呼び出せるようにしておくと bash から Windows ホストを制御できて便利。
@@ -49,14 +57,6 @@ wsl が Windows の Admin 権限を持っているかどうかを調べておく
 
 ```bash:Admin権限なら True
 pwsh "[bool]([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)"
-```
-
-### WSL の動作優先度を少し落とす
-
-RealTime High AboveNormal Normal BelowNormal Idle
-
-```bash:WSL の動作優先度を少し落とす
-pwsh "\$ErrorActionPreference = 'Stop'; try { Get-Process vmmemWSL | ForEach-Object { \$_.PriorityClass = 'BelowNormal'; Write-Host \"Success: \$(\$_.Name) (ID:\$(\$_.Id))\" } } catch { Write-Host \"Error: \$(\$_.Exception.Message)\" }"; echo bfq | sudo tee /sys/block/sdc/queue/scheduler
 ```
 
 ### WSL を起動
