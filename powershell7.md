@@ -99,52 +99,6 @@ if (!(Test-Path $PROFILE)) { New-Item -ItemType File -Path $PROFILE -Force }
 notepad $PROFILE
 ```
 
-### python3 on windows/pwsh
-
-#### uv をインストール
-
-winget で uv をインストールする。
-
-```powershell:uvインストール
-winget install --id=astral-sh.uv -e
-```
-
-#### python3.12 インストール
-
-まず Windows が勝手に用意しているダミースタブをオフにして、邪魔な `python.exe` を検索対象から外す。
-
-GUI同期しなくてもいいからさっさと健康になりたい場合はコレ。
-
-```powershell:GUI同期しなくてもいいからさっさと健康になりたい場合
-Remove-Item "$env:LOCALAPPDATA\Microsoft\WindowsApps\python*.exe" -Force -ErrorAction SilentlyContinue
-```
-
-操作方法がコロコロ変わってしまうGUIでやりたいなら2026/8/23だとコレ。
-
-1. Windows の「**設定**」を開く（`Win + I`）
-2. 「**アプリ**」→「**アプリの詳細設定**」→「**アプリ実行エイリアス**」を開く
-3. 一覧にある **「アプリ インストーラー (python.exe)」** と **「アプリ インストーラー (python3.exe)」** のスイッチを **オフ** にする
-
-uv で python3.12 をインストール。
-
-```powershell:python3.12インストール
-uv python list --only-installed
-uv python install 3.12
-uv python update-shell
-uv pip install --upgrade pip
-```
-
-#### python3.12 アンインストール
-
-uv で python3.12 をアンインストール。
-
-```powershell:python3.12セットアップ解除
-uv python uninstall 3.12
-uv cache prune
-uv python update-shell
-uv python list --only-installed
-```
-
 ### 自動実行(タスク スケジューラー)
 
 #### タスク一覧
@@ -295,6 +249,52 @@ ssh ユーザー名@ホスト名
 
 ```pwsh
 netplwiz
+```
+
+### python3 on windows/pwsh
+
+#### uv をインストール
+
+winget で uv をインストールする。
+
+```powershell:uvインストール
+winget install --id=astral-sh.uv -e
+```
+
+#### python3.12 インストール
+
+まず Windows が勝手に用意しているダミースタブをオフにして、邪魔な `python.exe` を検索対象から外す。
+
+GUI同期しなくてもいいからさっさと健康になりたい場合はコレ。
+
+```powershell:GUI同期しなくてもいいからさっさと健康になりたい場合
+Remove-Item "$env:LOCALAPPDATA\Microsoft\WindowsApps\python*.exe" -Force -ErrorAction SilentlyContinue
+```
+
+操作方法がコロコロ変わってしまうGUIでやりたいなら2026/8/23だとコレ。
+
+1. Windows の「**設定**」を開く（`Win + I`）
+2. 「**アプリ**」→「**アプリの詳細設定**」→「**アプリ実行エイリアス**」を開く
+3. 一覧にある **「アプリ インストーラー (python.exe)」** と **「アプリ インストーラー (python3.exe)」** のスイッチを **オフ** にする
+
+uv で python3.12 をインストール。
+
+```powershell:python3.12インストール
+uv python list --only-installed
+uv python install 3.12
+uv python update-shell
+uv pip install --upgrade pip
+```
+
+#### python3.12 アンインストール
+
+uv で python3.12 をアンインストール。
+
+```powershell:python3.12セットアップ解除
+uv python uninstall 3.12
+uv cache prune
+uv python update-shell
+uv python list --only-installed
 ```
 
 ##
