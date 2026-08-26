@@ -2,7 +2,7 @@
 
 ### tmux のマウスメニューを便利にしたい
 
-```conf
+```config
 # tmux source-file ~/.tmux.conf
 ################################
 
