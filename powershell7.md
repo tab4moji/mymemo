@@ -18,11 +18,35 @@ winget upgrade --id Microsoft.PowerShell --source winget
 
 ### Emacs風シェルにしたい
 
+#### プロファイル作成 & 編集コマンド
+
+```powershell
+# 1. プロファイル用のフォルダが無ければ作る
+if (!(Test-Path (Split-Path $PROFILE))) { New-Item -ItemType Directory -Force -Path (Split-Path $PROFILE) }
+
+# 2. ファイルが無ければ空っぽのものを作る
+if (!(Test-Path $PROFILE)) { New-Item -ItemType File -Path $PROFILE -Force }
+
+# 3.『メモ帳』で開く
+notepad $PROFILE
+```
+
+```powershell
+PowerShell 7.5.4
+PS C:\> edit $PROFILE
+```
+
+#### プロファイルの内容
+
+pwsh に直接貼り付けても良し。
+
 ```powershell
 # =============================================================================
 # Linux/Emacs Style Keybindings for PowerShell
 # Updated: 2026-01-19 (Fixed Ctrl+D)
 # =============================================================================
+
+Import-Module PSReadLine -ErrorAction SilentlyContinue
 
 # Emacsモード有効化
 # これだけで Ctrl+A/E/K/U/P/N... そして "Ctrl+D" も自動的にLinux風になる
@@ -62,6 +86,9 @@ Set-PSReadLineKeyHandler -Key "Ctrl+i" -ScriptBlock $TabAction
 # My Aliases
 # =============================================================================
 
+function python { uv run python $args }
+function python3 { uv run python $args }
+
 function ll { Get-ChildItem -Force -Verbose $args }
 function la { Get-ChildItem -Force $args }
 function l  { Get-ChildItem $args }
@@ -74,88 +101,6 @@ function touch {
 Set-Alias -Name clear -Value Clear-Host
 ```
 
-### プロファイル作成 & 編集コマンド
-
-```powershell
-PowerShell 7.5.4
-PS C:\> edit $PROFILE
-Error 0x80070003: 謖・ｮ壹＆繧後◆繝代せ縺瑚ｦ九▽縺九ｊ縺ｾ縺帙ｓ縲・
-PS C:\>
-```
-
-```powershell
-# 1. プロファイル用のフォルダが無ければ作る
-if (!(Test-Path (Split-Path $PROFILE))) { New-Item -ItemType Directory -Force -Path (Split-Path $PROFILE) }
-
-# 2. ファイルが無ければ空っぽのものを作る
-if (!(Test-Path $PROFILE)) { New-Item -ItemType File -Path $PROFILE -Force }
-
-# 3. メモ帳で開く
-notepad $PROFILE
-```
-
-### python3 on windows/pwsh
-
-#### python3.12 インストール方法１
-
-```powershell:uvセットアップ
-winget install --id=astral-sh.uv -e
-```
-
-```powershell:pythonセットアップ
-uv python install 3.12; uv python update-shell
-$pyDir = Split-Path (uv python find 3.12); $env:PATH = "$pyDir;$env:PATH"
-```
-
-```powershell:python動作確認
-$pyDir = Split-Path (uv python find 3.12); $env:PATH = "$pyDir;$env:PATH"
-python --version
-```
-
-#### python3.14t インストール
-
-```powershell
-winget install --id Python.Python.3.14 --exact --override "/quiet InstallAllUsers=1 PrependPath=1 Include_doc=0 Include_tcltk=0 Include_test=0 Include_freethreaded=1"
-```
-
-#### python3 のPATHを通す
-
-```powershell
-# 1. 実行可能かチェック
-$cmdName = "python3.14t"
-if (Get-Command $cmdName -ErrorAction SilentlyContinue) {
-    Write-Output "$cmdName は既にPATHが通っている。"
-} else {
-    Write-Output "$cmdName が認識されないため、自動修復を開始する..."
-
-    # 2. 実体パスを検索
-    $searchPaths = @("C:\Program Files\Python314", "$env:LOCALAPPDATA\Programs\Python\Python314")
-    $found = Get-ChildItem -Path $searchPaths -Filter "$cmdName.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
-
-    if (-not $found) {
-        Write-Output "エラー: $cmdName.exe がシステム上に見つからない。インストールをやり直せ。"
-    } else {
-        $targetPath = $found.Directory.FullName
-        Write-Output "実体パスを発見: $targetPath"
-
-        # 3. ユーザーの環境変数(永続PATH)に追加
-        $userPath = [Environment]::GetEnvironmentVariable("Path", "User")
-        if ($userPath -notmatch [regex]::Escape($targetPath)) {
-            $newUserPath = $userPath.TrimEnd(';') + ";" + $targetPath
-            [Environment]::SetEnvironmentVariable("Path", $newUserPath, "User")
-            Write-Output "永続的なユーザー環境変数(PATH)に登録した。"
-        }
-
-        # 4. 現在のセッションのPATHに追加 (再起動なしで即使うため)
-        if ($env:PATH -notmatch [regex]::Escape($targetPath)) {
-            $env:PATH = $env:PATH.TrimEnd(';') + ";" + $targetPath
-            Write-Output "現在のセッションのPATHに反映した。"
-        }
-
-        Write-Output "自動修復完了。$cmdName が使用可能になった。"
-    }
-}
-```
 
 ### 自動実行(タスク スケジューラー)
 
@@ -183,6 +128,12 @@ schtasks /Create /TN "Schtask_${task_name}" /SC ONLOGON /RL HIGHEST /TR $action 
   - https://learn.microsoft.com/dotnet/api/system.diagnostics.processwindowstyle?view=net-10.0#-----
   - Normal, Hidden, Minimized, Maximized
 
+### ディスプレイオフ
+
+```powershell
+(Add-Type '[DllImport("user32.dll")]public static extern int SendMessage(int hWnd, int hMsg, int wParam, int lParam);' -Name a -Pas)::SendMessage(-1,0x0112,0xF170,2)
+```
+
 ### Windows Updtate
 
 #### 更新プログラムのチェック
@@ -202,8 +153,6 @@ Install-Module -Name PSWindowsUpdate -Force -AllowClobber; Import-Module PSWindo
 ### コンピューターの状態
 
 https://learn.microsoft.com/powershell/scripting/samples/changing-computer-state?view=powershell-7.6#shutting-down-or-restarting-a-computer
-
-
 
 ### Windows PowerShell (Windows Hello) での SSH 鍵生成と接続設定
 
@@ -299,10 +248,56 @@ ssh ユーザー名@ホスト名
 
 実行すると、ターミナル上でのパスワード入力はスキップされ、Windows Hello のポップアップが表示されます。指紋・顔・PIN のいずれかで認証すれば即座にログインが完了します。
 
-## パスワードなし起動
+### Windows をパスワードなし起動したい
 
 ```pwsh
 netplwiz
+```
+
+### python3 on windows/pwsh
+
+#### uv をインストール
+
+winget で uv をインストールする。
+
+```powershell:uvインストール
+winget install --id=astral-sh.uv -e
+```
+
+#### python3.12 インストール
+
+まず Windows が勝手に用意しているダミースタブをオフにして、邪魔な `python.exe` を検索対象から外す。
+
+GUI同期しなくてもいいからさっさと健康になりたい場合はコレ。
+
+```powershell:GUI同期しなくてもいいからさっさと健康になりたい場合
+Remove-Item "$env:LOCALAPPDATA\Microsoft\WindowsApps\python*.exe" -Force -ErrorAction SilentlyContinue
+```
+
+操作方法がコロコロ変わってしまうGUIでやりたいなら2026/8/23だとコレ。
+
+1. Windows の「**設定**」を開く（`Win + I`）
+2. 「**アプリ**」→「**アプリの詳細設定**」→「**アプリ実行エイリアス**」を開く
+3. 一覧にある **「アプリ インストーラー (python.exe)」** と **「アプリ インストーラー (python3.exe)」** のスイッチを **オフ** にする
+
+uv で python3.12 をインストール。
+
+```powershell:python3.12インストール
+uv python list --only-installed
+uv python install 3.12
+uv python update-shell
+uv pip install --upgrade pip
+```
+
+#### python3.12 アンインストール
+
+uv で python3.12 をアンインストール。
+
+```powershell:python3.12セットアップ解除
+uv python uninstall 3.12
+uv cache prune
+uv python update-shell
+uv python list --only-installed
 ```
 
 ##
