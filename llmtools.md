@@ -64,3 +64,6 @@ Hugging Faceの標準ウェイト形式を基盤とし、サーバーGPUの高�
 PyTorch / Hugging Face 互換のウェイトをそのままVRAMにロードし、Pythonランタイム側でトークナイズとKVキャッシュ（PagedAttention等）を制御 。
 3. **ハードウェア特化コンパイル型（`*.engine`, TVM/ONNX）**
 特定のGPUアーキテクチャやNPUに合わせて事前にグラフ融合とカーネル最適化を行い、最高効率で実行するバイナリ形式 。
+
+[推論の仕組み](./llmtools.png)
+
