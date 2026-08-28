@@ -38,8 +38,8 @@ w.writerows(reversed(rows))
 # /// script
 # requires-python = ">=3.12"
 # dependencies = [
-#     "firebase-admin",
 #     "requests",
+#     "beautifulsoup4",
 # ]
 # ///
 import csv, sys, requests, bs4
