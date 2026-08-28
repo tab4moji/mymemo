@@ -37,6 +37,17 @@ do-release-upgrade -c 2>/dev/null | grep -v "There is no " | grep -w available |
 echo "-- lsb_release"; lsb_release -a; echo "-- architecture"; dpkg --print-architecture; echo "-- foreign-architectures"; dpkg --print-foreign-architectures
 ```
 
+```bash:Debian Code Names
+uv run --with requests,beautifulsoup4 python -c '
+import csv, sys, requests, bs4
+soup = bs4.BeautifulSoup(requests.get("https://www.debian.org/releases/").text, "html.parser")
+rows = [[td.get_text(" ", strip=True) for td in tr.find_all("td")] for tr in soup.find("table").find_all("tr") if tr.find("td")]
+w = csv.writer(sys.stdout)
+w.writerow(["version", "codename", "release_date", "eol_date", "eol_lts", "eol_elts", "status"])
+w.writerows(reversed(rows))
+'
+```
+
 ```bash: 修正apt
 _() { \
     DEBIAN_FRONTEND=noninteractive; \
