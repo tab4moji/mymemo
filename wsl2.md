@@ -684,28 +684,131 @@ setup_alsa_main
 
 ### GPU check with WSL2
 
-iGPU 非対応
-
 ```bash
-pi@NucBoxK16:irodori$ HSA_ENABLE_DXG_DETECTION=1 uv run --directory Irodori-TTS --extra rocm python -c "
-import torch
+uv run python - << 'EOF'
+import ctypes
+import struct
 
-print(f'=== ROCm / PyTorch Environment ===')
-print(f'HIP Version  : {torch.version.hip}')
-print(f'GPU Available: {torch.cuda.is_available()}')
-count = torch.cuda.device_count()
-print(f'Device Count : {count}\n')
+dxcore_lib = "/usr/lib/wsl/lib/libdxcore.so"
+try:
+    dxcore = ctypes.CDLL(dxcore_lib)
+except Exception as e:
+    print(f"Failed to load {dxcore_lib}: {e}")
+    exit(1)
 
-if count > 0:
-    for i in range(count):
-        props = torch.cuda.get_device_properties(i)
-        vram_gb = props.total_memory / (1024 ** 3)
-        print(f'--- Device [{i}] ---')
-        print(f'  Name      : {props.name}')
-        print(f'  Arch      : {getattr(props, \"gcnArchName\", \"N/A\")}')
-        print(f'  VRAM      : {vram_gb:.2f} GB')
-        print(f'  Compute Cap: {props.major}.{props.minor}')
-"
+class GUID(ctypes.Structure):
+    _fields_ = [
+        ("Data1", ctypes.c_uint32),
+        ("Data2", ctypes.c_uint16),
+        ("Data3", ctypes.c_uint16),
+        ("Data4", ctypes.c_uint8 * 8)
+    ]
+
+def make_guid(d1, d2, d3, d4):
+    g = GUID()
+    g.Data1 = d1
+    g.Data2 = d2
+    g.Data3 = d3
+    for i in range(8):
+        g.Data4[i] = d4[i]
+    return g
+
+# 基本 IUnknown GUID（必ず全オブジェクトが対応）
+IID_IUnknown              = make_guid(0x00000000, 0x0000, 0x0000, [0xc0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x46])
+IID_IDXCoreAdapterFactory = make_guid(0x78ee5945, 0xc36e, 0x4b13, [0xa6, 0x69, 0x00, 0x5d, 0xd1, 0x1c, 0x0f, 0x06])
+IID_IDXCoreAdapterList    = make_guid(0x526c7776, 0x40e9, 0x459b, [0xb7, 0x11, 0xf3, 0x2a, 0xd7, 0x6d, 0xfc, 0x28])
+DXCORE_ADAPTER_ATTRIBUTE_D3D12_GRAPHICS = make_guid(0x0c9ece4d, 0x2f6e, 0x4f01, [0x8c, 0x96, 0xe8, 0x9e, 0x33, 0x1b, 0x47, 0xb1])
+
+# 1. Factory の生成
+ppFactory = ctypes.c_void_p()
+hr = dxcore.DXCoreCreateAdapterFactory(ctypes.byref(IID_IUnknown), ctypes.byref(ppFactory))
+if hr != 0:
+    hr = dxcore.DXCoreCreateAdapterFactory(ctypes.byref(IID_IDXCoreAdapterFactory), ctypes.byref(ppFactory))
+    if hr != 0:
+        print(f"DXCoreCreateAdapterFactory failed: {hr:#x}")
+        exit(1)
+
+factory_ptr = ppFactory.value
+factory_vtable = ctypes.cast(ctypes.cast(factory_ptr, ctypes.POINTER(ctypes.c_void_p))[0], ctypes.POINTER(ctypes.c_void_p))
+
+# CreateAdapterList (VTable [3])
+CreateAdapterList_t = ctypes.CFUNCTYPE(
+    ctypes.c_int, ctypes.c_void_p, ctypes.c_uint32, ctypes.POINTER(GUID), ctypes.POINTER(GUID), ctypes.POINTER(ctypes.c_void_p)
+)
+CreateAdapterList = CreateAdapterList_t(factory_vtable[3])
+
+ppList = ctypes.c_void_p()
+hr = CreateAdapterList(
+    factory_ptr, 1, ctypes.byref(DXCORE_ADAPTER_ATTRIBUTE_D3D12_GRAPHICS), ctypes.byref(IID_IUnknown), ctypes.byref(ppList)
+)
+if hr != 0:
+    hr = CreateAdapterList(
+        factory_ptr, 1, ctypes.byref(DXCORE_ADAPTER_ATTRIBUTE_D3D12_GRAPHICS), ctypes.byref(IID_IDXCoreAdapterList), ctypes.byref(ppList)
+    )
+
+list_ptr = ppList.value
+list_vtable = ctypes.cast(ctypes.cast(list_ptr, ctypes.POINTER(ctypes.c_void_p))[0], ctypes.POINTER(ctypes.c_void_p))
+
+# GetAdapter (VTable [3]), GetAdapterCount (VTable [4])
+GetAdapter_t = ctypes.CFUNCTYPE(
+    ctypes.c_int, ctypes.c_void_p, ctypes.c_uint32, ctypes.POINTER(GUID), ctypes.POINTER(ctypes.c_void_p)
+)
+GetAdapterCount_t = ctypes.CFUNCTYPE(ctypes.c_uint32, ctypes.c_void_p)
+
+GetAdapter = GetAdapter_t(list_vtable[3])
+GetAdapterCount = GetAdapterCount_t(list_vtable[4])
+
+count = GetAdapterCount(list_ptr)
+print(f"=== Pure Linux WSL2 GPU Devices (via libdxcore) ===")
+print(f"Detected GPU Count: {count}\n")
+
+# IDXCoreAdapter VTable methods
+# [6]=GetProperty, [7]=GetPropertySize
+GetProperty_t = ctypes.CFUNCTYPE(
+    ctypes.c_int, ctypes.c_void_p, ctypes.c_uint32, ctypes.c_size_t, ctypes.c_void_p
+)
+GetPropertySize_t = ctypes.CFUNCTYPE(
+    ctypes.c_int, ctypes.c_void_p, ctypes.c_uint32, ctypes.POINTER(ctypes.c_size_t)
+)
+
+for i in range(count):
+    ppAdapter = ctypes.c_void_p()
+    # IID_IUnknown で取得
+    hr = GetAdapter(list_ptr, i, ctypes.byref(IID_IUnknown), ctypes.byref(ppAdapter))
+    if hr != 0:
+        print(f"[{i}] GetAdapter error: {hr:#x}")
+        continue
+    
+    adapter_ptr = ppAdapter.value
+    adapter_vtable = ctypes.cast(ctypes.cast(adapter_ptr, ctypes.POINTER(ctypes.c_void_p))[0], ctypes.POINTER(ctypes.c_void_p))
+    
+    GetProperty = GetProperty_t(adapter_vtable[6])
+    GetPropertySize = GetPropertySize_t(adapter_vtable[7])
+    
+    # 1. DriverDescription (Property 2)
+    desc_size = ctypes.c_size_t(0)
+    GetPropertySize(adapter_ptr, 2, ctypes.byref(desc_size))
+    
+    gpu_name = "Unknown Device"
+    if desc_size.value > 0:
+        desc_buf = ctypes.create_string_buffer(desc_size.value)
+        GetProperty(adapter_ptr, 2, desc_size.value, desc_buf)
+        gpu_name = desc_buf.value.decode("utf-8", errors="ignore").strip()
+    
+    # 2. IsIntegrated (Property 12)
+    is_integrated = ctypes.c_bool(False)
+    GetProperty(adapter_ptr, 12, ctypes.sizeof(is_integrated), ctypes.byref(is_integrated))
+    gpu_type = "iGPU (Integrated)" if is_integrated.value else "dGPU (Discrete)"
+    
+    # 3. DedicatedAdapterMemory (Property 7)
+    vram_bytes = ctypes.c_uint64(0)
+    GetProperty(adapter_ptr, 7, ctypes.sizeof(vram_bytes), ctypes.byref(vram_bytes))
+    vram_gb = vram_bytes.value / (1024 ** 3)
+    
+    print(f"[{i}] {gpu_name}")
+    print(f"    Type : {gpu_type}")
+    print(f"    VRAM : {vram_gb:.2f} GB")
+EOF
 ```
 
 ### external SDCard
