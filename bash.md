@@ -129,7 +129,7 @@ date +%Y_%m%d_%H%M_%S
 ### 優先度下げて実行
 
 ```bash
-alias relax='nice -n 19 ionice -c 3'
+alias relax='nice -n 19 ionice -c 3 trickle -d 500 -t 0.1 -l 2'
 ```
 
 ```bash:sleepで試す。
@@ -141,7 +141,7 @@ relax sleep 3
 このコマンドを ~/.local/bin/timestamp にでも保存。
 
 ```bash:使用例
-_() { local __CMD_LINE="$@"; nice -n 19 ionice -c 3 bash -c "{ source ~/.bashrc; time unbuffer ${__CMD_LINE}; }" 2>&1 | timestamp '[%Y-%m-%d %H:%M:%S.%.3S %Z]' | tee >(ansifilter > runlog.$(date +%Y_%m%d_%H%M_%S).log); }; _ 'ls -alF --color=auto ./'
+_() { local __CMD_LINE="$@"; nice -n 19 ionice -c 3 trickle -d 500 -t 0.1 -l 2 bash -c "{ source ~/.bashrc; time unbuffer ${__CMD_LINE}; }" 2>&1 | timestamp '[%Y-%m-%d %H:%M:%S.%.3S %Z]' | tee >(ansifilter > runlog.$(date +%Y_%m%d_%H%M_%S).log); }; _ 'ls -alF --color=auto ./'
 ```
 
 ```python:timestamp
