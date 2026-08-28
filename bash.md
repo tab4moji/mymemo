@@ -129,6 +129,10 @@ date +%Y_%m%d_%H%M_%S
 ### 優先度下げて実行
 
 ```bash
+echo bfq | sudo tee /sys/block/*sdc*/queue/scheduler
+```
+
+```bash
 alias relax='nice -n 19 ionice -c 3 trickle -d 500 -t 0.1 -l 2'
 ```
 
