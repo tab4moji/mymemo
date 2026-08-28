@@ -410,6 +410,135 @@ if __name__ == '__main__':
     sys.exit(main())
 ```
 
+#### Powershell7(pwsh) コード
+
+```powershell
+<#
+.SYNOPSIS
+    Windows版 isolate (PowerShellラッパー)
+    ※管理者権限で実行してください。
+.EXAMPLE
+    .\isolate.ps1 -Program "notepad.exe" -AllowedIP "192.168.0.123" -AllowedPort 11434 -CommandArgs @("memo.txt")
+    .\isolate.ps1 -Program "node.exe" -AllowedIP "192.168.0.123" -AllowedPort 11434 -CommandArgs @("-e", "...")
+#>
+param(
+    [Parameter(Mandatory=$true)]
+    [string]$Program,
+
+    [Parameter(Mandatory=$true)]
+    [string]$AllowedIP,
+
+    [Parameter(Mandatory=$false)]
+    [int]$AllowedPort = 0,
+
+    [Parameter(ValueFromRemainingArguments=$true)]
+    [string[]]$CommandArgs
+)
+
+# 実行ファイルのフルパス解決
+$resolvedProgram = (Get-Command $Program -ErrorAction Stop).Source
+
+# Windows 11 ストア版メモ帳などの AppX エイリアス実体を解決
+if ($resolvedProgram -like "*\System32\notepad.exe" -or $resolvedProgram -like "*\SysWOW64\notepad.exe") {
+    $uwpNotepad = Get-ChildItem -Path "$env:ProgramFiles\WindowsApps" -Filter "Notepad.exe" -Recurse -ErrorAction SilentlyContinue |
+                  Select-Object -First 1 -ExpandProperty FullName
+    if ($uwpNotepad) {
+        $resolvedProgram = $uwpNotepad
+    }
+}
+
+$rulePrefix = "IsolateRule_$([Guid]::NewGuid().ToString('N').Substring(0, 8))"
+
+Write-Host "[isolate] 対象プログラム: $resolvedProgram" -ForegroundColor Cyan
+Write-Host "[isolate] 許可ターゲット: ${AllowedIP}:$AllowedPort" -ForegroundColor Cyan
+
+function Get-IPRangeBeforeAndAfter([string]$ipStr) {
+    $ip = [System.Net.IPAddress]::Parse($ipStr)
+    $bytes = $ip.GetAddressBytes()
+    [Array]::Reverse($bytes)
+    $num = [System.BitConverter]::ToUInt32($bytes, 0)
+
+    $ranges = [System.Collections.Generic.List[string]]::new()
+
+    if ($num -gt 1) {
+        $prevBytes = [System.BitConverter]::GetBytes([uint32]($num - 1))
+        [Array]::Reverse($prevBytes)
+        $prevIp = [System.Net.IPAddress]::new($prevBytes).ToString()
+        $ranges.Add("0.0.0.1-$prevIp")
+    }
+
+    if ($num -lt [uint32]4294967294) {
+        $nextBytes = [System.BitConverter]::GetBytes([uint32]($num + 1))
+        [Array]::Reverse($nextBytes)
+        $nextIp = [System.Net.IPAddress]::new($nextBytes).ToString()
+        $ranges.Add("$nextIp-255.255.255.254")
+    }
+
+    return $ranges
+}
+
+$blockRanges = Get-IPRangeBeforeAndAfter -ipStr $AllowedIP
+
+try {
+    # 1. 許可IP以外のIPv4アドレスへの送信を遮断
+    $i = 0
+    foreach ($range in $blockRanges) {
+        New-NetFirewallRule -DisplayName "${rulePrefix}_Block_IP_${i}" `
+            -Direction Outbound `
+            -Program $resolvedProgram `
+            -RemoteAddress $range `
+            -Action Block `
+            -Profile Any `
+            -ErrorAction Stop | Out-Null
+        $i++
+    }
+
+    # 2. IPv6遮断
+    New-NetFirewallRule -DisplayName "${rulePrefix}_Block_IPv6" `
+        -Direction Outbound `
+        -Program $resolvedProgram `
+        -RemoteAddress "::/0" `
+        -Action Block `
+        -Profile Any `
+        -ErrorAction SilentlyContinue | Out-Null
+
+    # 3. ポート制限
+    if ($AllowedPort -gt 0) {
+        if ($AllowedPort -gt 1) {
+            New-NetFirewallRule -DisplayName "${rulePrefix}_Block_PortBefore" `
+                -Direction Outbound `
+                -Program $resolvedProgram `
+                -RemoteAddress $AllowedIP `
+                -RemotePort "1-$($AllowedPort - 1)" `
+                -Protocol TCP `
+                -Action Block `
+                -Profile Any | Out-Null
+        }
+        if ($AllowedPort -lt 65535) {
+            New-NetFirewallRule -DisplayName "${rulePrefix}_Block_PortAfter" `
+                -Direction Outbound `
+                -Program $resolvedProgram `
+                -RemoteAddress $AllowedIP `
+                -RemotePort "$($AllowedPort + 1)-65535" `
+                -Protocol TCP `
+                -Action Block `
+                -Profile Any | Out-Null
+        }
+    }
+
+    Write-Host "[isolate] 隔離ファイアウォールルールを適用しました。プロセスを起動します..." -ForegroundColor Green
+
+    # GUI/CUI問わずプロセスが閉じるまで待機
+    $proc = Start-Process -FilePath $resolvedProgram -ArgumentList $CommandArgs -PassThru -NoNewWindow
+    $proc.WaitForExit()
+
+} finally {
+    Write-Host "`n[isolate] プロセスが終了しました。ファイアウォールルールを削除しています..." -ForegroundColor Yellow
+    Get-NetFirewallRule -DisplayName "${rulePrefix}*" -ErrorAction SilentlyContinue | Remove-NetFirewallRule
+    Write-Host "[isolate] クリーンアップ完了" -ForegroundColor Green
+}
+```
+
 ### 使い方サンプル
 
 このツールは、指定したIPアドレスとポート以外へのネットワーク通信をすべて遮断する「隔離環境（サンドボックス）」の中で、任意のコマンドやAIエージェントを安全に実行するためのプログラムだ。
