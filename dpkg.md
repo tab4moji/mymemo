@@ -33,7 +33,11 @@ do-release-upgrade -c 2>/dev/null | grep -v "There is no " | grep -w available |
 
 ### apt
 
-```bash
+```bash:アーキテクチャ表示
+lsb_release -a; dpkg --print-architecture
+```
+
+```bash: 修正apt
 _() { \
     DEBIAN_FRONTEND=noninteractive; \
     sudo -E apt-get install --fix-missing --fix-broken --autoremove -y; \
