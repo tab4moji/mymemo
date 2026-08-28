@@ -555,6 +555,10 @@ isolate [オプション] '["許可IP:ポート", ...]' 実行するコマンド
 isolate '["192.168.0.123:11434"]' bash
 ```
 
+```pwershell
+.\isolate.ps1 -Program "notepad.exe" -AllowedIP "192.168.0.123" -AllowedPort 11434 -CommandArgs @("memo.txt")
+```
+
 #### 2. オプション機能
 用途に合わせて挙動を変更できる。
 
