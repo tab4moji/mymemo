@@ -19,7 +19,35 @@ uv python install 3.12
 ### 2. 使用例
 
 ```bash
-uv run --with requests,firebase-admin --python 3.12 python ./tools/firestore
+uv run --with requests,beautifulsoup4 --python 3.12 python ./debian_codes
+```
+
+```bash
+uv run --with requests,beautifulsoup4 python -c '
+import csv, sys, requests, bs4
+soup = bs4.BeautifulSoup(requests.get("https://www.debian.org/releases/").text, "html.parser")
+rows = [[td.get_text(" ", strip=True) for td in tr.find_all("td")] for tr in soup.find("table").find_all("tr") if tr.find("td")]
+w = csv.writer(sys.stdout)
+w.writerow(["version", "codename", "release_date", "eol_date", "eol_lts", "eol_elts", "status"])
+w.writerows(reversed(rows))
+'
+```
+
+```python3:debian_codes
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = [
+#     "firebase-admin",
+#     "requests",
+# ]
+# ///
+import csv, sys, requests, bs4
+soup = bs4.BeautifulSoup(requests.get("https://www.debian.org/releases/").text, "html.parser")
+rows = [[td.get_text(" ", strip=True) for td in tr.find_all("td")] for tr in soup.find("table").find_all("tr") if tr.find("td")]
+w = csv.writer(sys.stdout)
+w.writerow(["version", "codename", "release_date", "eol_date", "eol_lts", "eol_elts", "status"])
+w.writerows(reversed(rows))
 ```
 
 ```bash
