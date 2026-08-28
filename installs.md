@@ -33,7 +33,7 @@ w.writerows(reversed(rows))
 '
 ```
 
-```python3:debian_codes
+```python:debian_codes
 #!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.12"
