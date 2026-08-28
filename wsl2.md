@@ -684,14 +684,27 @@ setup_alsa_main
 
 ### GPU check with WSL2
 
+iGPU 非対応
+
 ```bash
-uv run python -c "
+pi@NucBoxK16:irodori$ HSA_ENABLE_DXG_DETECTION=1 uv run --directory Irodori-TTS --extra rocm python -c "
 import torch
-print('1. GPU Available:', torch.cuda.is_available())
-print('2. Device Count :', torch.cuda.device_count())
-if torch.cuda.is_available():
-    print('3. Device Name  :', torch.cuda.get_device_name(0))
-print('4. HIP Version  :', torch.version.hip)
+
+print(f'=== ROCm / PyTorch Environment ===')
+print(f'HIP Version  : {torch.version.hip}')
+print(f'GPU Available: {torch.cuda.is_available()}')
+count = torch.cuda.device_count()
+print(f'Device Count : {count}\n')
+
+if count > 0:
+    for i in range(count):
+        props = torch.cuda.get_device_properties(i)
+        vram_gb = props.total_memory / (1024 ** 3)
+        print(f'--- Device [{i}] ---')
+        print(f'  Name      : {props.name}')
+        print(f'  Arch      : {getattr(props, \"gcnArchName\", \"N/A\")}')
+        print(f'  VRAM      : {vram_gb:.2f} GB')
+        print(f'  Compute Cap: {props.major}.{props.minor}')
 "
 ```
 
