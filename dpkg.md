@@ -34,7 +34,7 @@ do-release-upgrade -c 2>/dev/null | grep -v "There is no " | grep -w available |
 ### apt
 
 ```bash:アーキテクチャ表示
-lsb_release -a; dpkg --print-architecture
+echo "-- lsb_release"; lsb_release -a; echo "-- architecture"; dpkg --print-architecture; echo "-- foreign-architectures"; dpkg --print-foreign-architectures
 ```
 
 ```bash: 修正apt
