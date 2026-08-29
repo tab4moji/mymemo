@@ -46,7 +46,7 @@ uvx --with requests,beautifulsoup4 --python 3.12 python ./debian_codes
 - PEP 723（Inline script metadata）
 
 ```python:debian_codes
-#!/usr/bin/env -S uvx --script
+#!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.12"
 # dependencies = [
