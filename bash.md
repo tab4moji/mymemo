@@ -780,4 +780,17 @@ echo -e "スコア: 100点 20回\nスコア: 20点" | perl -pe 's/[0-9]+/99/g'
 echo -e "スコア: 100点 20回\nスコア: 20点" | perl -pe 's/[0-9]+/99/g' | perl -pe 's/\n/ /g'; echo
 ```
 
+
+#### yazi
+
+```bash:yaziインストール(1/2)
+\curl -fsSL https://yazi-rs.github.io/builds/yazi-keyring.gpg | sudo tee /usr/share/keyrings/yazi-keyring.gpg >/dev/null
+echo 'deb [signed-by=/usr/share/keyrings/yazi-keyring.gpg] https://yazi-rs.github.io/builds/ stable main' | sudo tee /etc/apt/sources.list.d/yazi.list >/dev/null
+sudo apt update
+```
+
+```bash:yaziインストール(2/2)
+sudo apt install yazi
+```
+
 ##
