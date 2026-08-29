@@ -56,7 +56,7 @@ w.writerow(["version", "codename", "release_date", "eol_date", "eol_lts", "eol_e
 w.writerows(reversed(rows))
 ```
 
-#### 必要なライブラリをコードに埋め込む
+#### 必要なライブラリをコード <対象>.py に埋め込む
 
 ```bash
 uv run --with stdlib-list python -c '
