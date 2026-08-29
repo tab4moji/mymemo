@@ -1,9 +1,62 @@
-OllamaのAPIに対し、標準ライブラリのみを使ってストリーミングチャットを行うPythonスクリプトだ。
-依存ライブラリなしですぐに動くよう、`urllib`で実装した。APIキーはヘッダーに付与されるが、ローカルの素のOllamaなら無視されるのでそのままで動くし、認証ありのリバースプロキシ環境でも機能する。
+## Ollama
 
 ### 概要
 
 **ollama_chat.py**: チャットクライアントのソースコード。**プロキシ無効**。
+
+```powershell:iGPUでollama
+# 1. 既存プロセス停止
+# Get-Process ollama -ErrorAction SilentlyContinue | Stop-Process -Force
+
+$env:HSA_OVERRIDE_GFX_VERSION = ""
+$env:OLLAMA_IGPU_ENABLE = ""
+$env:ROCR_VISIBLE_DEVICES = ""
+$env:ROCm_VISIBLE_DEVICES = ""
+$env:HIP_VISIBLE_DEVICES = ""
+$env:GGML_VK_VISIBLE_DEVICES = ""
+$env:OLLAMA_VULKAN = "false"
+$env:OLLAMA_NUM_CTX = 32768
+$env:OLLAMA_KEEP_ALIVE = "-1"
+
+# 2. 環境変数を明示
+$env:OLLAMA_HOST = "0.0.0.0:11435" # XXX EmbeddingGemma
+$env:HSA_OVERRIDE_GFX_VERSION = "11.0.0"
+
+$env:OLLAMA_VULKAN = "true"
+$env:OLLAMA_IGPU_ENABLE = "1"
+$env:GGML_VK_VISIBLE_DEVICES = "0"
+$env:ROCR_VISIBLE_DEVICES = "1"
+
+# 3. 起動
+ollama serve
+```
+
+```powershell:dGPU(eGPU)でollama
+# 1. 既存プロセス停止
+# Get-Process ollama -ErrorAction SilentlyContinue | Stop-Process -Force
+
+$env:HSA_OVERRIDE_GFX_VERSION = ""
+$env:OLLAMA_IGPU_ENABLE = ""
+$env:ROCR_VISIBLE_DEVICES = ""
+$env:ROCm_VISIBLE_DEVICES = ""
+$env:HIP_VISIBLE_DEVICES = ""
+$env:GGML_VK_VISIBLE_DEVICES = ""
+$env:OLLAMA_VULKAN = "false"
+$env:OLLAMA_NUM_CTX = 32768
+$env:OLLAMA_KEEP_ALIVE = "-1"
+
+# 2. 環境変数を明示
+$env:OLLAMA_HOST = "0.0.0.0:11435" # XXX EmbeddingGemma
+$env:HSA_OVERRIDE_GFX_VERSION = "11.0.0"
+
+$env:OLLAMA_VULKAN = "true"
+$env:OLLAMA_IGPU_ENABLE = "1"
+$env:GGML_VK_VISIBLE_DEVICES = "0"
+$env:ROCR_VISIBLE_DEVICES = "1"
+
+# 3. 起動
+ollama serve
+```
 
 ### ollama_chat.py
 
