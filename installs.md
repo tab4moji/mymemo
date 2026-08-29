@@ -56,6 +56,37 @@ w.writerow(["version", "codename", "release_date", "eol_date", "eol_lts", "eol_e
 w.writerows(reversed(rows))
 ```
 
+#### 必要なライブラリをコードに埋め込む
+
+```bash
+uv run --with stdlib-list python -c '
+import ast, sys, subprocess, stdlib_list
+
+script_path = sys.argv[1]
+with open(script_path) as f:
+    tree = ast.parse(f.read())
+
+std_libs = set(stdlib_list.stdlib_list())
+modules = set()
+
+for node in ast.walk(tree):
+    if isinstance(node, ast.Import):
+        for n in node.names:
+            modules.add(n.name.split(".")[0])
+    elif isinstance(node, ast.ImportFrom) and node.module:
+        modules.add(node.module.split(".")[0])
+
+# 標準ライブラリを除外
+third_party = sorted(modules - std_libs)
+if third_party:
+    print(f"Detected packages: {third_party}")
+    cmd = ["uv", "add", "--script", script_path] + third_party
+    subprocess.run(cmd)
+else:
+    print("No third-party packages detected.")
+' <対象>.py && chmod +rx <対象>.py
+```
+
 ### 3. 完全アンインストール (Clean Uninstall)
 「管理下の物（パッケージ）も含めて綺麗さっぱり」とのことなので、以下の手順で根こそぎ消す。
 
