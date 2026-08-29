@@ -9,15 +9,13 @@ Rustで書かれた、非常に高速な [python](./?content=python) パッケ�
 **インストール**
 
 ```bash
-sudo apt update && sudo apt install -y pipx && pipx ensurepath && pipx install uv
+sudo apt install -y pipx && pipx ensurepath && pipx install uv
+pipx upgrade uv
 ```
 
 ```powershell
 winget install --id=astral-sh.uv -e
-```
-
-```bash
-uv python install 3.12
+winget upgrade --id astral-sh.uv --source winget
 ```
 
 ### 2. uv で python コード実行
