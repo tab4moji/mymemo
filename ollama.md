@@ -4,16 +4,25 @@
 
 ### ollama コマンド
 
+ollama ツールバージョン
+
 ```shell
 ollama --version
 ```
+
+取得済みモデル一覧
 
 ```shell
 ollama list
 ```
 
+ollama コマンド一覧
+
 ```shell
-> ollama --help
+ollama --help
+```
+
+```text
 Large language model runner
 
 Usage:
