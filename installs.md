@@ -96,15 +96,13 @@ else:
 ' <対象>.py && chmod +rx <対象>.py
 ```
 
-### 3. 完全アンインストール (Clean Uninstall)
-「管理下の物（パッケージ）も含めて綺麗さっぱり」とのことなので、以下の手順で根こそぎ消す。
+### 3. キャッシュの削除
 
-**アンインストール**
 ```bash
-uv cache clean && rm -rf "$(uv python dir)" && rm -rf "$(uv tool dir)" && rm -f ~/.local/bin/uv ~/.local/bin/uvx ~/.local/bin/uvw && rm -f ~/.cargo/bin/uv ~/.cargo/bin/uvx ~/.cargo/bin/uvw
+uv cache clean && rm -rf "$(uv python dir)" && rm -rf "$(uv tool dir)" && rm -f ~/.local/bin/uv ~/.local/bin/uvx ~/.local/bin/uvw
 ```
 
-### 未分類
+### 未分類メモ
 
 ```bash
 uv python install 3.14t
