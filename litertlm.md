@@ -68,4 +68,8 @@ uv pip uninstall litert-lm
 uv cache prune
 ```
 
+### メモ
+
+- [Windows の GPU チェック](./?content=wsl#kWBqiW0y)
+
 ##
