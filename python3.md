@@ -2,6 +2,8 @@
 
 ### pip 導入
 
+これよりも[uv](./?content=uv) 入れた方がいい。
+
 ```python
 _() { \
     local PYTHON_CMD="${1:-python3}"; \
@@ -99,17 +101,16 @@ ruff check . --exclude "backups,tools,tmps"
 
 ### 🎯 基本のメモ
 
-#### ライブラリパス
+#### ライブラリのパスを追加
 
 ```python
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 
 import sys
 sys.path.append('../')
 ```
 
-#### オブジェクト
+#### オブジェクトというかクラスというか
 
 ```python
 class opaque:

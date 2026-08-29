@@ -16,11 +16,9 @@ sudo apt update && sudo apt install -y pipx && pipx ensurepath && pipx install u
 uv python install 3.12
 ```
 
-### 2. 使用例
+### 2. uv で python コード実行
 
-```bash
-uv run --with requests,beautifulsoup4 --python 3.12 python ./debian_codes
-```
+#### ワンライナー的呼び出し
 
 ```bash
 uv run --with requests,beautifulsoup4 python -c '
@@ -32,6 +30,14 @@ w.writerow(["version", "codename", "release_date", "eol_date", "eol_lts", "eol_e
 w.writerows(reversed(rows))
 '
 ```
+
+#### python コードのファイル名を指定して uv コマンドで
+
+```bash
+uv run --with requests,beautifulsoup4 --python 3.12 python ./debian_codes
+```
+
+#### python コードの先頭に shebang 埋め込んで python コードの ファイル名で実行
 
 ```python:debian_codes
 #!/usr/bin/env -S uv run --script
@@ -50,10 +56,6 @@ w.writerow(["version", "codename", "release_date", "eol_date", "eol_lts", "eol_e
 w.writerows(reversed(rows))
 ```
 
-```bash
-uv python install 3.14t
-```
-
 ### 3. 完全アンインストール (Clean Uninstall)
 「管理下の物（パッケージ）も含めて綺麗さっぱり」とのことなので、以下の手順で根こそぎ消す。
 
@@ -61,3 +63,11 @@ uv python install 3.14t
 ```bash
 uv cache clean && rm -rf "$(uv python dir)" && rm -rf "$(uv tool dir)" && rm -f ~/.local/bin/uv ~/.local/bin/uvx ~/.local/bin/uvw && rm -f ~/.cargo/bin/uv ~/.cargo/bin/uvx ~/.cargo/bin/uvw
 ```
+
+### 未分類
+
+```bash
+uv python install 3.14t
+```
+
+##
