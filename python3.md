@@ -2,7 +2,7 @@
 
 ### pip 導入
 
-これよりも[uv](./?content=uv) 入れた方がいい。
+これよりも [uv](./?content=uv) 入れた方がいい。
 
 ```python
 _() { \
