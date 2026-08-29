@@ -43,6 +43,8 @@ uv run --with requests,beautifulsoup4 --python 3.12 python ./debian_codes
 
 #### python コードの先頭に shebang 埋め込んで python コードの ファイル名で実行
 
+- PEP 723（Inline script metadata）
+
 ```python:debian_codes
 #!/usr/bin/env -S uv run --script
 # /// script
