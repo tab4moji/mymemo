@@ -64,7 +64,11 @@ ollama コマンド一覧
 ollama --help
 ```
 
-##### モデルをキャッシュへダウンロード
+```shell:モデルダウンロード
+ollama pull hf.co/unsloth/Qwen3.8-27B-GGUF:UD-IQ4_XS
+```
+
+### モデル使用例
 
 - [unsloth/Qwen3.8-27B-GGUF:UD-IQ4_XS](https://huggingface.co/unsloth/Qwen3.8-27B-GGUF/blob/main/Qwen3.8-27B-UD-IQ4_XS.gguf)
 
@@ -317,4 +321,3 @@ if __name__ == "__main__":
 ```powershell
 sudo "$(wslpath -u "$(powershell "where.exe pwsh" | sed -E "/^$/d" | iconv -t utf-8 | tail -1)")" -ExecutionPolicy Bypass -File $(wslpath -w ~/myworks/ollama/start.ps1)
 ```
-
