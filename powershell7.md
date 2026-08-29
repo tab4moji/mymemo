@@ -256,7 +256,7 @@ netplwiz
 
 ### python3 on windows/pwsh
 
-- [uv](./content=uv)
+- [uv の導入](./?content=uv#OyqTjGcF)
 
 #### python3.12 インストール
 
