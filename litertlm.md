@@ -28,7 +28,7 @@ litert-lm import ` --from-huggingface-repo=litert-community/gemma-4-26B-A4B-it-l
 ```
 
 ```powershell
-edit C:\Users\pi\.litert-lm\config.json
+edit ~\.litert-lm\config.json
 ```
 
 ```json
@@ -47,12 +47,8 @@ edit C:\Users\pi\.litert-lm\config.json
 
 ### 推論エンジンを起動する
 
-```powershell:念のためvenv
-.\.venv\Scripts\Activate.ps1
-```
-
 ```powershell:推論エンジンをポート11434で受ける前提で起動
-litert-lm serve --port 11434
+uv run litert-lm serve --port 11434
 ```
 
 ### 推論エンジンを停止する
