@@ -25,7 +25,7 @@ uv python install 3.12
 #### ワンライナー的呼び出し
 
 ```bash
-uv run --with requests,beautifulsoup4 python -c '
+uvx --with requests,beautifulsoup4 python -c '
 import csv, sys, requests, bs4
 soup = bs4.BeautifulSoup(requests.get("https://www.debian.org/releases/").text, "html.parser")
 rows = [[td.get_text(" ", strip=True) for td in tr.find_all("td")] for tr in soup.find("table").find_all("tr") if tr.find("td")]
@@ -38,7 +38,7 @@ w.writerows(reversed(rows))
 #### python コードのファイル名を指定して uv コマンドで
 
 ```bash
-uv run --with requests,beautifulsoup4 --python 3.12 python ./debian_codes
+uvx --with requests,beautifulsoup4 --python 3.12 python ./debian_codes
 ```
 
 #### python コードの先頭に shebang 埋め込んで python コードの ファイル名で実行
@@ -46,7 +46,7 @@ uv run --with requests,beautifulsoup4 --python 3.12 python ./debian_codes
 - PEP 723（Inline script metadata）
 
 ```python:debian_codes
-#!/usr/bin/env -S uv run --script
+#!/usr/bin/env -S uvx --script
 # /// script
 # requires-python = ">=3.12"
 # dependencies = [
@@ -65,7 +65,7 @@ w.writerows(reversed(rows))
 #### 必要なライブラリをコード <対象>.py に埋め込む
 
 ```bash
-uv run --with stdlib-list python -c '
+uvx --with stdlib-list python -c '
 import ast, sys, subprocess, stdlib_list
 
 script_path = sys.argv[1]
