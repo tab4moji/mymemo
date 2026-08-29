@@ -14,7 +14,7 @@ pipx upgrade uv
 ```
 
 ```powershell
-winget install --id=astral-sh.uv -e
+winget install --id astral-sh.uv --source winget
 winget upgrade --id astral-sh.uv --source winget
 ```
 
