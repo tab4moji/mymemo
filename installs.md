@@ -8,10 +8,15 @@ Rustで書かれた、非常に高速な [python](./?content=python) パッケ�
 
 **インストール**
 
+Bash の場合
+
 ```bash
-sudo apt install -y pipx && pipx ensurepath && pipx install uv
+sudo apt install -y pipx
+pipx ensurepath && pipx install uv
 pipx upgrade uv
 ```
+
+Windows の場合
 
 ```powershell
 winget install --id astral-sh.uv --source winget
