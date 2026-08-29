@@ -64,6 +64,28 @@ ollama コマンド一覧
 ollama --help
 ```
 
+##### モデルをキャッシュへダウンロード
+
+- [unsloth/Qwen3.8-27B-GGUF:UD-IQ4_XS](https://huggingface.co/unsloth/Qwen3.8-27B-GGUF/blob/main/Qwen3.8-27B-UD-IQ4_XS.gguf)
+
+```shell:モデルダウンロード(省略可能)
+ollama pull hf.co/unsloth/Qwen3.8-27B-GGUF:UD-IQ4_XS
+```
+
+```shell:初回起動
+ollama run hf.co/unsloth/Qwen3.8-27B-GGUF:UD-IQ4_XS
+```
+
+```shell:モデルの設定開始
+/set parameter num_ctx 32768
+/save *qwen38-27b-32k*
+/bye
+```
+
+```shell:設定済みのモデルを起動
+ollama run qwen38-27b-32k
+```
+
 ### ollama 起動
 
 iGPU で起動
