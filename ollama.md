@@ -4,23 +4,7 @@
 
 ### ollama コマンド
 
-ollama ツールバージョン
-
-```shell
-ollama --version
-```
-
-取得済みモデル一覧
-
-```shell
-ollama list
-```
-
-ollama コマンド一覧
-
-```shell
-ollama --help
-```
+#### コマンド一覧
 
 ```text
 Large language model runner
@@ -53,6 +37,26 @@ Flags:
   -v, --version      Show version information
 
 Use "ollama [command] --help" for more information about a command.
+```
+
+#### コマンド使用例
+
+ollama ツールバージョン
+
+```shell:バージョン表示
+ollama --version
+```
+
+取得済みモデル一覧
+
+```shell:モデル一覧表示
+ollama list
+```
+
+ollama コマンド一覧
+
+```shell:ヘルプ表示
+ollama --help
 ```
 
 ### ollama 起動
