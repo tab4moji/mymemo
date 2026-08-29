@@ -3,7 +3,7 @@
 たぶん bash でも同じ。
 [LiteRT-LM](https://developers.google.com/edge/litert-lm) は、たぶんスマホ向けに作られた [TenrsorFlow Lite](https://www.tensorflow.org/lite/guide)(TFLite) 系の推論エンジン。
 
-### 推論エンジンx
+### 推論エンジン
 
 [LiteRT-LM CLI](https://pypi.org/project/litert-lm/) をインストールする。
 たぶん [OpenAI 互換](https://developers.google.com/edge/litert-lm/cli/openai_server)。
@@ -17,7 +17,7 @@ LiteRT-LM 推論エンジンで [Hugging Face](https://huggingface.co/) で公�
 
 #### Gemma4-26B-A4B
 
-Gemma4-26B-A4B をインポートする。
+Gemma4-26B-A4B を ~/.litert-lm/ にインポートする。
 
 ```powershell:Gemma4-26B-A4B
 uvx litert-lm import ` --from-huggingface-repo=litert-community/gemma-4-26B-A4B-it-litert-lm ` gemma-4-26B-A4B-it-gpu.litertlm ` gemma4-26b-a4b
@@ -35,7 +35,7 @@ edit ~\.litert-lm\config.json
   "models": {
     "gemma4-26b-a4b": {
       "max_num_tokens": 32768,
-      "backend": "gpu"
+      "backend": "*gpu*"
     }
   }
 }
