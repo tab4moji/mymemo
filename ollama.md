@@ -2,6 +2,11 @@
 
 ### 概要
 
+- [Ollama documentation](https://docs.ollama.com/)
+- [CLI Reference](https://docs.ollama.com/cli)
+
+- [Hugging Face 流行モデル](https://huggingface.co/models?library=gguf&apps=ollama&inference_provider=all&sort=trending)
+
 ### ollama コマンド
 
 #### コマンド一覧
