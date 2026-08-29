@@ -256,13 +256,7 @@ netplwiz
 
 ### python3 on windows/pwsh
 
-#### uv をインストール
-
-winget で uv をインストールする。
-
-```powershell:uvインストール
-winget install --id=astral-sh.uv -e
-```
+- [uv](./content=uv)
 
 #### python3.12 インストール
 

@@ -685,7 +685,7 @@ setup_alsa_main
 ### GPU check with WSL2
 
 ```bash
-uv run python - << 'EOF'
+[uv](./?content=uv) run python - << 'EOF'
 import ctypes
 import struct
 

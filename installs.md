@@ -12,6 +12,10 @@ Rustで書かれた、非常に高速な [python](./?content=python) パッケ�
 sudo apt update && sudo apt install -y pipx && pipx ensurepath && pipx install uv
 ```
 
+```powershell
+winget install --id=astral-sh.uv -e
+```
+
 ```bash
 uv python install 3.12
 ```
