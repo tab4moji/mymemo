@@ -9,7 +9,7 @@
 たぶん [OpenAI 互換](https://developers.google.com/edge/litert-lm/cli/openai_server)。
 [これ](https://developers.google.com/edge/litert-lm/cli)が説明書。
 
-素の pip は面倒くさいので [uvx](./?content=pwsh#wvE9oadP) を使う。
+素の pip は面倒くさいので [uvx](./?content=uv#OyqTjGcF) を使う。
 
 ### LiteRT-LM 用の推論モデル
 
