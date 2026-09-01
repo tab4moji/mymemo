@@ -1,9 +1,24 @@
 ## 画像生成
 
-### サンプル
+### セットアップ
 
-アニメ生成
+```bash
+SD_MASTER_CORE="841"
+SD_MASTER_VERSION="6b3edaa"
 
-```powershell
-.\sd-cli.exe -m ".\ponyDiffusionV6XL_v6StartWithThisOne.safetensors" --backend vulkan1 --vae-tiling -p "score_9, score_8_up, score_7_up, rating_safe, source_anime, 1girl, child, cute young girl, blue hair, short hair, bob cut, blue eyes, slight smile, blush, cream-colored hair ribbon on top of head, cream sailor dress, short puff sleeves, sailor collar, pale green bow on chest, retro anime, storybook illustration, vintage pastel aesthetic, soft lighting, warm tone, textured paper, masterpiece, highly detailed" -n "score_4, score_3, score_2, score_1, source_real, source_pony, photo, 3d, realistic, adult, sexy, mature, dark lighting, gradient, modern digital, sharp digital, deformed, bad anatomy, bad hands" --cfg-scale 7.0 --steps 28 -W 832 -H 1216 -s 15140 -o "output_anime3_sameas2.png"
+if [[ ! -e sd-master-${SD_MASTER_VERSION}-bin-win-vulkan-x64.zip ]]
+then
+    \curl -L https://github.com/leejet/stable-diffusion.cpp/releases/download/master-${SD_MASTER_CORE}-${SD_MASTER_VERSION}/sd-master-${SD_MASTER_VERSION}-bin-win-vulkan-x64.zip -o sd-master-${SD_MASTER_VERSION}-bin-win-vulkan-x64.zip
+fi
+
+if [[ -e sd-master-${SD_MASTER_VERSION}-bin-win-vulkan-x64.zip ]]
+then
+    unzip sd-master-${SD_MASTER_VERSION}-bin-win-vulkan-x64.zip
+fi
+```
+
+### 画像生成サンプル
+
+```bash
+pwsh 'cd '"$(wslpath -w "$(pwd)")"'; $env:GGML_VK_VISIBLE_DEVICES = "1"; .\sd-cli.exe -m ".\image_generation_model.safetensors" -p "score_9, score_8_up, score_7_up, an apple on a table on grass, highly detailed" -n "score_4, score_3, score_2, score_1, source_anime, source_cartoon, source_furry, source_pony, plastic skins, 3d, cgi, render, drawing, illustration" --cfg-scale 6 --steps 28 -W 832 -H 1216 -s -1 -o "sample_output.png"'
 ```
