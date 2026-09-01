@@ -170,7 +170,7 @@ if __name__ == "__main__":
 ```
 
 ```bash:置き換え
-pwsh 'cd '"$(wslpath -w "$(pwd)")"'; $env:GGML_VK_VISIBLE_DEVICES = "1"; uv run --python 3.12 --with pillow --with torch --with torchvision --with transformers generate_mask.py --input sample_output.png --prompt "apples" --output-mask mask.png --output-init init_img.png -t 0.35 -d 5; .\sd-cli.exe -M img_gen -m ".\picture_model.safetensors" --mask mask.png --init-img init_img.png --strength 1.00 -p "many grapes, higly detailed, high quality, photorealistic" -n "low quality, blurry, 3d, cgi, deformed, bad anatomy" --cfg-scale 4.0 --steps 25 --sampling-method dpm++2m -o "sample_output_changed.png"'
+pwsh 'cd '"$(wslpath -w "$(pwd)")"'; $env:HF_HUB_VERBOSITY = "error"; $env:GGML_VK_VISIBLE_DEVICES = "1"; uv run --python 3.12 --with pillow --with torch --with torchvision --with transformers generate_mask.py --input sample_output.png --prompt "apples" --output-mask mask.png --output-init init_img.png -t 0.35 -d 5; .\sd-cli.exe -M img_gen -m ".\picture_model.safetensors" --mask mask.png --init-img init_img.png --strength 1.00 -p "many grapes, higly detailed, high quality, photorealistic" -n "low quality, blurry, 3d, cgi, deformed, bad anatomy" --cfg-scale 4.0 --steps 25 --sampling-method dpm++2m -o "sample_output_changed.png"'
 ```
 
 ##
