@@ -1,7 +1,6 @@
 ## pystdoc: Python Structural & Topological Documentation Engine
 
 結論から言うと、手元のローカルLLM環境やAPI消費を抑えてリーズナブルにコード理解を進めるなら、**差分キャッシュと静的解析絞り込みが効く `pystdoc`（自作系）、またはトークン圧縮に特化した `llm-tldr` / `ai-codeindex`** が推奨だ。
-
 大規模コードベースをLLMに読ませる際のコストは「APIトークン費用」または「ローカルGPUの推論時間」が支配的になるため、**静的解析でどこまで無駄なLLM呼び出しを削れるか**がリーズナブルさの決め手になる。
 
 ***
@@ -11,7 +10,7 @@
 | ツール | API/計算コスト（低燃費性） | 実行環境・導入負荷 | 得られる理解の深さ | 推奨用途 |
 | :--- | :--- | :--- | :--- | :--- |
 | **`pystdoc`** | **最安（ローカル完結＋差分）**<br>SQLite WALキャッシュで変更箇所のみ推論 | **低〜中**<br>Python/libclang依存のみ、単一CLI | **高**<br>コールグラフ順序制御＋アーキテクチャ図 | **ローカルGPU（Ollama/LiteRT-LM）でC/C++/Pythonを腰を据えて解析する場合** |
-| **`llm-tldr`**  [libraries](https://libraries.io/pypi/llm-tldr) | **極めて低**<br>AST/CFG/PDGでトークンを最大95%圧縮  [libraries](https://libraries.io/pypi/llm-tldr) | **極小**<br>`pip install` して即実行可能  [libraries](https://libraries.io/pypi/llm-tldr) | **中**<br>構造情報のサマリー・不要枝刈り  [libraries](https://libraries.io/pypi/llm-tldr) | **商用API（Claude/GPT）を使いつつトークン課金を最小限に抑えたい場合**  [libraries](https://libraries.io/pypi/llm-tldr) |
+| **`llm-tldr`** | **極めて低**<br>AST/CFG/PDGでトークンを最大95%圧縮   | **極小**<br>`pip install` して即実行可能   | **中**<br>構造情報のサマリー・不要枝刈り   | **商用API（Claude/GPT）を使いつつトークン課金を最小限に抑えたい場合**   |
 | **`code-graph-builder`**  | **中**<br>MCP連携によるオンデマンド問い合わせ  | **高**<br>グラフDB（Kuzu）やベクターストアの準備が必要  | **極めて高**<br>全体の関係性をDBに保持し対話探索可能  | **Cursor/Cline等からMCP経由でインタラクティブに深掘りする場合**  |
 | **`lmdocs`**  | **高**<br>関数ごとに順次APIを叩くため全件実行は嵩む  | **極小**<br>Python単体で動作  | **中**<br>Pythonのモジュール/関数仕様書  | **小規模なPythonリポジトリのドキュメント生成のみ**  |
 
@@ -27,13 +26,13 @@
 
 #### 2. トークン消費を削って素早く全体像を掴むなら：`llm-tldr`
 - **理由**:
-  - コード全文をLLMに投げるのではなく、ASTや制御フローグラフ（CFG）を用いてコードを抽象化・要約し、トークン数を最大95%削減してプロンプトに流し込む 。 [libraries](https://libraries.io/pypi/llm-tldr)
-  - 一括で巨大なリポジトリの骨格を掴む際、API料金を数十分の1に抑えられる 。 [libraries](https://libraries.io/pypi/llm-tldr)
+  - コード全文をLLMに投げるのではなく、ASTや制御フローグラフ（CFG）を用いてコードを抽象化・要約し、トークン数を最大95%削減してプロンプトに流し込む。
+  - 一括で巨大なリポジトリの骨格を掴む際、API料金を数十分の1に抑えられる。
 
 #### 3. エディタから対話的にコードを読み解くなら：`code-graph-builder`
 - **理由**:
-  - 全体を一度にドキュメント化して読むのではなく、MCPサーバーとして動作させて「この関数を呼んでいるパスは？」「このモジュールの責務は？」と必要な箇所だけ都度LLMに探索させる 。
-  - 初期のグラフ構築コストはあるが、知りたい部分だけをピンポイントで理解できるため無駄撃ちが少ない 。
+  - 全体を一度にドキュメント化して読むのではなく、MCPサーバーとして動作させて「この関数を呼んでいるパスは？」「このモジュールの責務は？」と必要な箇所だけ都度LLMに探索させる。
+  - 初期のグラフ構築コストはあるが、知りたい部分だけをピンポイントで理解できるため無駄撃ちが少ない。
 
 ***
 
@@ -42,4 +41,4 @@
 - **手元のGPUで回す / C/C++やPythonの構造化ドキュメントを生成して手元で読む**:
   `pystdoc` が最も無駄がなくリーズナブルだ。
 - **外部APIを使って手短にサマリーだけ欲しい**:
-  `llm-tldr` でトークンを絞って投げるのが最も安上がりになる 。 [libraries](https://libraries.io/pypi/llm-tldr)
+  `llm-tldr` でトークンを絞って投げるのが最も安上がりになる。
