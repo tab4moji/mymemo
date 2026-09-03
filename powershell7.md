@@ -194,25 +194,37 @@ $sshDir = "$HOME\.ssh"
 $keyPath = "$sshDir\id_ecdsa_sk"
 $pubKeyPath = "$sshDir\id_ecdsa_sk.pub"
 
-# .ssh フォルダが存在しない場合は作成する
-if (-not (Test-Path $sshDir)) {
-    New-Item -ItemType Directory -Path $sshDir -Force | Out-Null
-    Write-Host ".ssh フォルダを作成しました。" -ForegroundColor Green
-}
-
-# 既存の鍵がある場合は削除（上書き）
+# 既存鍵の削除
 if (Test-Path $keyPath) { Remove-Item $keyPath -Force }
 if (Test-Path $pubKeyPath) { Remove-Item $pubKeyPath -Force }
 
-Write-Host "`n>>> SSH鍵を生成します。Windows セキュリティの画面が出たら認証してください <<<" -ForegroundColor Cyan
-& "C:\Program Files\OpenSSH\ssh-keygen.exe" -t ecdsa-sk -C "win-hello-passkey" -f $keyPath -N ""
+# 実行したいコマンド文字列
+$targetCmd = "cmd /c ssh-keygen -t ecdsa-sk -C `"win-hello-passkey`" -f `"$keyPath`" -N `"`""
 
-Write-Host "`n>>> 生成された公開鍵 <<<" -ForegroundColor Yellow
-$pubKey = Get-Content $pubKeyPath
-Write-Host $pubKey
+# 1. Win+R ダイアログを起動
+$shell = New-Object -ComObject Shell.Application
+$shell.FileRun()
 
-$pubKey | Set-Clipboard
-Write-Host "`n※ 公開鍵をクリップボードにコピーしました。" -ForegroundColor Green
+Start-Sleep -Milliseconds 300
+
+# 2. コマンドを貼り付けて実行（Enter）
+Add-Type -AssemblyName System.Windows.Forms
+[System.Windows.Forms.Clipboard]::SetText($targetCmd)
+[System.Windows.Forms.SendKeys]::SendWait("^v{ENTER}")
+
+Write-Host "Win+R 経由で起動した。Windows Hello で認証してくれ。" -ForegroundColor Cyan
+
+# 3. 生成完了を待機
+while (-not (Test-Path $pubKeyPath)) {
+    Start-Sleep -Milliseconds 200
+}
+
+Start-Sleep -Milliseconds 300
+$pubKey = (Get-Content $pubKeyPath -Raw).Trim()
+Set-Clipboard -Value $pubKey
+
+Write-Host "`n[成功] 公開鍵をクリップボードにコピーした。" -ForegroundColor Green
+Write-Host $pubKey -ForegroundColor Yellow
 ```
 
 生成された公開鍵を、接続先サーバーの `~/.ssh/authorized_keys` や GitHub の SSH Keys 設定に追加してください。
