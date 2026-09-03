@@ -156,7 +156,7 @@ https://learn.microsoft.com/powershell/scripting/samples/changing-computer-state
 
 ### Windows PowerShell (Windows Hello) での SSH 鍵生成と接続設定
 
-Windows Hello（顔認証、指紋認証、PIN）を利用して、パスワードレスで安全に SSH 接続を行うためのセットアップ手順です。
+Windows Hello（顔認証、指紋認証、PIN）を利用して、パスワードレスで安全に SSH 接続を行うためのセットアップ手順。
 
 #### 0. パスキー認証問題
 
@@ -168,18 +168,7 @@ Windows Hello（顔認証、指紋認証、PIN）を利用して、パスワー�
 「Terminal から SSH を実行し、それが Windows Hello を呼び出した時に、ポップアップが一瞬で消える・裏に回る・フォーカスを失ってエラー（タイムアウト）になる」という問題は、**Windows Terminal (OpenConsole) と セキュアデスクトップ (CredentialUIBroker) 間の仕様の衝突**として、KeePass、1Password、Win32-OpenSSH などのリポジトリで共通して「Terminal 側のバグ・仕様」として扱われています。
 そのため、`conhost`（旧コマンドプロンプト）や `Git Bash` などの異なる描画コンソールを使うことが一番の回避策として定着しています。
 
-#### 1. 既存の環境のクリーンアップと準備
-
-SSH 接続時のタイミング問題（競合によるエラー）を防ぐため、`ssh-agent` は使用せずにクライアントが直接認証を行う構成にします。
-
-管理者権限で PowerShell を開き、以下のコマンドを実行して `ssh-agent` を停止・無効化します。
-
-```powershell
-Stop-Service -Name ssh-agent -ErrorAction SilentlyContinue
-Set-Service -Name ssh-agent -StartupType Manual -ErrorAction SilentlyContinue
-```
-
-#### 2. Windows Hello (パスキー) 用の SSH 鍵を生成する
+#### 1. Windows Hello (パスキー) 用の SSH 鍵を生成する
 
 Windows Hello の TPM で管理される ECDSA-SK 鍵を生成します。パスフレーズを空（`-N ""`）にすることで、SSH 鍵自体のパスワード入力を省略し、Windows Hello の生体認証/PIN に委譲します。
 
@@ -223,32 +212,73 @@ Write-Host "`n[成功] 公開鍵をクリップボードにコピーした。" -
 Write-Host $pubKey -ForegroundColor Yellow
 ```
 
-生成された公開鍵を、接続先サーバーの `~/.ssh/authorized_keys` や GitHub の SSH Keys 設定に追加してください。
+*生成された公開鍵を、接続先サーバーの `~/.ssh/authorized_keys` や GitHub の SSH Keys 設定に追加してください。*
 
-#### 3. SSH Config の設定
-
-SSH クライアントが Windows Hello を確実かつ最速で呼び出せるよう、`~/.ssh/config` に設定を追加します。
-
-以下のコマンドを実行して設定を書き込みます。
+#### 2. pwsh 用 ssh の設定
 
 ```powershell
-$configPath = "$HOME\.ssh\config"
+# ----------------------------------------------------------------------
+# Windows Terminal 用 Windows Hello (FIDO2 / ecdsa-sk) フォーカス修正
+# ----------------------------------------------------------------------
+if (-not ([System.Management.Automation.PSTypeName]'Win32Focus').Type) {
+    Add-Type -TypeDefinition @"
+using System;
+using System.Runtime.InteropServices;
 
-$configContent = @"
-Host *
-    IdentityFile ~/.ssh/id_ecdsa_sk
-    IdentitiesOnly yes
-    SecurityKeyProvider internal
+public class Win32Focus {
+    [DllImport("user32.dll")]
+    public static extern bool AllowSetForegroundWindow(int dwProcessId);
+
+    [DllImport("user32.dll")]
+    public static extern bool SetForegroundWindow(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
+    public static extern IntPtr GetForegroundWindow();
+
+    public static void Grant() {
+        // すべてのプロセス (-1) にフォアグラウンド権限を委譲
+        AllowSetForegroundWindow(-1);
+        IntPtr hwnd = GetForegroundWindow();
+        if (hwnd != IntPtr.Zero) {
+            SetForegroundWindow(hwnd);
+        }
+    }
+}
 "@
+}
 
-Add-Content -Path $configPath -Value $configContent -Encoding UTF8
-Write-Host "SSH config を更新しました。" -ForegroundColor Green
+# ssh コマンドのラッパー
+function ssh {
+    param(
+        [Parameter(ValueFromRemainingArguments = $true)]
+        [string[]]$ArgumentList
+    )
+    [Win32Focus]::Grant()
+    $sshExe = @(Get-Command -CommandType Application ssh)[0].Source
+    & $sshExe @ArgumentList
+}
+
+# 必要に応じて ssh-keygen や ssh-add も同様にラップ可能
+function ssh-keygen {
+    param(
+        [Parameter(ValueFromRemainingArguments = $true)]
+        [string[]]$ArgumentList
+    )
+    [Win32Focus]::Grant()
+    $bin = @(Get-Command -CommandType Application ssh-keygen)[0].Source
+    & $bin @ArgumentList
+}
+
+function ssh-add {
+    param(
+        [Parameter(ValueFromRemainingArguments = $true)]
+        [string[]]$ArgumentList
+    )
+    [Win32Focus]::Grant()
+    $bin = @(Get-Command -CommandType Application ssh-add)[0].Source
+    & $bin @ArgumentList
+}
 ```
-
-##### 設定値の解説
-- `IdentityFile ~/.ssh/id_ecdsa_sk`: 作成したパスキー鍵を明示的に指定します。
-- `IdentitiesOnly yes`: ssh-agent 等への余計な問い合わせを省略し、指定した鍵のみを使用させることでタイミングエラーを防ぎます。
-- `SecurityKeyProvider internal`: Windows Hello 用のネイティブプロバイダを明示指定します。
 
 #### 4. 接続のテスト
 
