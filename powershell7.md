@@ -168,6 +168,10 @@ Windows Hello（顔認証、指紋認証、PIN）を利用して、パスワー�
 「Terminal から SSH を実行し、それが Windows Hello を呼び出した時に、ポップアップが一瞬で消える・裏に回る・フォーカスを失ってエラー（タイムアウト）になる」という問題は、**Windows Terminal (OpenConsole) と セキュアデスクトップ (CredentialUIBroker) 間の仕様の衝突**として、KeePass、1Password、Win32-OpenSSH などのリポジトリで共通して「Terminal 側のバグ・仕様」として扱われています。
 そのため、`conhost`（旧コマンドプロンプト）や `Git Bash` などの異なる描画コンソールを使うことが一番の回避策として定着しています。
 
+```powershell
+winget install --id Microsoft.OpenSSH.Preview
+```
+
 #### 1. 既存の環境のクリーンアップと準備
 
 SSH 接続時のタイミング問題（競合によるエラー）を防ぐため、`ssh-agent` は使用せずにクライアントが直接認証を行う構成にします。
@@ -201,7 +205,7 @@ if (Test-Path $keyPath) { Remove-Item $keyPath -Force }
 if (Test-Path $pubKeyPath) { Remove-Item $pubKeyPath -Force }
 
 Write-Host "`n>>> SSH鍵を生成します。Windows セキュリティの画面が出たら認証してください <<<" -ForegroundColor Cyan
-ssh-keygen -t ecdsa-sk -C "win-hello-passkey" -f $keyPath -N ""
+& "C:\Program Files\OpenSSH\ssh-keygen.exe" -t ecdsa-sk -C "win-hello-passkey" -f $keyPath -N ""
 
 Write-Host "`n>>> 生成された公開鍵 <<<" -ForegroundColor Yellow
 $pubKey = Get-Content $pubKeyPath
