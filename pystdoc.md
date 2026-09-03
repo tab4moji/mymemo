@@ -1,5 +1,8 @@
 ## pystdoc: Python Structural & Topological Documentation Engine
 
+- https://github.com/tab4moji/pystdoc
+- https://pypi.org/project/pystdoc/
+
 結論から言うと、手元のローカルLLM環境やAPI消費を抑えてリーズナブルにコード理解を進めるなら、**差分キャッシュと静的解析絞り込みが効く `pystdoc`（自作系）、またはトークン圧縮に特化した `llm-tldr` / `ai-codeindex`** が推奨だ。
 大規模コードベースをLLMに読ませる際のコストは「APIトークン費用」または「ローカルGPUの推論時間」が支配的になるため、**静的解析でどこまで無駄なLLM呼び出しを削れるか**がリーズナブルさの決め手になる。
 
