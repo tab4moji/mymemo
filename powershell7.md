@@ -165,14 +165,14 @@ Windows Hello（顔認証、指紋認証、PIN）を利用して、パスワー�
 - https://github.com/sirAndros/KeePassWinHello/issues/86
   - https://github.com/microsoft/terminal/issues/17373
 
-「Terminal から SSH を実行し、それが Windows Hello を呼び出した時に、ポップアップが一瞬で消える・裏に回る・フォーカスを失ってエラー（タイムアウト）になる」という問題は、**Windows Terminal (OpenConsole) と セキュアデスクトップ (CredentialUIBroker) 間の仕様の衝突**として、KeePass、1Password、Win32-OpenSSH などのリポジトリで共通して「Terminal 側のバグ・仕様」として扱われています。
-そのため、`conhost`（旧コマンドプロンプト）や `Git Bash` などの異なる描画コンソールを使うことが一番の回避策として定着しています。
+「Terminal から SSH を実行し、それが Windows Hello を呼び出した時に、ポップアップが一瞬で消える・裏に回る・フォーカスを失ってエラー（タイムアウト）になる」という問題は、**Windows Terminal (OpenConsole) と セキュアデスクトップ (CredentialUIBroker) 間の仕様の衝突**として、KeePass、1Password、Win32-OpenSSH などのリポジトリで共通して「Terminal 側のバグ・仕様」として扱われている。
+そのため、`conhost`（旧コマンドプロンプト）や `Git Bash` などの異なる描画コンソールを使うことが一番の回避策として定着しているらしい。
 
-#### 1. Windows Hello (パスキー) 用の SSH 鍵を生成する
+#### 1. SSH 鍵を生成して Windows Hello (パスキー) 管理する
 
-Windows Hello の TPM で管理される ECDSA-SK 鍵を生成します。パスフレーズを空（`-N ""`）にすることで、SSH 鍵自体のパスワード入力を省略し、Windows Hello の生体認証/PIN に委譲します。
+Windows Hello の TPM で管理される ECDSA-SK 鍵を生成します。パスフレーズを空（`-N ""`）にすることで、SSH 鍵自体のパスワード入力を省略し、Windows Hello の生体認証/PIN に委譲。
 
-以下のスクリプトを PowerShell で実行してください。
+以下のスクリプトを PowerShell で実行。
 
 ```powershell
 $sshDir = "$HOME\.ssh"
@@ -212,7 +212,7 @@ Write-Host "`n[成功] 公開鍵をクリップボードにコピーした。" -
 Write-Host $pubKey -ForegroundColor Yellow
 ```
 
-*生成された公開鍵を、接続先サーバーの `~/.ssh/authorized_keys` や GitHub の SSH Keys 設定に追加してください。*
+*生成された公開鍵を、接続先サーバーの `~/.ssh/authorized_keys` や GitHub の SSH Keys 設定に追加すること。*
 
 #### 2. pwsh 用 ssh の設定
 
@@ -282,13 +282,13 @@ function ssh-add {
 
 #### 4. 接続のテスト
 
-あとは通常通り SSH コマンドを実行するだけです。
+あとは通常通り SSH コマンドを実行するだけ。
 
 ```powershell
 ssh ユーザー名@ホスト名
 ```
 
-実行すると、ターミナル上でのパスワード入力はスキップされ、Windows Hello のポップアップが表示されます。指紋・顔・PIN のいずれかで認証すれば即座にログインが完了します。
+実行すると、ターミナル上でのパスワード入力はスキップされ、Windows Hello のポップアップが表示されるから認証する。指紋・顔・PIN のいずれかで認証すれば即座にログインが完了。
 
 ### Windows をパスワードなし起動したい
 
