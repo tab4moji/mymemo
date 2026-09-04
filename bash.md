@@ -133,7 +133,7 @@ echo bfq | sudo tee /sys/block/*sdc*/queue/scheduler
 ```
 
 ```bash
-alias relax='nice -n 19 ionice -c 3 trickle -d 500 -t 0.1 -l 2'
+alias relax='f(){ local t=$(tty | tr -dc 0-9); local n=$(nproc); local c=$(( n > 1 ? 1 + (${t:-$$} % (n - 1)) : 0 )); chrt -i 0 ionice -c 3 nice -n 19 taskset -c "$c" "$@"; }; f'
 ```
 
 ```bash:sleepで試す。
