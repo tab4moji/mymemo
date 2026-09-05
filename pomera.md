@@ -1,18 +1,51 @@
 ## Pomera DM200/DM250
 
+### Pomera 用の linux 環境
+
+[Debian on Pomera DM200/DM250](https://www.ekesete.net/log/?p=9504)
+
 ### kmscon
 
-[kmscon](https://github.com/kmscon/kmscon)
+fbterm だとフォントがズレて表示されていたいので [kmscon/kmscon](https://github.com/kmscon/kmscon) をクロスビルドして使う。
+無保証バイナリで良ければ [ここ](./kmscon) を使えるが、dm200 でしか試していない。
+
+VT2 で起動する。
+が、今のところ Ctrl+Alt+F3 => Ctrl+Alt+F2 してから使っている。その他一度でも別の VT に移動すると、kmscon が VT2 をつかめなくなるので VT1 で kmscon を再起動しないとダメ。
+
+```bash
+sudo kmscon --vt=2 --no-libseat --term xterm --xkb-model jp106 --xkb-layout jp --font-engine freetype --font-name "HackGen35 Console NF" --debug -v --front-size 18
+```
 
 #### 使いたい有名フォント
 
 Hack と源柔ゴシックを合成したプログラミングフォント 白源 (はくげん／HackGen)
-https://github.com/yuru7/HackGen/releases
+[https://github.com/yuru7/HackGen/releases](https://github.com/yuru7/HackGen/releases)
 **Nerd Fonts 合成版**: HackGen_NF_v2.10.0.zip
 
-#### Pomera 用にクロスビルド
+#### Pomera 用に*パッチ*とクロスビルド
 
-注意：勝手に apt パッケージをインストールするので環境を汚す。
+画面のドライバの情報通知内容にバグがありそうなので kmscon を pomera 専用化するパッチ。
+
+- パッチは要するにこれ。
+
+```patch
+diff --git a/src/video/fbdev_video.c b/src/video/fbdev_video.c
+index a30250a..6223fe2 100644
+--- a/src/video/fbdev_video.c
++++ b/src/video/fbdev_video.c
+@@ -131,7 +131,7 @@ static int refresh_info(struct display *disp)
+
+ static int display_activate_force(struct display *disp, bool force)
+ {
+-       static const char depths[] = {32, 24, 16, 0};
++       static const char depths[] = {16, 0};
+        struct fbdev_display *dfb = disp->data;
+        struct fb_var_screeninfo *vinfo;
+        struct fb_fix_screeninfo *finfo;
+```
+
+これがビルドの時のシェルスクリプト。
+*注意：勝手に apt パッケージをインストールするので環境を汚す*
 
 ```bash:build_kmscon_armhf.sh
 #!/usr/bin/env bash
@@ -38,7 +71,7 @@ WORKDIR="$(pwd)/kmscon-build"
 OUTDIR="$(pwd)/output"
 IMAGE_TAG="kmscon-armhf-builder:bullseye"
 KMSCON_TAG="v10.0.2"
-POMERA_HOST="pomera@192.168.0.21"
+POMERA_HOST="pomera@ポメラホストのIPadd"
 
 mkdir -p "${WORKDIR}" "${OUTDIR}"
 
@@ -181,3 +214,5 @@ docker run --rm \
 echo "==> 完了。転送コマンド例:"
 echo "    scp ${OUTDIR}/kmscon ${POMERA_HOST}:/tmp/"
 ```
+
+あとは、uim-fep とか tmux とかご自由に。
