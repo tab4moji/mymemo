@@ -1,12 +1,3 @@
-## Pomera DM200/DM250
-
-### kmscon
-
-[kmscon](https://github.com/kmscon/kmscon)
-
-#### Pomera 用にクロスビルド
-
-```bash:build_kmscon_armhf.sh
 #!/usr/bin/env bash
 #
 # DM200 (Debian 11 bullseye, armhf, glibc 2.31) 向けに
@@ -22,7 +13,7 @@
 #   chmod +x build_kmscon_armhf.sh
 #   ./build_kmscon_armhf.sh
 #
-# 生成物は ./output/ 以下に kmscon 本体。
+# 生成物は ./output/ 以下に kmscon 本体と各フォントモジュール(.so)。
 #
 set -euo pipefail
 
@@ -146,9 +137,9 @@ file "\${KMSCON_BIN}"
 
 mkdir -p /out
 cp "\${KMSCON_BIN}" /out/kmscon
-# [ -f build/src/font/mod-unifont.so ] && cp build/src/font/mod-unifont.so /out/
-# [ -f build/src/font/mod-freetype2.so ] && cp build/src/font/mod-freetype2.so /out/
-# [ -f build/src/font/mod-freetype.so ] && cp build/src/font/mod-freetype.so /out/
+[ -f build/src/font/mod-unifont.so ] && cp build/src/font/mod-unifont.so /out/
+[ -f build/src/font/mod-freetype2.so ] && cp build/src/font/mod-freetype2.so /out/
+[ -f build/src/font/mod-freetype.so ] && cp build/src/font/mod-freetype.so /out/
 
 echo "---- /out の内容 ----"
 ls -la /out
@@ -171,5 +162,5 @@ docker run --rm \
     /work/do_build.sh
 
 echo "==> 完了。転送コマンド例:"
-echo "    scp ${OUTDIR}/kmscon ${POMERA_HOST}:/tmp/"
-```
+echo "    scp ${OUTDIR}/kmscon ${OUTDIR}/mod-*.so ${POMERA_HOST}:/tmp/"
+
