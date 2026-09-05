@@ -6,6 +6,12 @@
 
 ### kmscon
 
+#### 使いたい有名フォント
+
+Hack と源柔ゴシックを合成したプログラミングフォント 白源 (はくげん／HackGen)
+[https://github.com/yuru7/HackGen/releases](https://github.com/yuru7/HackGen/releases)
+**Nerd Fonts 合成版**: HackGen_NF_v2.10.0.zip
+
 fbterm だとフォントがズレて表示されていたいので [kmscon/kmscon](https://github.com/kmscon/kmscon) をクロスビルドして使う。
 無保証バイナリで良ければ [ここ](./kmscon) を使えるが、dm200 でしか試していない。
 
@@ -15,12 +21,6 @@ VT2 で起動する。
 ```bash
 sudo kmscon --vt=2 --no-libseat --term xterm --xkb-model jp106 --xkb-layout jp --font-engine freetype --font-name "HackGen35 Console NF" --debug -v --front-size 18
 ```
-
-#### 使いたい有名フォント
-
-Hack と源柔ゴシックを合成したプログラミングフォント 白源 (はくげん／HackGen)
-[https://github.com/yuru7/HackGen/releases](https://github.com/yuru7/HackGen/releases)
-**Nerd Fonts 合成版**: HackGen_NF_v2.10.0.zip
 
 #### Pomera 用に*パッチ*とクロスビルド
 
