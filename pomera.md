@@ -24,7 +24,7 @@ VT2 で起動する。
 エラー箇所もメッセージがきちんと出ているので kmscon のバグをもう少し直せば VT2 にも戻ってこれると思う。
 
 ```bash
-sudo kmscon --vt=2 --front-size 18 --font-name "HackGen35 Console NF" --font-engine freetype --term xterm --no-libseat --xkb-model jp106 --xkb-layout jp --debug -v
+sudo kmscon --vt=2 --font-name "HackGen35 Console NF" --font-engine freetype --front-size 18 --term xterm --xkb-model jp106 --xkb-layout jp --no-libseat --debug -v
 ```
 
 あとは、uim-fep とか TERM=xterm-256color tmux とかご自由に。
