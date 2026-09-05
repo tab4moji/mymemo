@@ -17,7 +17,7 @@ fbterm だとフォントがズレて表示されていたいので [kmscon/kmsc
 #### 今のところの起動の仕方
 
 - [kmscon/kmscon](https://github.com/kmscon/kmscon) の無保証バイナリで良ければ [コレ](./kmscon) を使えるが、dm200 でしか試していない
-- 拾ったら、必ず[ラインセンス条項](https://github.com/kmscon/kmscon?tab=License-1-ov-file)を守ること
+  - 拾ったら、必ず[ラインセンス条項](https://github.com/kmscon/kmscon?tab=License-1-ov-file)を守ること
 
 fbterm のようにちゃんと設定すればこのあたりは不要。
 VT2 で起動する。
