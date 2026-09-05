@@ -27,6 +27,8 @@ VT2 で起動する。
 sudo kmscon --vt=2 --no-libseat --term xterm --xkb-model jp106 --xkb-layout jp --font-engine freetype --font-name "HackGen35 Console NF" --debug -v --front-size 18
 ```
 
+あとは、uim-fep とか tmux とかご自由に。
+
 #### Pomera 用に*パッチ*とクロスビルド
 
 画面のドライバの情報通知内容にバグがありそうなので kmscon を pomera 専用化するパッチ。
@@ -220,4 +222,4 @@ echo "==> 完了。転送コマンド例:"
 echo "    scp ${OUTDIR}/kmscon ${POMERA_HOST}:/tmp/"
 ```
 
-あとは、uim-fep とか tmux とかご自由に。
+##
