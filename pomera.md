@@ -4,7 +4,15 @@
 
 [kmscon](https://github.com/kmscon/kmscon)
 
+#### 使いたい有名フォント
+
+Hack と源柔ゴシックを合成したプログラミングフォント 白源 (はくげん／HackGen)
+https://github.com/yuru7/HackGen/releases
+**Nerd Fonts 合成版**: HackGen_NF_v2.10.0.zip
+
 #### Pomera 用にクロスビルド
+
+注意：勝手に apt パッケージをインストールするので環境を汚す。
 
 ```bash:build_kmscon_armhf.sh
 #!/usr/bin/env bash
