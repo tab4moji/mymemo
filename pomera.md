@@ -24,10 +24,16 @@ VT2 で起動する。
 エラー箇所もメッセージがきちんと出ているので kmscon のバグをもう少し直せば VT2 にも戻ってこれると思う。
 
 ```bash
-sudo kmscon --vt=2 --no-libseat --term xterm --xkb-model jp106 --xkb-layout jp --font-engine freetype --font-name "HackGen35 Console NF" --debug -v --front-size 18
+sudo kmscon --vt=2 --front-size 18 --font-name "HackGen35 Console NF" --font-engine freetype --term xterm --no-libseat --xkb-model jp106 --xkb-layout jp --debug -v
 ```
 
-あとは、uim-fep とか tmux とかご自由に。
+あとは、uim-fep とか TERM=xterm-256color tmux とかご自由に。
+
+ちゃんと設定すれば色が色々出る。
+
+```bash
+bash -c 'for i in {0..255}; do printf "\x1b[48;5;%dm%3d\x1b[0m " "$i"; (((i+1)%16==0)) && echo; done' > /dev/pts/5
+```
 
 #### Pomera 用に*パッチ*とクロスビルド
 
