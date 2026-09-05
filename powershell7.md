@@ -296,6 +296,23 @@ ssh ユーザー名@ホスト名
 netplwiz
 ```
 
+### Windows Update 直行ショートカットが欲しい
+
+Windows Updateショートカット作成
+
+```powershell:Windows Updateショートカット作成
+$Shortcut = $WshShell.CreateShortcut("$env:AppData\Microsoft\Windows\Start Menu\Programs\Windows Update.lnk")
+$Shortcut.TargetPath = "ms-settings:windowsupdate"
+$Shortcut.IconLocation = "shell32.dll,46"
+$Shortcut.Save()
+```
+
+Windows Updateショートカット削除
+
+```powershll:Windows Updateショートカット削除
+Remove-Item "$env:AppData\Microsoft\Windows\Start Menu\Programs\Windows Update.lnk" -Force
+```
+
 ### python3 on windows/pwsh
 
 - [uv の導入](./?content=uv#OyqTjGcF)
