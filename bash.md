@@ -126,6 +126,18 @@ alias vimfind='_() { vim --cmd "set efm=%f" -q <(\find "$@") -c "autocmd FileTyp
 date +%Y_%m%d_%H%M_%S
 ```
 
+### CTRL-R
+
+```
+sudo apt install fzf -y
+```
+
+```bash
+# ~/.bashrc に追記
+[ -f /usr/share/doc/fzf/examples/key-bindings.bash ] && source /usr/share/doc/fzf/examples/key-bindings.bash
+[ -f /usr/share/bash-completion/completions/fzf ] && source /usr/share/bash-completion/completions/fzf
+```
+
 ### 優先度下げて実行
 
 ```bash
