@@ -41,7 +41,7 @@ bash -c 'for i in {0..255}; do printf "\x1b[48;5;%dm%3d\x1b[0m " "$i"; (((i+1)%1
 
 - パッチは要するにこれ。
 
-```patch
+```patch:pomera専用
 diff --git a/src/video/fbdev_video.c b/src/video/fbdev_video.c
 index a30250a..6223fe2 100644
 --- a/src/video/fbdev_video.c
