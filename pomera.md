@@ -12,11 +12,12 @@ Hack と源柔ゴシックを合成したプログラミングフォント 白�
 [https://github.com/yuru7/HackGen/releases](https://github.com/yuru7/HackGen/releases)
 **Nerd Fonts 合成版**: HackGen_NF_v2.10.0.zip
 
-fbterm だとフォントがズレて表示されていたいので [kmscon/kmscon](https://github.com/kmscon/kmscon) をクロスビルドして使う。
+fbterm だとフォントがズレて表示されていたいので [kmscon/kmscon](https://github.com/kmscon/kmscon) (MIT-Like ライセンス) をクロスビルドして使う。
 
 #### 今のところの起動の仕方
 
-- 無保証バイナリで良ければ [ここ](./kmscon) を使えるが、dm200 でしか試していない
+- [kmscon/kmscon](https://github.com/kmscon/kmscon) の無保証バイナリで良ければ [コレ](./kmscon) を使えるが、dm200 でしか試していない
+- 拾ったら、必ず[ラインセンス条項](https://github.com/kmscon/kmscon?tab=License-1-ov-file)を守ること
 
 fbterm のようにちゃんと設定すればこのあたりは不要。
 VT2 で起動する。
