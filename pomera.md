@@ -14,10 +14,14 @@ Hack と源柔ゴシックを合成したプログラミングフォント 白�
 
 fbterm だとフォントがズレて表示されていたいので [kmscon/kmscon](https://github.com/kmscon/kmscon) をクロスビルドして使う。
 
+#### 今のところの起動の仕方
+
 - 無保証バイナリで良ければ [ここ](./kmscon) を使えるが、dm200 でしか試していない
 
+fbterm のようにちゃんと設定すればこのあたりは不要。
 VT2 で起動する。
 が、今のところ Ctrl+Alt+F3 => Ctrl+Alt+F2 してから使っている。その他一度でも別の VT に移動すると、kmscon が VT2 をつかめなくなるので VT1 で kmscon を再起動しないとダメ。
+エラー箇所もメッセージがきちんと出ているので kmscon のバグをもう少し直せば VT2 にも戻ってこれると思う。
 
 ```bash
 sudo kmscon --vt=2 --no-libseat --term xterm --xkb-model jp106 --xkb-layout jp --font-engine freetype --font-name "HackGen35 Console NF" --debug -v --front-size 18
