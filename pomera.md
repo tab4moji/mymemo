@@ -13,7 +13,8 @@ Hack と源柔ゴシックを合成したプログラミングフォント 白�
 **Nerd Fonts 合成版**: HackGen_NF_v2.10.0.zip
 
 fbterm だとフォントがズレて表示されていたいので [kmscon/kmscon](https://github.com/kmscon/kmscon) をクロスビルドして使う。
-無保証バイナリで良ければ [ここ](./kmscon) を使えるが、dm200 でしか試していない。
+
+- 無保証バイナリで良ければ [ここ](./kmscon) を使えるが、dm200 でしか試していない
 
 VT2 で起動する。
 が、今のところ Ctrl+Alt+F3 => Ctrl+Alt+F2 してから使っている。その他一度でも別の VT に移動すると、kmscon が VT2 をつかめなくなるので VT1 で kmscon を再起動しないとダメ。
