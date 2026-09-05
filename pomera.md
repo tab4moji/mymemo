@@ -37,11 +37,11 @@ bash -c 'for i in {0..255}; do printf "\x1b[48;5;%dm%3d\x1b[0m " "$i"; (((i+1)%1
 
 #### Pomera 用に*パッチ*とクロスビルド
 
-画面のドライバの情報通知内容にバグがありそうなので kmscon を pomera 専用化するパッチ。
+画面のドライバの情報通知の内容にバグがありそうなので kmscon を pomera 専用化するパッチ。
 
 - パッチは要するにこれ。
 
-```patch:pomera専用
+```patch:pomera専用の変更
 diff --git a/src/video/fbdev_video.c b/src/video/fbdev_video.c
 index a30250a..6223fe2 100644
 --- a/src/video/fbdev_video.c
