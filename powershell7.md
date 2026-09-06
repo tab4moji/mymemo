@@ -343,8 +343,11 @@ netplwiz
 Windows Updateショートカット作成
 
 ```powershell:Windows Updateショートカット作成
-$Shortcut = $WshShell.CreateShortcut("$env:AppData\Microsoft\Windows\Start Menu\Programs\Windows Update.lnk")
-$Shortcut.TargetPath = "ms-settings:windowsupdate"
+$WshShell = New-Object -ComObject WScript.Shell
+$ShortcutPath = "$env:AppData\Microsoft\Windows\Start Menu\Programs\Windows Update.lnk"
+$Shortcut = $WshShell.CreateShortcut($ShortcutPath)
+$Shortcut.TargetPath = "explorer.exe"
+$Shortcut.Arguments = "ms-settings:windowsupdate"
 $Shortcut.IconLocation = "shell32.dll,46"
 $Shortcut.Save()
 ```
