@@ -175,41 +175,83 @@ Windows Hello の TPM で管理される ECDSA-SK 鍵を生成します。パス
 以下のスクリプトを PowerShell で実行。
 
 ```powershell
-$sshDir = "$HOME\.ssh"
-$keyPath = "$sshDir\id_ecdsa_sk"
-$pubKeyPath = "$sshDir\id_ecdsa_sk.pub"
+<#
+.SYNOPSIS
+    FIDO2/パスキー対応SSH公開鍵の自動探索と認証コピー
 
-# 既存鍵の削除
-if (Test-Path $keyPath) { Remove-Item $keyPath -Force }
-if (Test-Path $pubKeyPath) { Remove-Item $pubKeyPath -Force }
+.DESCRIPTION
+    ~/.ssh 配下のパスキー秘密鍵(*_sk)を自動検出し、
+    パスキー認証を経て公開鍵をクリップボードにコピーする。
+    見つからない場合は探索結果を表示して中断する。
 
-# 実行したいコマンド文字列
-$targetCmd = "cmd /c ssh-keygen -t ecdsa-sk -C `"win-hello-passkey`" -f `"$keyPath`" -N `"`""
+.REVISION HISTORY
+    1.1.0 (2026-09-06): パスキー鍵の動的検出機能の追加
+    1.0.0 (2026-09-06): 初版作成
+#>
 
-# 1. Win+R ダイアログを起動
-$shell = New-Object -ComObject Shell.Application
-$shell.FileRun()
+Set-StrictMode -Version Latest
+$ErrorActionPreference = "Stop"
 
-Start-Sleep -Milliseconds 300
+function Export-PasskeyPublicKey {
+    param(
+        [Parameter(Mandatory = $false)]
+        [string]$SshDir = "$HOME\.ssh"
+    )
 
-# 2. コマンドを貼り付けて実行（Enter）
-Add-Type -AssemblyName System.Windows.Forms
-[System.Windows.Forms.Clipboard]::SetText($targetCmd)
-[System.Windows.Forms.SendKeys]::SendWait("^v{ENTER}")
+    $result = $null
 
-Write-Host "Win+R 経由で起動した。Windows Hello で認証してくれ。" -ForegroundColor Cyan
+    try {
+        if (-not (Test-Path -Path $SshDir)) {
+            throw "SSHディレクトリが存在しない: $SshDir"
+        }
 
-# 3. 生成完了を待機
-while (-not (Test-Path $pubKeyPath)) {
-    Start-Sleep -Milliseconds 200
+        # *_sk のうち、公開鍵(.pub)ではない秘密鍵ファイルを列挙
+        $skKeys = Get-ChildItem -Path $SshDir -File | Where-Object {
+            $_.Name -like "*_sk" -and $_.Extension -ne ".pub"
+        }
+
+        if (@($skKeys).Count -eq 0) {
+            # 秘密鍵が見つからない場合、念のため .pub のみがあるか確認
+            $pubOnly = Get-ChildItem -Path $SshDir -File -Filter "*_sk.pub"
+            if (@($pubOnly).Count -gt 0) {
+                [Console]::Error.WriteLine("公開鍵は見つかったが、対応する秘密鍵(*_sk)が存在しない:")
+                $pubOnly | ForEach-Object { [Console]::Error.WriteLine(" - $($_.Name)") }
+                throw "秘密鍵が存在しないため、パスキー認証を実行できない。"
+            }
+
+            # 存在する全ファイルを一覧表示して終了
+            [Console]::Error.WriteLine("~/.ssh 配下にパスキー鍵(*_sk)が見つからなかった。現在のファイル一覧:")
+            Get-ChildItem -Path $SshDir -File | ForEach-Object { [Console]::Error.WriteLine(" - $($_.Name)") }
+            throw "パスキー対応の秘密鍵ファイルが見つからない。"
+        }
+
+        # 最初に見つかったパスキー鍵（または特定のもの）を使用
+        $targetKey = $skKeys[0].FullName
+        [Console]::Error.WriteLine("検出した秘密鍵: $($skKeys[0].Name)")
+        [Console]::Error.WriteLine("パスキー認証（タッチ/PIN）を行ってほしい。")
+
+        # 秘密鍵からパスキー認証を伴って公開鍵を導出
+        $pubKey = & ssh-keygen -y -f $targetKey 2>&1
+        if ($LASTEXITCODE -ne 0) {
+            throw "認証または公開鍵の導出に失敗した: $pubKey"
+        }
+
+        $cleanKey = ($pubKey -join "`n").Trim()
+        Set-Clipboard -Value $cleanKey
+        [Console]::Error.WriteLine("公開鍵をクリップボードにコピーした。")
+
+        $result = $cleanKey
+    }
+    catch {
+        [Console]::Error.WriteLine("[ERROR] $($_.Exception.Message)")
+        throw $_
+    }
+
+    return $result
 }
 
-Start-Sleep -Milliseconds 300
-$pubKey = (Get-Content $pubKeyPath -Raw).Trim()
-Set-Clipboard -Value $pubKey
-
-Write-Host "`n[成功] 公開鍵をクリップボードにコピーした。" -ForegroundColor Green
-Write-Host $pubKey -ForegroundColor Yellow
+# 実行
+Export-PasskeyPublicKey
 ```
 
 *生成された公開鍵を、接続先サーバーの `~/.ssh/authorized_keys` や GitHub の SSH Keys 設定に追加すること。*
