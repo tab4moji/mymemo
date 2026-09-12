@@ -150,7 +150,27 @@ Install-Module -Name PSWindowsUpdate -Force -AllowClobber; Import-Module PSWindo
 Install-Module -Name PSWindowsUpdate -Force -AllowClobber; Import-Module PSWindowsUpdate; Install-WindowsUpdate -AcceptAll
 ```
 
-### コンピューターの状態
+### Windows Update 直行ショートカットが欲しい
+
+Windows Updateショートカット作成
+
+```powershell:Windows Updateショートカット作成
+$WshShell = New-Object -ComObject WScript.Shell
+$ShortcutPath = "$env:AppData\Microsoft\Windows\Start Menu\Programs\Windows Update.lnk"
+$Shortcut = $WshShell.CreateShortcut($ShortcutPath)
+$Shortcut.TargetPath = "explorer.exe"
+$Shortcut.Arguments = "ms-settings:windowsupdate"
+$Shortcut.IconLocation = "shell32.dll,46"
+$Shortcut.Save()
+```
+
+Windows Updateショートカット削除
+
+```powershll:Windows Updateショートカット削除
+Remove-Item "$env:AppData\Microsoft\Windows\Start Menu\Programs\Windows Update.lnk" -Force
+```
+
+### コンピューターの状態(再起動、電源オフ)
 
 https://learn.microsoft.com/powershell/scripting/samples/changing-computer-state?view=powershell-7.6#shutting-down-or-restarting-a-computer
 
@@ -336,26 +356,6 @@ ssh ユーザー名@ホスト名
 
 ```pwsh
 netplwiz
-```
-
-### Windows Update 直行ショートカットが欲しい
-
-Windows Updateショートカット作成
-
-```powershell:Windows Updateショートカット作成
-$WshShell = New-Object -ComObject WScript.Shell
-$ShortcutPath = "$env:AppData\Microsoft\Windows\Start Menu\Programs\Windows Update.lnk"
-$Shortcut = $WshShell.CreateShortcut($ShortcutPath)
-$Shortcut.TargetPath = "explorer.exe"
-$Shortcut.Arguments = "ms-settings:windowsupdate"
-$Shortcut.IconLocation = "shell32.dll,46"
-$Shortcut.Save()
-```
-
-Windows Updateショートカット削除
-
-```powershll:Windows Updateショートカット削除
-Remove-Item "$env:AppData\Microsoft\Windows\Start Menu\Programs\Windows Update.lnk" -Force
 ```
 
 ### python3 on windows/pwsh
