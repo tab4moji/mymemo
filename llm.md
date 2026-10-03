@@ -88,7 +88,7 @@ Hugging Faceの標準ウェイト形式を基盤とし、サーバーGPUの高�
 | **Aider** | Paul Gauthier (OSS) | 任意 (Claude, OpenAI, ローカル)  [pinggy](https://pinggy.io/blog/top_cli_based_ai_coding_agents/) | Gitコミット自動生成、リポジトリマップによる高精度差分検出 [taskade](https://www.taskade.com/blog/claude-code-alternatives) |
 | **Pi** | Armin Ronacher (OSS) | 任意  [pinggy](https://pinggy.io/blog/top_cli_based_ai_coding_agents/) | Flask作者による極小構成の次世代エージェントハーネス [pinggy](https://pinggy.io/blog/top_cli_based_ai_coding_agents/) |
 
-### 各ツールの特徴と設計思想
+### 各エージェントツールの特徴と設計思想
 
 #### Claude Code
 Anthropicが開発したターミナルネイティブのエージェントツールだ。リポジトリの解析、コード編集、テストの実行、Gitブランチ作成やPR作成までを自然言語の指示で自律的にこなす。モデルにはClaude OpusやSonnetを用い、複雑な複数ファイルにまたがるリファクタリングやバグ追跡に対して高い推論精度を発揮する。 [ai-tldr](https://ai-tldr.dev/tools/claude-code/)
@@ -111,5 +111,4 @@ OpenAIが提供するRust製のターミナル向けエージェントだ。推�
 - **単一タスクの修正精度とリファクタリング**: Claude Codeを優先するのが手堅い。 [pinggy](https://pinggy.io/blog/top_cli_based_ai_coding_agents/)
 - **Google環境や定額枠の活用**: Google AI Proの枠が使える環境ならAntigravity CLIのコスト効率が高い。 [windowsforum](https://windowsforum.com/news/cve-2026-12537-gemini-cli-0-39-1-fixes-ci-cd-host-code-execution.445782/)
 - **ローカルモデルや完全な制御**: 外部API縛りを避け、ローカルLLMや手元のGPU資源を併用するならOpenCodeかAiderが最適解になる。 [pinggy](https://pinggy.io/blog/top_cli_based_ai_coding_agents/)
-
 ##
