@@ -88,6 +88,8 @@ Hugging Faceの標準ウェイト形式を基盤とし、サーバーGPUの高�
 | **Aider** | Paul Gauthier (OSS) | 任意 (Claude, OpenAI, ローカル)  [pinggy](https://pinggy.io/blog/top_cli_based_ai_coding_agents/) | Gitコミット自動生成、リポジトリマップによる高精度差分検出 [taskade](https://www.taskade.com/blog/claude-code-alternatives) |
 | **Pi** | Armin Ronacher (OSS) | 任意  [pinggy](https://pinggy.io/blog/top_cli_based_ai_coding_agents/) | Flask作者による極小構成の次世代エージェントハーネス [pinggy](https://pinggy.io/blog/top_cli_based_ai_coding_agents/) |
 
+***
+
 ### 各エージェントツールの特徴と設計思想
 
 #### Claude Code
