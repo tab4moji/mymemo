@@ -56,6 +56,10 @@ _() { \
 _ # 関数呼び出し
 ```
 
+```bash:段階的更新を無効化して dist-upgrde
+sudo apt -o APT::Get::Always-Include-Phased-Updates=true dist-upgrade -y
+```
+
 ```bash
 _() { \
     DEBIAN_FRONTEND=noninteractive; \
