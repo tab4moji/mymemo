@@ -1,10 +1,10 @@
 ## Anima
 
-Windows 11 + RX 9060 XT（Oculink）環境において、ComfyUIを使わずpwshからAnima-Aestheticによる同一人物画像生成を回すための完全セットアップ手順だ 。 [huggingface](https://huggingface.co/CalamitousFelicitousness/Anima-1.0-Aesthetic-Diffusers)
+Windows 11 + RX 9060 XT（Oculink）環境において、ComfyUIを使わずpwshからAnima-Aestheticによる同一人物画像生成を回すための完全セットアップ手順だ。
 
-## 1. ディレクトリとモデル取得（pwsh）
+### 1. ディレクトリとモデル取得（pwsh）
 
-プロジェクトルートを作成し、公式の `anima-aesthetic-v1.1.safetensors` をダウンロードする 。 [huggingface](https://huggingface.co/circlestone-labs/Anima/blob/main/split_files/diffusion_models/anima-aesthetic-v1.1.safetensors)
+プロジェクトルートを作成し、公式の `anima-aesthetic-v1.1.safetensors` をダウンロードする。
 
 ```powershell
 mkdir ~/anima-pipeline
@@ -19,9 +19,9 @@ cd ..
 
 ***
 
-## 2. 仮想環境と依存パッケージの導入
+### 2. 仮想環境と依存パッケージの導入
 
-TheRock のマルチアーキテクチャ ROCm wheel を入れ、不具合を起こす `torchaudio` を除外した構成を組む 。 [note](https://note.com/lpp/n/nf55874dcb5ab)
+TheRock のマルチアーキテクチャ ROCm wheel を入れ、不具合を起こす `torchaudio` を除外した構成を組む。
 
 ```powershell
 uv venv --python 3.12 .venv
@@ -47,9 +47,9 @@ uv pip install `
 
 ***
 
-## 3. 設定ファイル（`config/character.yaml`）
+### 3. 設定ファイル（`config/character.yaml`）
 
-キャラクターの外見特徴をアンカーとして固定し、2つの異なるシチュエーション（カジュアルとフォーマル）を定義する 。
+キャラクターの外見特徴をアンカーとして固定し、2つの異なるシチュエーション（カジュアルとフォーマル）を定義する。
 
 ```yaml
 # config/character.yaml
@@ -89,9 +89,9 @@ scene_templates:
 
 ***
 
-## 4. 生成スクリプト（`scripts/generate.py`）
+### 4. 生成スクリプト（`scripts/generate.py`）
 
-骨格（Qwen3テキストエンコーダ + VAE）をDiffusersリポジトリから取得し、推論パイプラインを駆動する 。 [huggingface](https://huggingface.co/CalamitousFelicitousness/Anima-1.0-Aesthetic-Diffusers)
+骨格（Qwen3テキストエンコーダ + VAE）をDiffusersリポジトリから取得し、推論パイプラインを駆動する。
 
 ```python
 #!/usr/bin/env python
@@ -197,9 +197,9 @@ if __name__ == "__main__":
 
 ***
 
-## 5. 実行スクリプト（`run.ps1`）
+### 5. 実行スクリプト（`run.ps1`）
 
-内蔵GPU（Radeon 680M）をスキップし、外付け RX 9060 XT（デバイス 1）を明示的に指定して叩く起動ファイルだ 。
+内蔵GPU（Radeon 680M）をスキップし、外付け RX 9060 XT（デバイス 1）を明示的に指定して叩く起動ファイルだ。
 
 ```powershell
 # run.ps1
@@ -211,13 +211,13 @@ $env:TORCH_ROCM_AOTRITON_ENABLE_EXPERIMENTAL = "1"
 .\.venv\Scripts\python.exe .\scripts\generate.py
 ```
 
-### 実行コマンド
+#### 実行コマンド
 
 ```powershell
 .\run.ps1
 ```
 
-初回実行時のみ Diffusers パイプライン構成要素（約 5GB）が自動キャッシュされ、完了すると `outputs/ren_01_casual_park.png` と `outputs/ren_01_formal_evening.png` に同一人物のシチュエーション差分が約 12〜13 秒/枚 で生成される 。 [huggingface](https://huggingface.co/CalamitousFelicitousness/Anima-1.0-Aesthetic-Diffusers)
+初回実行時のみ Diffusers パイプライン構成要素（約 5GB）が自動キャッシュされ、完了すると `outputs/ren_01_casual_park.png` と `outputs/ren_01_formal_evening.png` に同一人物のシチュエーション差分が約 12〜13 秒/枚 で生成される。
 
 (サンプル1)[./suama01.png]
 (サンプル2)[./suama02.png]
