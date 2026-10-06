@@ -16,6 +16,13 @@ winget upgrade --id Microsoft.PowerShell --source winget
 
 他の方法だと、ウィンドウ操作で対応。
 
+### デバイスドライバリセット
+
+```powershell:デバイスドライバリセット
+pwsh 'pnputil /disable-device "PCI\VEN_1002&DEV_7590&SUBSYS_00311F66&REV_C0\6&EDE801E&0&00000009"'
+pwsh 'pnputil /enable-device "PCI\VEN_1002&DEV_7590&SUBSYS_00311F66&REV_C0\6&EDE801E&0&00000009"'
+```
+
 ### Emacs風シェルにしたい
 
 #### プロファイル作成 & 編集コマンド
