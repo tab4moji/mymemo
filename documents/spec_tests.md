@@ -99,3 +99,21 @@
 - ページ内リンクの `href` 属性も同じハッシュ値（例: `#aBcDeFgH`）に書き換えられており、クリックした際に該当の見出しへ正しくスクロールすること。
 - 他ドキュメントへのリンクの `href` 属性も、`markdown.html?content=other#aBcDeFgH` のようにハッシュ部分が対応するハッシュ値に変換されていること。
 
+---
+
+## TC-008: 画像の埋め込み表示および相対パス解決テスト
+### 前提条件
+- `markdown_parse.js`、`markdown.js`、`markdown.css` が読み込まれていること。
+- 画像を含む Markdown ファイル（例: `anima.md`）が存在すること。
+### 操作
+1. `markdown.html?content=anima` にアクセスする。
+2. ページ内に埋め込まれた画像（`suama_01.png`, `suama_02.png`）のレンダリング状態を確認する。
+3. サブディレクトリ配下の Markdown（例: `stories/Cooking`）に相対画像リンクがある場合のパス解決を確認する。
+4. 埋め込まれた画像をクリックする。
+### 期待結果
+- Markdown の画像記法（`![alt](src)`）および画像パスへの直接リンク記法（`- [./suama_01.png](./suama_01.png)`）が、正しく `<img>` タグとして埋め込まれて表示される。
+- 画像には `markdown-image` クラスと `loading="lazy"` が付与され、中央揃え・角丸・影付きでレスポンシブに表示される。
+- サブディレクトリからの相対パス（例: `Cooking.png`）が `stories/Cooking.png` に自動解決され、画像のリンク切れが発生しない。
+- 画像をクリックした際に、別タブで画像ファイル単体が原寸大で開く（`target="_blank"`）。
+
+

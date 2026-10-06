@@ -2,7 +2,7 @@
  * Type: module
  * Scope: global
  * Created: 2026-06-25T08:29:34+09:00
- * Last Updated: 2026-06-25T08:43:55+09:00
+ * Last Updated: 2026-10-06T12:30:00+09:00
  * Status: ACTIVE
  */
 
@@ -202,11 +202,70 @@ function parseMarkdownToHtml(markdownText) {
         return `<pre><code${langAttr}${titleAttr}>${escapedCode}</code></pre>\n`;
     };
 
+    // 画像のカスタムレンダリング（画像の埋め込み対応）
+    // 旧引数(href, title, text)と新引数({href, title, text})の両方に対応する防衛設計
+    renderer.image = function(arg1, arg2, arg3) {
+        let href = '';
+        let title = '';
+        let text = '';
+        if (typeof arg1 === 'object' && arg1 !== null) {
+            href = arg1.href || '';
+            title = arg1.title || '';
+            text = arg1.text || '';
+        } else {
+            href = arg1 || '';
+            title = arg2 || '';
+            text = arg3 || '';
+        }
+
+        const escapedHref = href.replace(/"/g, '&quot;');
+        const escapedText = (text || '').replace(/"/g, '&quot;');
+        const titleAttr = title ? ` title="${title.replace(/"/g, '&quot;')}"` : '';
+
+        return `<img src="${escapedHref}" alt="${escapedText}"${titleAttr} class="markdown-image" loading="lazy">`;
+    };
+
+    // リンクのカスタムレンダリング
+    // 画像URLへの直接リンク（リンクテキストがURLまたはファイル名と同等の場合）も画像埋め込みとして処理
+    renderer.link = function(arg1, arg2, arg3) {
+        let href = '';
+        let title = '';
+        let text = '';
+        if (typeof arg1 === 'object' && arg1 !== null) {
+            href = arg1.href || '';
+            title = arg1.title || '';
+            text = arg1.text || '';
+        } else {
+            href = arg1 || '';
+            title = arg2 || '';
+            text = arg3 || '';
+        }
+
+        const isImageHref = /\.(png|jpe?g|gif|svg|webp|bmp|ico)$/i.test(href.split(/[?#]/)[0]);
+        const cleanText = text.replace(/<[^>]*>/g, '').trim();
+        const cleanHref = href.trim();
+        const hrefFilename = cleanHref.split('/').pop().split(/[?#]/)[0];
+
+        if (isImageHref && (cleanText === cleanHref || cleanText === hrefFilename || cleanText === `./${hrefFilename}`)) {
+            const escapedHref = href.replace(/"/g, '&quot;');
+            const escapedAlt = cleanText.replace(/"/g, '&quot;');
+            const titleAttr = title ? ` title="${title.replace(/"/g, '&quot;')}"` : '';
+            return `<img src="${escapedHref}" alt="${escapedAlt}"${titleAttr} class="markdown-image" loading="lazy">`;
+        }
+
+        const escapedHref = href.replace(/"/g, '&quot;');
+        const titleAttr = title ? ` title="${title.replace(/"/g, '&quot;')}"` : '';
+        return `<a href="${escapedHref}"${titleAttr}>${text}</a>`;
+    };
+
     marked.use({ renderer });
     const rawHtml = marked.parse(fixedText);
     
-    // DOMPurifyでカスタムデータ属性 (data-anchor) の保持を許可する
-    return DOMPurify.sanitize(rawHtml, { ALLOW_DATA_ATTR: true });
+    // DOMPurifyでカスタムデータ属性 (data-anchor) および loading/decoding の保持を許可する
+    return DOMPurify.sanitize(rawHtml, { 
+        ALLOW_DATA_ATTR: true,
+        ADD_ATTR: ['loading', 'decoding']
+    });
 }
 
 // グローバルオブジェクトに公開

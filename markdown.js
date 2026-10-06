@@ -2,7 +2,7 @@
  * Type: module
  * Scope: global
  * Created: 2026-06-25T08:29:34+09:00
- * Last Updated: 2026-06-25T08:43:55+09:00
+ * Last Updated: 2026-10-06T12:30:00+09:00
  * Status: ACTIVE
  */
 
@@ -117,6 +117,41 @@ async function loadMarkdown() {
             } else {
                 link.setAttribute('target', '_blank');
                 link.setAttribute('rel', 'noopener noreferrer');
+            }
+        });
+
+        // 画像タグの相対パス解決と拡大表示対応
+        const pathParts = filename.split('/');
+        pathParts.pop();
+        const baseDir = pathParts.length > 0 ? pathParts.join('/') + '/' : '';
+
+        contentDiv.querySelectorAll('img').forEach(img => {
+            const src = img.getAttribute('src');
+            if (!src) return;
+
+            // 外部リンク・絶対パス・データURI以外は、サブディレクトリを考慮して相対パスを解決
+            if (!src.startsWith('http://') && !src.startsWith('https://') && !src.startsWith('data:') && !src.startsWith('/')) {
+                if (baseDir) {
+                    try {
+                        const dummyBase = 'http://dummy/';
+                        const resolvedUrl = new URL(baseDir + src, dummyBase);
+                        const newSrc = resolvedUrl.pathname.slice(1);
+                        img.setAttribute('src', newSrc);
+                    } catch (e) {
+                        console.error('Failed to resolve relative image path:', e);
+                    }
+                }
+            }
+
+            // 画像が a タグで囲まれていない場合、クリックで画像単体を開けるリンクでラップ
+            if (!img.closest('a')) {
+                const wrapper = document.createElement('a');
+                wrapper.href = img.getAttribute('src');
+                wrapper.target = '_blank';
+                wrapper.rel = 'noopener noreferrer';
+                wrapper.className = 'markdown-image-link';
+                img.parentNode.insertBefore(wrapper, img);
+                wrapper.appendChild(img);
             }
         });
 
