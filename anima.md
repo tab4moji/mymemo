@@ -222,3 +222,6 @@ $env:TORCH_ROCM_AOTRITON_ENABLE_EXPERIMENTAL = "1"
 ##### サンプル
 [./suama_01.png](./suama_01.png)
 [./suama_02.png](./suama_02.png)
+
+##### 参考動画(MiniMax H3使用)
+[./suama_jump.gif](./suama_jump.gif)
