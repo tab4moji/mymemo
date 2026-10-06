@@ -220,5 +220,5 @@ $env:TORCH_ROCM_AOTRITON_ENABLE_EXPERIMENTAL = "1"
 初回実行時のみ Diffusers パイプライン構成要素（約 5GB）が自動キャッシュされ、完了すると `outputs/ren_01_casual_park.png` と `outputs/ren_01_formal_evening.png` に同一人物のシチュエーション差分が約 12〜13 秒/枚 で生成される。
 
 ##### サンプル
-- [./suama_01.png](./suama_01.png)
-- [./suama_02.png](./suama_02.png)
+[./suama_01.png](./suama_01.png)
+[./suama_02.png](./suama_02.png)
