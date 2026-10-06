@@ -27,11 +27,13 @@ start "C:\Program Files\AMD\CNext\CNext\RadeonSoftware.exe"
 
 ### GPU チェック
 
-```powershell:コマンド
+#### チェック用コマンド
+
+```powershell:チェック用コマンド
 $env:HSA_OVERRIDE_GFX_VERSION = "11.0.0"; $env:HIP_VISIBLE_DEVICES = "0,1"; $env:ROCR_VISIBLE_DEVICES = "0,1"; uv run --index-url https://rocm.nightlies.amd.com/whl-multi-arch/ --with "torch[device-all]" --with numpy python -c "import torch; print('=== ROCm Multi-GPU Check ==='); print('Available :', torch.cuda.is_available()); [print(f'Device [{i}]: {torch.cuda.get_device_name(i)} | VRAM: {round(torch.cuda.get_device_properties(i).total_memory / 1e9, 2)} GB') for i in range(torch.cuda.device_count())]"
 ```
 
-動作結果
+#### 動作結果
 
 ```powershell:動作結果
 PS C:\> $env:HSA_OVERRIDE_GFX_VERSION = "11.0.0"; $env:HIP_VISIBLE_DEVICES = "0,1"; $env:ROCR_VISIBLE_DEVICES = "0,1"; uv run --index-url https://rocm.nightlies.amd.com/whl-multi-arch/ --with "torch[device-all]" --with numpy python -c "import torch; print('=== ROCm Multi-GPU Check ==='); print('Available :', torch.cuda.is_available()); [print(f'Device [{i}]: {torch.cuda.get_device_name(i)} | VRAM: {round(torch.cuda.get_device_properties(i).total_memory / 1e9, 2)} GB') for i in range(torch.cuda.device_count())]"
