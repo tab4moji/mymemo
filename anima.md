@@ -1,5 +1,7 @@
 ## Anima
 
+- [circlestone-labs/Anima](https://huggingface.co/circlestone-labs/Anima)
+
 Windows 11 + RX 9060 XT（Oculink）環境において、ComfyUIを使わずpwshからAnima-Aestheticによる同一人物画像生成を回すための完全セットアップ手順だ。
 
 ### 1. ディレクトリとモデル取得（pwsh）
@@ -50,6 +52,8 @@ uv pip install `
 ### 3. 設定ファイル（`config/character.yaml`）
 
 キャラクターの外見特徴をアンカーとして固定し、2つの異なるシチュエーション（カジュアルとフォーマル）を定義する。
+
+- [美しく仕上げるためのプロンプトのコツ](https://huggingface.co/circlestone-labs/Anima#aesthetic-version-prompting)
 
 ```yaml
 # config/character.yaml
