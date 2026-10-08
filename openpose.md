@@ -10,7 +10,9 @@ curl -JOL https://huggingface.co/xinsir/controlnet-openpose-sdxl-1.0/resolve/mai
 --control-net ".\models\controlnet-openpose-sdxl-1.0.safetensors" --control-image ".\outputs\openpose.png" --control-strength 0.85
 ```
 
-### コード
+### python コード
+
+(uv 環境)[./uv.md] が前提
 
 posing.py
 
