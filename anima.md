@@ -234,6 +234,10 @@ $env:TORCH_ROCM_AOTRITON_ENABLE_EXPERIMENTAL = "1"
 
 #### 参考動画(MiniMax H3使用)
 
+```powershell
+$env:GGML_VK_VISIBLE_DEVICES = "0,1"; .\sd-cli.exe -M vid_gen --diffusion-model ".\models\minimax_h3_fl2va_pruned_fp8_Q4_0.gguf" --llm ".\models\qwen3vl_32b_minimax_h3-Q4_K_M.gguf" --vae ".\models\minimax_h3_video_vae_fp16.safetensors" -W 544 -H 960 --video-frames 64 --steps 18 --cfg-scale 1.00 --backend diffusion=vulkan1,te=cpu,vae=vulkan0 --diffusion-fa --init-img ".\outputs\init.png" --end-img ".\outputs\end.png" -p "A single continuous unbroken shot with no scene cuts: The girl stands up and jumps. Her face, eyes, hairstyle, clothes and background remain detailed and consistent. sharp facial focus, crisp 4k texture" -n "low qality, deformed, blurry" -o "outputs\suama_jump.mp4"
+```
+
 [./suama_jump.gif](./suama_jump.gif)
 
 ##
