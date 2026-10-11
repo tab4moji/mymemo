@@ -207,4 +207,58 @@ Cline CLIの`settings`やMCP設定に`pystdoc mcp`を登録し、外部ハーネ
 
 「コードの構造把握や依存追跡」はASTベースの`pystdoc`に任せ、「実際の差分編集やテスト実行」はCline CLIに任せるという明確な役割分担を敷くべきだ。
 
+***
+
+### pystdoc 以外のツール
+
+pystdoc 以外で、LLM へのソースコード RAG 提供機能として優れているツールを探してくれ。
+
+#### 回答
+
+`pystdoc` のように**AST解析、コールグラフ、依存関係追跡（Impact Analysis）、MCP（Model Context Protocol）連携**を備え、ソースコードの構造的理解をLLMに提供するツールとして、特に優れている代表的なOSSを分類して紹介する。単純なテキスト分割ベクトル検索（Naive RAG）ではなく、**構文木（Tree-sitter等）やシンボルグラフを用いた「構造的コードRAG」**に絞って比較した。
+
+#### 構造的コードRAGツールの代表格
+
+##### 1. Codebase-Memory (DeusData/codebase-memory-mcp)
+現在最も `pystdoc` と思想が近く、かつ高速・大規模に対応できるツールだ。
+- **特徴**: C言語製エンジンとTree-sitterを統合し、リポジトリ全体を数秒でSQLiteのナレッジグラフへインデックス化する。
+- **機能**: 158言語対応のシンボル抽出、コールグラフトラバーサル、変更時の影響範囲分析（Impact Analysis）、デッドコード検出、Cypherライクなクエリ実行に対応。
+- **LLM連携**: 17個のMCPツールを公開しており、Claude CodeやOpenCodeなどのCoding Agentからファイル全体を読み込まずに必要な関数定義や呼び出し元だけをピンポイントで引き当てられる。
+- **利点**: 単一バイナリ・外部依存なしで完結し、LLMに無駄なトークンを消費させない（事前解析でLLM APIコストをかけずASTだけで完結する）。
+
+##### 2. Aider の Repo Map (aider-chat / grep-ast)
+実務のコーディングエージェントで最も実績のある構造把握エンジンだ。
+- **特徴**: Tree-sitterでリポジトリ全体のシンボル定義（関数・クラス）と参照箇所を抽出し、PageRankアルゴリズムで「重要度」を重み付けしてコードベースの地図（Repo Map）を動的に組み立てる。
+- **派生ツール (`grep-ast`)**: Pythonライブラリとして単体公開されており、正規表現検索にヒットしたコード周辺の構文木（包含関係にある関数やクラス宣言、シグネチャ）だけを整形して抽出できる。
+- **利点**: トークン予算（バジェット）に合わせて動的にコンテキストを圧縮できるため、コンテキスト幅が狭いローカルLLMへの注入に極めて向いている。
+
+##### 3. code-review-graph
+PRレビューや影響分析に特化したローカルナレッジグラフ生成ツールだ。
+- **特徴**: Tree-sitterを用いてコードベースを解析し、関数・クラス・継承・呼び出し関係をローカルSQLiteに格納する。
+- **機能**: コード変更時の波及範囲（Blast Radius）の計算や、呼び出し関係の可視化を得意とする。
+- **利点**: `.code-review-graph/` 配下にキャッシュを保持し、MCP経由でエージェントに必要な関係性だけを渡せる。
+
+##### 4. Code Index MCP (johnhuang316/code-index-mcp)
+軽量かつ設定が平易なコード探索MCPサーバーだ。
+- **特徴**: Tree-sitter（主要言語）とフォールバック解析を組み合わせ、シンボル定義・シグネチャのインデックス化を行う。
+- **利点**: CursorやVS Code、Claude DesktopのMCPサーバーとして導入しやすく、エージェントが「どのファイルにどんなシグネチャがあるか」を高速に調べるツールとして動作する。
+
+#### 主な機能比較
+
+| ツール名 | 解析エンジン | インデックス保持 | LLM/Agent連携 | 主な強み |
+| :--- | :--- | :--- | :--- | :--- |
+| **pystdoc** | AST + libclang | SQLite / Markdown | MCP / CLI | 事前LLM要約 + トポロジカル依存ソート
+| **Codebase-Memory** | Tree-sitter (158言語) | SQLite | MCP (17 tools) | 圧倒的な解析速度、コールグラフ、影響分析
+| **Aider Repo Map** | Tree-sitter + PageRank | メモリ内動的生成 | CLI / Python API | トークン予算に収める重要度ベースの自動圧縮
+| **grep-ast** | Tree-sitter | なし（オンデマンド） | CLI / Python API | 検索マッチ箇所に親クラス・関数構文を付与
+| **code-review-graph** | Tree-sitter | SQLite | MCP / CLI | 変更の影響波及範囲（Blast Radius）分析
+
+#### 選び方とおすすめ
+
+1. **`pystdoc` の代替として最も高機能なMCPツールが欲しい場合**
+   `Codebase-Memory` (`DeusData/codebase-memory-mcp`) が筆頭候補だ。インデックス作成時にLLMのAPIや推論リソースを食わず、Tree-sitterのみで一瞬でグラフを構築するため、ローカル環境でも負荷なく運用できる。
+
+2. **ローカルLLMへのプロンプト注入でトークンを絞りたい場合**
+   `aider` の `repomap.py` ロジック、または `grep-ast` の利用が適している。コンテキスト長が有限な小型モデルでも、関係ない実装コードを削ぎ落としてシグネチャと重要シンボルだけを渡すことができる。
+
 ##
