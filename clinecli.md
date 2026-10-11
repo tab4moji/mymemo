@@ -159,7 +159,7 @@ RAGの対象とするデータ（コードベース、設定ファイル、メ�
 
 ### pystdoc
 
-[pystdoc](https://pypi.org/project/pystdoc/)は cline cli と併用する価値はあるか。
+[pystdoc](https://pypi.org/project/pystdoc/) は cline cli と併用する価値はあるか。
 それとも純粋に cline cli のコーディング機能に任せた方が良いか。
 
 #### 回答
