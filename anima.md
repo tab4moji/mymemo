@@ -244,6 +244,8 @@ $env:GGML_VK_VISIBLE_DEVICES = "0,1"; .\sd-cli.exe -M vid_gen --diffusion-model 
 
 ### 勉強用キーワード
 
+- Anima-Base v1.0
+- In-Contextキャラクター生成
 - Danbooru タグ
 
 ##
