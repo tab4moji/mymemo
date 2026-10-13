@@ -225,7 +225,7 @@ $env:TORCH_ROCM_AOTRITON_ENABLE_EXPERIMENTAL = "1"
 
 ***
 
-#### サンプル
+#### サンプル (プロンプトは未公開)
 
 [./suama_01.png](./suama_01.png)
 [./suama_02.png](./suama_02.png)
@@ -239,5 +239,11 @@ $env:GGML_VK_VISIBLE_DEVICES = "0,1"; .\sd-cli.exe -M vid_gen --diffusion-model 
 ```
 
 [./suama_jump.gif](./suama_jump.gif)
+
+***
+
+### 勉強用キーワード
+
+- Danbooru タグ
 
 ##
