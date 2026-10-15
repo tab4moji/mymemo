@@ -80,7 +80,9 @@ ollama pull hf.co/unsloth/Qwen3.8-27B-GGUF:UD-IQ4_XS
 ollama run hf.co/unsloth/Qwen3.8-27B-GGUF:UD-IQ4_XS
 ```
 
-```shell:モデルの設定開始
+#### ollama run でコンテキストサイズ設定
+
+```shell:ollama run したあとに、モデルの設定開始
 /set parameter num_ctx 32768
 /save *qwen38-27b-32k*
 /bye
