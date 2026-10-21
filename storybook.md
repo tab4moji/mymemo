@@ -3,7 +3,7 @@
 ## 調査メモ
 
 ```bash
-pi@NucBoxK16:storybook$ uv run --python 3.12 -m chat --host 192.168.11.6:11434
+$ uv run --python 3.12 -m chat --host 192.168.11.6:11434
 [Session Loaded] 0 messages.
 --- Streaming Mode: http://192.168.11.6:11434/v1/chat/completions (gemma4-26b-a4b) ---
 Type 'exit' to stop. Type '/image <path>' or '/audio <path>' to attach files.
