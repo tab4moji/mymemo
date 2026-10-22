@@ -157,6 +157,10 @@ Install-Module -Name PSWindowsUpdate -Force -AllowClobber; Import-Module PSWindo
 Install-Module -Name PSWindowsUpdate -Force -AllowClobber; Import-Module PSWindowsUpdate; Install-WindowsUpdate -AcceptAll
 ```
 
+```powershell:全てのアプリをアップグレード
+winget upgrade --all --include-unknown
+```
+
 ### Windows Update 直行ショートカットが欲しい
 
 Windows Updateショートカット作成
