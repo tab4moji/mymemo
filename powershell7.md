@@ -161,6 +161,12 @@ Install-Module -Name PSWindowsUpdate -Force -AllowClobber; Import-Module PSWindo
 winget upgrade --all --include-unknown
 ```
 
+Windows Terminal は、conhost.exe でアップグレードする必要がある。
+
+```powershell:conhost.exeでcmd.exeを起動
+conhost.exe cmd.exe
+```
+
 ### Windows Update 直行ショートカットが欲しい
 
 Windows Updateショートカット作成
