@@ -7,6 +7,16 @@
 
 - [Hugging Face 流行モデル](https://huggingface.co/models?library=gguf&apps=ollama&inference_provider=all&sort=trending)
 
+### ollama セットアップ
+
+```powershell:アップグレード
+winget install Ollama.Ollama
+```
+
+```powershell:アップグレード
+winget upgrade --id Ollama.Ollama
+```
+
 ### ollama コマンド
 
 #### コマンド一覧
