@@ -19,6 +19,13 @@ if ($amdProcs) {
 }
 ```
 
+### デバイスドライバリセット
+
+```powershell:デバイスドライバリセット
+pnputil /disable-device "PCI\VEN_1002&DEV_7590&SUBSYS_00311F66&REV_C0\6&EDE801E&0&00000009"
+pnputil /enable-device "PCI\VEN_1002&DEV_7590&SUBSYS_00311F66&REV_C0\6&EDE801E&0&00000009"
+```
+
 #### AMD Adrenarin 再起動
 
 ```powershell
