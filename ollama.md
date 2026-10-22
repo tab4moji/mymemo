@@ -10,7 +10,7 @@
 ### ollama セットアップ
 
 ```powershell:インストール
-winget install Ollama.Ollama
+winget install --id Ollama.Ollama
 ```
 
 ```powershell:アップグレード
