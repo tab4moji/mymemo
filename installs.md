@@ -25,6 +25,12 @@ winget upgrade --id astral-sh.uv --source winget
 
 ### 2. uv で python コード実行
 
+#### uv python のバージョン固定
+
+```bash
+uv python pin 3.12
+```
+
 #### ワンライナー的呼び出し
 
 ```bash
