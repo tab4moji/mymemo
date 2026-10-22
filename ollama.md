@@ -9,7 +9,7 @@
 
 ### ollama セットアップ
 
-```powershell:アップグレード
+```powershell:インストール
 winget install Ollama.Ollama
 ```
 
