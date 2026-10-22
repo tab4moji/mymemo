@@ -114,4 +114,12 @@ uv cache clean && rm -rf "$(uv python dir)" && rm -rf "$(uv tool dir)" && rm -f 
 uv python install 3.14t
 ```
 
+```bash
+relax sudo update-ca-certificates --fresh && relax sudo apt update && relax sudo apt -o APT::Get::Always-Include-Phased-Updates=true dist-upgrade -y && relax sudo apt full-upgrade -y && relax sudo apt autoremove --purge -y && relax sudo apt autoclean -y; uv self update && uv pip install --upgrade pip certifi; python3 -m pip install --upgrade pip certifi
+```
+
+```powershell
+winget upgrade --all --include-unknown
+```
+
 ##
