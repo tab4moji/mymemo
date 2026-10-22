@@ -337,6 +337,6 @@ sudo "$(wslpath -u "$(powershell "where.exe pwsh" | sed -E "/^$/d" | iconv -t ut
 ### メモ
 
 - [Windows の GPU チェック](./?content=wsl#kWBqiW0y)
-- 軽量モデル [huihui_ai/qwen2.5-vl-abliterated:7b](https://ollama.com/huihui_ai/qwen2.5-vl-abliterated:7b)
+- 軽量モデル [huihui_ai/qwen2.5-vl-abliterated:7b](https://huggingface.co/huihui-ai/Qwen2.5-VL-7B-Instruct-abliterated)
 
 ##
