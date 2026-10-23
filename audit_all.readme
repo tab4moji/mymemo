@@ -1,0 +1,21 @@
+# Comprehensive Python Security Auditor
+
+## 1. 目的と機能
+本プログラムは、開発環境内に存在するすべての Python 環境を走査し、
+既知の脆弱性（CVE / GHSA / PYSEC）を抱えるパッケージを検出する。
+
+走査対象:
+1. プロジェクト配下の仮想環境（.venv, 任意名の venv）
+2. uv 管理下の永続ツール環境（uv tool install / ~/.local/share/uv/tools）
+3. uv 管理下の Python ランタイム本体（uv python install）
+4. システム上の全 Python インタプリタ（python3, python3.12 など）
+
+## 2. 更新履歴
+- Rev 001 (2026-10-23): 初版作成。プロジェクト venv とシステム Python を監査。
+- Rev 002 (2026-10-23): uv tool 環境および uv python 配下の監査機能を追加。
+
+## 3. 動作要件
+- bash
+- fdfind または fd
+- uv
+- python3 (packaging モジュール)
