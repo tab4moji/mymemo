@@ -8,6 +8,7 @@
 
 ブラウザの設定
 - [chrome://components](chrome://components)
+  - CRLSet とかを最新に
 
 curl とか python3::requests とかもブラウザと別で確認必要あり
 
