@@ -114,8 +114,11 @@ uv cache clean && rm -rf "$(uv python dir)" && rm -rf "$(uv tool dir)" && rm -f 
 uv python install 3.14t
 ```
 
-```bash
-relax sudo update-ca-certificates --fresh && relax sudo apt update && relax sudo apt -o APT::Get::Always-Include-Phased-Updates=true dist-upgrade -y && relax sudo apt full-upgrade -y && relax sudo apt autoremove --purge -y && relax sudo apt autoclean -y; uv self update && uv pip install --upgrade pip certifi; python3 -m pip install --upgrade pip certifi
+```bash:環境クリーンアップ
+relax sudo update-ca-certificates --fresh && relax sudo apt update && relax sudo apt -o APT::Get::Always-Include-Phased-Updates=true dist-upgrade -y && relax sudo apt full-upgrade -y && relax sudo apt autoremove --purge -y && relax sudo apt autoclean -y
+uv self update && uv pip install --upgrade pip certifi
+python3 -m pip install --upgrade pip certifi
+rm -rf ~/.cache/pip ~/.cache/pip-audit && uv cache clean && for venv in $(fdfind -H -I -t f '^pyvenv\.cfg$' "$HOME" -E '.cache' -E '.local' -E '.git' --prune --exec dirname {}); do echo "=== [Venv] $venv ==="; if [ -d "$venv/bin" ]; then PATH="$venv/bin:$PATH" uvx pip-audit -l; fi; echo ""; done && for py in $(compgen -c python | grep -E '^python3(\.[0-9]+)?(t)?$' | sort -u); do if command -v "$py" >/dev/null && "$py" -m pip --version >/dev/null 2>&1; then echo "=== [System] $py ==="; "$py" -m pip list --format=freeze 2>/dev/null | uvx pip-audit -r /dev/stdin; echo ""; fi; done && uv cache clean
 ```
 
 ```powershell
