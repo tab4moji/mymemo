@@ -75,7 +75,7 @@ async function loadMarkdown() {
             }
 
             // 2. 外部リンクの場合
-            if (href.startsWith('http://') || href.startsWith('https://')) {
+            if (href.startsWith('http://') || href.startsWith('https://') || href.startsWith('chrome://')) {
                 link.setAttribute('target', '_blank');
                 link.setAttribute('rel', 'noopener noreferrer');
                 return;
@@ -130,7 +130,7 @@ async function loadMarkdown() {
             if (!src) return;
 
             // 外部リンク・絶対パス・データURI以外は、サブディレクトリを考慮して相対パスを解決
-            if (!src.startsWith('http://') && !src.startsWith('https://') && !src.startsWith('data:') && !src.startsWith('/')) {
+            if (!src.startsWith('http://') && !src.startsWith('https://')  && !src.startsWith('chrome://') && !src.startsWith('data:') && !src.startsWith('/')) {
                 if (baseDir) {
                     try {
                         const dummyBase = 'http://dummy/';
