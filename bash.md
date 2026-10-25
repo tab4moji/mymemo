@@ -805,4 +805,10 @@ sudo apt update
 sudo apt install yazi
 ```
 
+### curl
+
+```curl:ダウンロード
+alias webget='\curl -JOL -w "%{filename_effective}\n"'
+```
+
 ##
