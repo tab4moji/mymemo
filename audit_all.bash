@@ -26,6 +26,7 @@ fi
 echo "=== Cleaning caches ==="
 rm -rf "$HOME/.cache/pip" "$HOME/.cache/pip-audit"
 if command -v uv >/dev/null 2>&1; then
+  echo "clean..."
   uv cache clean >/dev/null 2>&1
 fi
 

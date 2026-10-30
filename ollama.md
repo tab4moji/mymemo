@@ -80,7 +80,7 @@ ollama pull hf.co/unsloth/Qwen3.8-27B-GGUF:UD-IQ4_XS
 
 ### モデル使用例
 
-- [unsloth/Qwen3.8-27B-GGUF:UD-IQ4_XS](https://huggingface.co/unsloth/Qwen3.8-27B-GGUF/blob/main/Qwen3.8-27B-UD-IQ4_XS.gguf)
+- [hf.co/unsloth/Qwen3.8-27B-GGUF:UD-IQ4_XS](https://huggingface.co/unsloth/Qwen3.8-27B-GGUF/blob/main/Qwen3.8-27B-UD-IQ4_XS.gguf)
 
 ```shell:モデルダウンロード(省略可能)
 ollama pull hf.co/unsloth/Qwen3.8-27B-GGUF:UD-IQ4_XS
@@ -337,7 +337,8 @@ sudo "$(wslpath -u "$(powershell "where.exe pwsh" | sed -E "/^$/d" | iconv -t ut
 ### メモ
 
 - [Windows の GPU チェック](./?content=wsl#kWBqiW0y)
-- 軽量モデル Qwen2.5-VL-7B [huihui_ai/qwen2.5-vl-abliterated:7b](https://huggingface.co/huihui-ai/Qwen2.5-VL-7B-Instruct-abliterated)
-- 軽量モデル Qwen3-VL-8B [huihui_ai/qwen3-vl-abliterated:8b-instruct](https://huggingface.co/huihui-ai/Huihui-Qwen3-VL-8B-Instruct-abliterated)
+- 計量モデル Gemma4-26B-A4B [hf.co/unsloth/gemma-4-26B-A4B-it-GGUF:IQ4_XS](https://huggingface.co/unsloth/gemma-4-26B-A4B-it-GGUF)
+- 軽量モデル Qwen2.5-VL-7B [hf.co/huihui_ai/qwen2.5-vl-abliterated:7b](https://huggingface.co/huihui-ai/Qwen2.5-VL-7B-Instruct-abliterated)
+- 軽量モデル Qwen3-VL-8B [hf.co/huihui_ai/qwen3-vl-abliterated:8b-instruct](https://huggingface.co/huihui-ai/Huihui-Qwen3-VL-8B-Instruct-abliterated)
 
 ##
