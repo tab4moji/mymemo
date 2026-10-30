@@ -1,10 +1,13 @@
+# お試しのやりとり
+
+## プロンプト
 ```text
 C言語で hello,world 作って。
 ```
 + Thought: 10.1s
 
+### Wrote hello.c
 ```c
-# Wrote hello.c
 #include <stdio.h>
 
 int main() {
@@ -15,11 +18,12 @@ int main() {
 
 hello.c を作成しました。
 ▣  Build · gemma4:26b · 42.9s
+## プロンプト
 ```text
 マクローリン展開の cos 関数を作って。
 ```
 + Thought: 27.9s
-# Wrote cos_maclaurin.c
+### Wrote cos_maclaurin.c
 ```c
 #include <stdio.h>
 
@@ -64,6 +68,7 @@ int main() {
 
 マクローリン展開を用いた cos 関数を cos_maclaurin.c として作成しました。
 ▣  Build · gemma4:26b · 29.5s
+## プロンプト
 ```text
 hello.c の中に関数を移動して。
 ```
@@ -115,6 +120,7 @@ int main() {
 
 hello.c に my_cos 関数を移動しました。
 ▣  Build · gemma4:26b · 13.0s
+## プロンプト
 ```text
 gcc -o hello hello.c && ./hello
 これを試してみて。
@@ -135,8 +141,8 @@ int main() {
     printf("hello, world\n");
 
     double test_values[] = {0, PI/6, PI/4, PI/3, PI/2, PI};
-    int num_tests = sizeof(test_values) / sizeof(test_values[0])
-    int num_tests = sizeof(test_values) / sizeof(test_values[0]);
+-   int num_tests = sizeof(test_values) / sizeof(test_values[0])
++   int num_tests = sizeof(test_values) / sizeof(test_values[0]);
 
     printf("Testing my_cos (Maclaurin expansion):\n");
     printf("x\t\tmy_cos(x)\n");
