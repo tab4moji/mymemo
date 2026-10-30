@@ -1,5 +1,7 @@
 # お試しのやりとり
 
+## gemma-4-26B-A4B-it-GGUF:IQ4_XS 
+
 ## プロンプト
 ```text
 C言語で hello,world 作って。
