@@ -18,7 +18,7 @@ int main() {
 ```
 
 hello.c を作成しました。
-+▣  Build · gemma4:26b · 42.9s
++ ▣  Build · gemma4:26b · 42.9s
 #### プロンプト
 ```text
 マクローリン展開の cos 関数を作って。
@@ -67,7 +67,7 @@ int main() {
 ```
 
 マクローリン展開を用いた cos 関数を cos_maclaurin.c として作成しました。
-+▣  Build · gemma4:26b · 29.5s
++ ▣  Build · gemma4:26b · 29.5s
 #### プロンプト
 ```text
 hello.c の中に関数を移動して。
@@ -118,7 +118,7 @@ int main() {
 ```
 
 hello.c に my_cos 関数を移動しました。
-▣  Build · gemma4:26b · 13.0s
++ ▣   Build · gemma4:26b · 13.0s
 #### プロンプト
 ```text
 gcc -o hello hello.c && ./hello
@@ -174,4 +174,4 @@ x		my_cos(x)
 1.570796	0.000000
 3.141593	-1.000000
 ```
-+▣  Build · gemma4:26b · 29.1s
++ ▣  Build · gemma4:26b · 29.1s
