@@ -8,8 +8,7 @@ C言語で hello,world 作って。
 ```
 + Thought: 10.1s
 
-##### Wrote hello.c
-```c
+```c:Wrote hello.c
 #include <stdio.h>
 
 int main() {
@@ -19,14 +18,13 @@ int main() {
 ```
 
 hello.c を作成しました。
-▣  Build · gemma4:26b · 42.9s
++▣  Build · gemma4:26b · 42.9s
 #### プロンプト
 ```text
 マクローリン展開の cos 関数を作って。
 ```
 + Thought: 27.9s
-##### Wrote cos_maclaurin.c
-```c
+```c:Wrote cos_maclaurin.c
 #include <stdio.h>
 
 #define PI 3.14159265358979323846
@@ -69,7 +67,7 @@ int main() {
 ```
 
 マクローリン展開を用いた cos 関数を cos_maclaurin.c として作成しました。
-▣  Build · gemma4:26b · 29.5s
++▣  Build · gemma4:26b · 29.5s
 #### プロンプト
 ```text
 hello.c の中に関数を移動して。
@@ -77,8 +75,7 @@ hello.c の中に関数を移動して。
 →Read hello.c 
 →Read cos_maclaurin.c 
 
-##### Wrote hello.c
-```c
+```c:Wrote hello.c
 #include <stdio.h>
 
 #define PI 3.14159265358979323846
@@ -177,4 +174,4 @@ x		my_cos(x)
 1.570796	0.000000
 3.141593	-1.000000
 ```
-▣  Build · gemma4:26b · 29.1s
++▣  Build · gemma4:26b · 29.1s
