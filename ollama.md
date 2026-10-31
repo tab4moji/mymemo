@@ -107,9 +107,6 @@ ollama run qwen38-27b-32k
 iGPU で起動
 
 ```powershell:iGPUでollama
-# 1. 既存プロセス停止
-# Get-Process ollama -ErrorAction SilentlyContinue | Stop-Process -Force
-
 $env:HSA_OVERRIDE_GFX_VERSION = ""
 $env:OLLAMA_IGPU_ENABLE = ""
 $env:ROCR_VISIBLE_DEVICES = ""
@@ -120,25 +117,22 @@ $env:OLLAMA_VULKAN = "false"
 $env:OLLAMA_NUM_CTX = 32768
 $env:OLLAMA_KEEP_ALIVE = "-1"
 
-# 2. 環境変数を明示
-$env:OLLAMA_HOST = "0.0.0.0:11435" # XXX EmbeddingGemma
-$env:HSA_OVERRIDE_GFX_VERSION = "11.0.0"
+$env:OLLAMA_HOST = "0.0.0.0:11435" # iGPU
+$env:HSA_OVERRIDE_GFX_VERSION = "11.5.0"
 
+$env:OLLAMA_NUM_GPU = 99
 $env:OLLAMA_VULKAN = "true"
 $env:OLLAMA_IGPU_ENABLE = "1"
-$env:GGML_VK_VISIBLE_DEVICES = "0"
+$env:GGML_VK_VISIBLE_DEVICES = "1"
 $env:ROCR_VISIBLE_DEVICES = "1"
 
-# 3. 起動
+# 起動
 ollama serve
 ```
 
 dGPU(eGPU) で起動
 
 ```powershell:dGPU(eGPU)でollama
-# 1. 既存プロセス停止
-# Get-Process ollama -ErrorAction SilentlyContinue | Stop-Process -Force
-
 $env:HSA_OVERRIDE_GFX_VERSION = ""
 $env:OLLAMA_IGPU_ENABLE = ""
 $env:ROCR_VISIBLE_DEVICES = ""
@@ -146,19 +140,27 @@ $env:ROCm_VISIBLE_DEVICES = ""
 $env:HIP_VISIBLE_DEVICES = ""
 $env:GGML_VK_VISIBLE_DEVICES = ""
 $env:OLLAMA_VULKAN = "false"
-$env:OLLAMA_NUM_CTX = 32768
+$env:OLLAMA_NUM_CTX = 65536
 $env:OLLAMA_KEEP_ALIVE = "-1"
 
-# 2. 環境変数を明示
-$env:OLLAMA_HOST = "0.0.0.0:11435" # XXX EmbeddingGemma
-$env:HSA_OVERRIDE_GFX_VERSION = "11.0.0"
+$env:OLLAMA_HOST = "0.0.0.0:11434"
+$env:HSA_OVERRIDE_GFX_VERSION = "11.5.0"
 
+$env:OLLAMA_NUM_GPU = 99
 $env:OLLAMA_VULKAN = "true"
 $env:OLLAMA_IGPU_ENABLE = "1"
-$env:GGML_VK_VISIBLE_DEVICES = "0"
+$env:GGML_VK_VISIBLE_DEVICES = "1"
 $env:ROCR_VISIBLE_DEVICES = "1"
+$env:ROCm_VISIBLE_DEVICES = "1"
+$env:HIP_VISIBLE_DEVICES = "1"
 
-# 3. 起動
+$env:OLLAMA_CONTEXT_LENGTH = "65536"
+$env:OLLAMA_NUM_PARALLEL = "1"
+$env:OLLAMA_MAX_LOADED_MODELS = "1"
+$env:OLLAMA_FLASH_ATTENTION = "1"
+$env:OLLAMA_KV_CACHE_TYPE = "q8_0"
+
+# 起動
 ollama serve
 ```
 
