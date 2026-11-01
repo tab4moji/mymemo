@@ -4,6 +4,8 @@
 機能: V2.19 提案された「(1)保存 -> (2)動作 -> (3)復帰」のアーキテクチャに完全リファクタリング。
 更新履歴:
 - 026: 2026-07-18: カーソル保存(\033[s)と復元(\033[u)をベースにした絶対座標描画ロジックへ変更。
+- 027: 2026-10-18: GPU温度表示追加(1行結合/3行モード)。os.readによるqキー入力の取りこぼし解消。
+- 028: 2026-10-18: スクリプト配置ディレクトリを基準にmonitor_win.ps1の絶対パスを解決し、他ディレクトリ実行に対応。
 """
 import subprocess
 import json
@@ -48,57 +50,61 @@ def read_output(proc: subprocess.Popen, data_queue: queue.Queue) -> None:
     except Exception:
         pass
 
-def input_thread(stop_event: threading.Event) -> None:
+def input_thread(fd: int, stop_event: threading.Event) -> None:
+    while not stop_event.is_set():
+        try:
+            r, _, _ = select.select([fd], [], [], 0.05)
+            if r:
+                data = os.read(fd, 1024)
+                if not data:
+                    break
+                # 'q', 'Q', または Ctrl+C (\x03) で即座に終了フラグを立てる
+                if b'q' in data or b'Q' in data or b'\x03' in data:
+                    stop_event.set()
+                    break
+        except (InterruptedError, BlockingIOError):
+            continue
+        except Exception:
+            break
+
+def main() -> int:
     fd = sys.stdin.fileno()
     old_settings = termios.tcgetattr(fd)
 
-    old_flags = os.get_blocking(fd)
-    os.set_blocking(fd, False)
+    # 起動直後の入力を破棄しないよう TCSANOW で即座に cbreak モード化
+    tty.setcbreak(fd, termios.TCSANOW)
 
-    try:
-        tty.setcbreak(fd)
-        while not stop_event.is_set():
-            try:
-                r, _, _ = select.select([sys.stdin], [], [], 0.05)
-                if r:
-                    char = sys.stdin.read(1)
-                    if char and char.lower() == 'q':
-                        stop_event.set()
-                        break
-            except (InterruptedError, BlockingIOError):
-                continue
-            except Exception:
-                break
-    finally:
-        os.set_blocking(fd, old_flags)
-        termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+    stop_event = threading.Event()
+    # 子プロセス起動前の最速タイミングでキー監視スレッドを開始
+    key_th = threading.Thread(target=input_thread, args=(fd, stop_event), daemon=True)
+    key_th.start()
 
-def main() -> int:
     try:
         sys.stdout.write("\033[?7l") # 折り返し無効化
         sys.stdout.flush()
 
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+
+        # 子プロセスに標準入力を横取りされないよう stdin=subprocess.DEVNULL を指定
+        # 呼び出し元が /mnt/d などのWindowsマウント下でも正常動作するよう cwd=script_dir を指定
         proc = subprocess.Popen(
             ["pwsh", "monitor_win.ps1"],
+            cwd=script_dir,
+            stdin=subprocess.DEVNULL,
             stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, encoding='utf-8', errors='replace'
         )
 
         data_queue = queue.Queue()
-        stop_event = threading.Event()
-
         reader_th = threading.Thread(target=read_output, args=(proc, data_queue), daemon=True)
-        key_th = threading.Thread(target=input_thread, args=(stop_event,), daemon=True)
-
         reader_th.start()
-        key_th.start()
 
         latest_data = {}
         vram_max_caps = {}
 
         # 起動時: ターミナル下部で実行された際に画面がスクロールして
         # 保存座標がズレるのを防ぐため、あらかじめキャンバス(改行)を確保する
-        sys.stdout.write("\n" * 20)
-        sys.stdout.write("\033[20A")
+        sys.stdout.write("\n" * 30)
+        sys.stdout.write("\033[30A")
 
         # (1) 画面保存: 描画の起点(アンカー)をロック
         sys.stdout.write("\033[s")
@@ -142,9 +148,9 @@ def main() -> int:
                     cpu_chunk = 1
                     cpu_bw = min(40, max(4, cols - 13))
 
-                if cols >= 45:
+                if cols >= 52:
                     gpu_combined = True
-                    gpu_bw = min(15, (cols - 31) // 2)
+                    gpu_bw = min(15, (cols - 39) // 2)
                 else:
                     gpu_combined = False
                     gpu_bw = min(40, max(4, cols - 17))
@@ -172,14 +178,17 @@ def main() -> int:
                 gpus = latest_data.get("GPUs", [])
                 if not gpus:
                     if gpu_combined:
-                        lines.append(f"{'GPU0':<10} {make_empty_bar(gpu_bw)}  VRAM {make_empty_bar(gpu_bw)}")
+                        lines.append(f"{'GPU0':<10} {make_empty_bar(gpu_bw)}  VRAM {make_empty_bar(gpu_bw)}   -°C")
                     else:
                         lines.append(f"{'GPU0':<10} {make_empty_bar(gpu_bw)}")
                         lines.append(f"{'VRAM0':<10} {make_empty_bar(gpu_bw)}")
+                        lines.append(f"{'TEMP0':<10}   -°C")
                 else:
                     for i, gpu in enumerate(gpus):
                         usage = gpu.get('Usage', 0)
                         vram_mb = gpu.get('VRAM_MB', 0)
+                        temp = gpu.get('Temp', 0)
+                        temp_str = f"{int(round(temp)):>3}°C" if temp > 0 else "  -°C"
 
                         if i not in vram_max_caps:
                             vram_max_caps[i] = 16384.0
@@ -193,11 +202,13 @@ def main() -> int:
 
                         label = f"GPU{i}"
                         if gpu_combined:
-                            lines.append(f"{label:<10} {make_bar(usage, gpu_bw)}  VRAM {make_bar(vram_pct, gpu_bw)}")
+                            lines.append(f"{label:<10} {make_bar(usage, gpu_bw)}  VRAM {make_bar(vram_pct, gpu_bw)}  {temp_str}")
                         else:
                             lines.append(f"{label:<10} {make_bar(usage, gpu_bw)}")
                             label_vram = f"VRAM{i}"
                             lines.append(f"{label_vram:<10} {make_bar(vram_pct, gpu_bw)}")
+                            label_temp = f"TEMP{i}"
+                            lines.append(f"{label_temp:<10} {temp_str}")
 
                 npus = latest_data.get("NPUs", [])
                 if not npus:
@@ -244,7 +255,10 @@ def main() -> int:
 
     finally:
         if 'proc' in locals():
-            proc.terminate()
+            try:
+                proc.terminate()
+            except Exception:
+                pass
 
         # (3) 画面復帰 -> 終了
         # 最後に起点に戻ってクリアし、最終状態を1回だけ表示して終了する
@@ -254,6 +268,9 @@ def main() -> int:
 
         sys.stdout.write("\033[?7h") # 折り返し設定を元に戻す
         sys.stdout.flush()
+
+        # 端末設定を元の状態に復元
+        termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
 
     return 0
 
