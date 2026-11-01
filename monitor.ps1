@@ -6,6 +6,9 @@
 # - 029: 2026-10-31: monitor.py と monitor_win.ps1(028) を単一のpwshスクリプトへ統合。
 #                    JSON経由とサブプロセスを廃止し、ConcurrentQueueでデータを受け渡す。
 #                    CPUコアの並び順を末尾の数値基準に修正。
+# - 030: 2026-11-02: チラつき対策。毎回の全消去(ESC[J先行)を廃止し、行末消去(ESC[K)付きの上書き描画へ変更。
+#                    内容が前回と同一なら再描画しない。描画中はカーソル非表示。
+# - 031: 2026-11-02: 「Press 'q' to quit.」行と末尾の空行を削除。終了時のみ改行を出力する。
 # 注意: 日本語カウンター名を含むため、UTF-8(BOM付き推奨)で保存すること。
 
 $script:Esc = [char]27
@@ -453,17 +456,19 @@ function Build-Frame {
     Add-GpuLines $lines $Data $lo $VramCaps
     Add-NpuLines $lines $Data $lo
     Add-DiskLines $lines $Data $lo
-    $lines.Add("Press 'q' to quit.")
 
     $safe = [math]::Max(1, $Cols - 1)
     $cut = foreach ($l in $lines) { if ($l.Length -gt $safe) { $l.Substring(0, $safe) } else { $l } }
-    return (($cut -join "`r`n") + "`r`n")
+    return ($cut -join "`r`n")   # 末尾の改行は付けない(空行を出さない)
 }
 
 function Write-Screen {
-    # 起点へ復帰(ESC[u) -> 下をクリア(ESC[J) -> 描画
+    # 画面消去せず上書き: 起点へ復帰(ESC[u) -> 各行を描画し行末だけ消去(ESC[K)
+    # -> 最後に残骸だけ下方クリア(ESC[J)。先に消さないのでチラつかない。
     param([string]$Text)
-    [Console]::Out.Write("$($script:Esc)[u$($script:Esc)[J$Text")
+    $e = $script:Esc
+    $body = $Text.Replace("`r`n", "$e[K`r`n")
+    [Console]::Out.Write("$e[u$body$e[J")
     [Console]::Out.Flush()
 }
 
@@ -520,7 +525,7 @@ function Invoke-Monitor {
     try {
         [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
         try { [Console]::TreatControlCAsInput = $true } catch {}
-        [Console]::Out.Write("$esc[?7l")  # 折り返し無効化
+        [Console]::Out.Write("$esc[?7l$esc[?25l")  # 折り返し無効化 + カーソル非表示
 
         $collector = Start-Collector $queue $ctl
 
@@ -534,6 +539,7 @@ function Invoke-Monitor {
         $latest = @{}
         $vramCaps = @{}
         $prevCols = $size.Cols; $prevRows = $size.Rows
+        $resized = $false
 
         while (-not (Test-QuitKey)) {
             $updated = $false
@@ -545,18 +551,23 @@ function Invoke-Monitor {
                 [Console]::Out.Write("$esc[u$esc[J$esc[s")  # (3)復帰 -> (1)再保存
                 $prevCols = $size.Cols; $prevRows = $size.Rows
                 $updated = $true
+                $resized = $true
             }
 
             if ($updated -or $lastOut -eq '') {
-                $lastOut = Build-Frame $latest $size.Cols $vramCaps
-                Write-Screen $lastOut     # (2) 動作
+                $frame = Build-Frame $latest $size.Cols $vramCaps
+                if ($frame -ne $lastOut -or $resized) {
+                    $lastOut = $frame
+                    Write-Screen $lastOut     # (2) 動作
+                }
+                $resized = $false
             }
             Start-Sleep -Milliseconds 50
         }
     } finally {
         # (3) 最終状態を1回だけ表示して終了
-        if ($lastOut -ne '') { Write-Screen $lastOut }
-        [Console]::Out.Write("$esc[?7h")
+        if ($lastOut -ne '') { Write-Screen $lastOut; [Console]::Out.Write("`r`n") }  # 終了時のみ改行してプロンプトを次行へ
+        [Console]::Out.Write("$esc[?7h$esc[?25h")
         [Console]::Out.Flush()
         try { [Console]::TreatControlCAsInput = $oldCtrlC } catch {}
         [Console]::OutputEncoding = $oldEnc
