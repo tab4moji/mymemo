@@ -9,7 +9,13 @@
 # - 030: 2026-11-02: チラつき対策。毎回の全消去(ESC[J先行)を廃止し、行末消去(ESC[K)付きの上書き描画へ変更。
 #                    内容が前回と同一なら再描画しない。描画中はカーソル非表示。
 # - 031: 2026-11-02: 「Press 'q' to quit.」行と末尾の空行を削除。終了時のみ改行を出力する。
+# - 032: 2026-11-03: GPU/NPUが存在しない場合は該当行を表示しない(従来は空バーを表示)。
+# - 033: 2026-11-03: ソフトウェア/仮想GPU(Microsoft Basic Render Driver等)を一覧から除外。
+#                    D3DKMTからアダプター名を取得して判定。列挙に存在しないLUIDも除外する。
+# - 034: 2026-11-03: 033で除外できなかったため判定を強化。AdapterTypeのSoftwareDeviceビットでも判定。診断用 -Diag を追加。
 # 注意: 日本語カウンター名を含むため、UTF-8(BOM付き推奨)で保存すること。
+# 診断: ./monitor.ps1 -Diag でGPUアダプター情報(LUID/種別/名前/温度)を表示して終了する。
+param([switch]$Diag)
 
 $script:Esc = [char]27
 
@@ -42,7 +48,11 @@ public class D3dGpuMonitor {
     [StructLayout(LayoutKind.Sequential)]
     public struct D3DKMT_CLOSEADAPTER { public uint hAdapter; }
 
-    public enum KMTQUERYADAPTERINFOTYPE : uint { KMTQAITYPE_ADAPTERPERFDATA = 62 }
+    public enum KMTQUERYADAPTERINFOTYPE : uint {
+        KMTQAITYPE_ADAPTERREGISTRYINFO = 8,
+        KMTQAITYPE_ADAPTERTYPE = 15,
+        KMTQAITYPE_ADAPTERPERFDATA = 62
+    }
 
     [StructLayout(LayoutKind.Sequential)]
     public struct D3DKMT_QUERYADAPTERINFO {
@@ -77,6 +87,55 @@ public class D3dGpuMonitor {
         public string Luid { get; set; }
         public double Temperature { get; set; }
         public uint FanRPM { get; set; }
+        public string Name { get; set; }
+        public uint AdapterType { get; set; }
+        public bool TypeOk { get; set; }
+    }
+
+    // D3DKMT_ADAPTERTYPE(ビットフィールド)を取得する。bit2 = SoftwareDevice(WARP等)。
+    static bool GetAdapterType(uint hAdapter, out uint value) {
+        value = 0;
+        bool ok = false;
+        IntPtr p = Marshal.AllocHGlobal(4);
+        try {
+            Marshal.WriteInt32(p, 0);
+            var q = new D3DKMT_QUERYADAPTERINFO {
+                hAdapter = hAdapter,
+                Type = KMTQUERYADAPTERINFOTYPE.KMTQAITYPE_ADAPTERTYPE,
+                pPrivateDriverData = p,
+                PrivateDriverDataSize = 4
+            };
+            if (D3DKMTQueryAdapterInfo(ref q) == 0) {
+                value = (uint)Marshal.ReadInt32(p);
+                ok = true;
+            }
+        } finally {
+            Marshal.FreeHGlobal(p);
+        }
+        return ok;
+    }
+
+    // D3DKMT_ADAPTERREGISTRYINFO 先頭のAdapterString(WCHAR[260])を取得する。失敗時は空文字。
+    static string GetAdapterName(uint hAdapter) {
+        const int Chars = 260;
+        int size = Chars * 2 * 4;   // AdapterString/BiosString/DacType/ChipType
+        string name = "";
+        IntPtr pReg = Marshal.AllocHGlobal(size);
+        try {
+            for (int b = 0; b < size; b++) { Marshal.WriteByte(pReg, b, 0); }
+            var q = new D3DKMT_QUERYADAPTERINFO {
+                hAdapter = hAdapter,
+                Type = KMTQUERYADAPTERINFOTYPE.KMTQAITYPE_ADAPTERREGISTRYINFO,
+                pPrivateDriverData = pReg,
+                PrivateDriverDataSize = (uint)size
+            };
+            if (D3DKMTQueryAdapterInfo(ref q) == 0) {
+                name = Marshal.PtrToStringUni(pReg) ?? "";
+            }
+        } finally {
+            Marshal.FreeHGlobal(pReg);
+        }
+        return name;
     }
 
     public static List<GpuMetric> GetGpuMetrics() {
@@ -113,6 +172,8 @@ public class D3dGpuMonitor {
 
                     double tempC = 0.0;
                     uint fan = 0;
+                    uint adType;
+                    bool typeOk = GetAdapterType(info.hAdapter, out adType);
                     if (D3DKMTQueryAdapterInfo(ref query) == 0) {
                         var resPerf = Marshal.PtrToStructure<D3DKMT_ADAPTER_PERFDATA>(pPerf);
                         tempC = resPerf.Temperature / 10.0;
@@ -122,7 +183,10 @@ public class D3dGpuMonitor {
                     results.Add(new GpuMetric {
                         Luid = string.Format("0x{0:x8}_0x{1:x8}", (uint)info.AdapterLuid.HighPart, info.AdapterLuid.LowPart),
                         Temperature = tempC,
-                        FanRPM = fan
+                        FanRPM = fan,
+                        Name = GetAdapterName(info.hAdapter),
+                        AdapterType = adType,
+                        TypeOk = typeOk
                     });
 
                     var closeData = new D3DKMT_CLOSEADAPTER { hAdapter = info.hAdapter };
@@ -211,15 +275,36 @@ function Get-CpuArray {
     return $arr
 }
 
+function Test-SoftwareGpu {
+    # ソフトウェア/仮想アダプター(WARP等)なら true。
+    # 判定: AdapterTypeのSoftwareDeviceビット(bit2) / 名前 / D3DKMT列挙に存在しないLUID
+    param([string]$Key, $Infos, [bool]$EnumOk)
+    $hidden = $false
+    $k = $Key.ToLower()
+    if ($Infos.ContainsKey($k)) {
+        $m = $Infos[$k]
+        $isSoft = $m.TypeOk -and (($m.AdapterType -band 4) -ne 0)
+        $hidden = $isSoft -or ([string]$m.Name -match 'Basic Render|Remote Display|Hyper-V')
+    } elseif ($EnumOk) {
+        $hidden = $true
+    }
+    return $hidden
+}
+
 function Get-GpuArray {
     param($Usage, $Vram)
-    $temps = @{}
+    $temps = @{}; $infos = @{}
     try {
-        foreach ($m in [D3dGpuMonitor]::GetGpuMetrics()) { $temps[$m.Luid.ToLower()] = $m.Temperature }
+        foreach ($m in [D3dGpuMonitor]::GetGpuMetrics()) {
+            $temps[$m.Luid.ToLower()] = $m.Temperature
+            $infos[$m.Luid.ToLower()] = $m
+        }
     } catch {}
+    $enumOk = ($infos.Count -gt 0)
     $arr = @()
     $keys = ($Usage.Keys + $Vram.Keys) | Select-Object -Unique | Sort-Object
     foreach ($k in $keys) {
+        if (Test-SoftwareGpu $k $infos $enumOk) { continue }
         $u = 0; if ($Usage.ContainsKey($k)) { $u = [math]::Min(100, [math]::Round($Usage[$k])) }
         $v = 0; if ($Vram.ContainsKey($k)) { $v = $Vram[$k] }
         $t = 0.0; if ($temps.ContainsKey($k.ToLower())) { $t = $temps[$k.ToLower()] }
@@ -386,16 +471,7 @@ function Add-CpuLines {
 function Add-GpuLines {
     param($Lines, $Data, $Lo, $VramCaps)
     $gpus = @(Get-ItemList $Data.GPUs)
-    if ($gpus.Count -eq 0) {
-        $e = New-EmptyBar $Lo.Bw
-        if ($Lo.Combined) {
-            $Lines.Add(('{0,-10} {1}  VRAM {1}   -°C' -f 'GPU0', $e))
-        } else {
-            $Lines.Add(('{0,-10} {1}' -f 'GPU0', $e))
-            $Lines.Add(('{0,-10} {1}' -f 'VRAM0', $e))
-            $Lines.Add(('{0,-10}   -°C' -f 'TEMP0'))
-        }
-    }
+    # GPUが存在しない場合は何も追加しない(行ごと非表示)
     for ($i = 0; $i -lt $gpus.Count; $i++) {
         $g = $gpus[$i]
         $temp = [double]$g.Temp
@@ -418,9 +494,7 @@ function Add-GpuLines {
 function Add-NpuLines {
     param($Lines, $Data, $Lo)
     $npus = @(Get-ItemList $Data.NPUs)
-    if ($npus.Count -eq 0) {
-        $Lines.Add(('{0,-10} {1}' -f 'NPU0', (New-EmptyBar $Lo.Bw)))
-    }
+    # NPUが存在しない場合は何も追加しない(行ごと非表示)
     for ($i = 0; $i -lt $npus.Count; $i++) {
         $Lines.Add(('{0,-10} {1}' -f "NPU$i", (New-Bar $npus[$i] $Lo.Bw)))
     }
@@ -514,6 +588,21 @@ function Stop-Collector {
     try { $Collector.Ps.Dispose(); $Collector.Rs.Dispose() } catch {}
 }
 
+function Invoke-Diag {
+    $o = [Console]::Out
+    $o.WriteLine('--- D3DKMT adapters ---')
+    foreach ($m in [D3dGpuMonitor]::GetGpuMetrics()) {
+        $soft = $m.TypeOk -and (($m.AdapterType -band 4) -ne 0)
+        $o.WriteLine(('{0}  typeOk={1} type=0x{2:x} software={3} temp={4} name=[{5}]' -f $m.Luid, $m.TypeOk, $m.AdapterType, $soft, $m.Temperature, $m.Name))
+    }
+    $o.WriteLine('--- LUIDs seen in performance counters ---')
+    $ids = (Get-Counter -ListSet 'GPU*').PathsWithInstances |
+        ForEach-Object { if ($_ -match 'luid_(0x[0-9a-fA-F]{8}_0x[0-9a-fA-F]{8})') { $matches[1].ToLower() } } |
+        Sort-Object -Unique
+    foreach ($id in $ids) { $o.WriteLine($id) }
+    return 0
+}
+
 function Invoke-Monitor {
     $queue = [System.Collections.Concurrent.ConcurrentQueue[object]]::new()
     $ctl = [hashtable]::Synchronized(@{ Stop = $false; LastError = '' })
@@ -588,7 +677,7 @@ try {
             Write-ErrorLine "GPU温度モジュールのコンパイルに失敗(温度は'-'表示): $($_.Exception.Message)"
         }
     }
-    $exitCode = Invoke-Monitor
+    if ($Diag) { $exitCode = Invoke-Diag } else { $exitCode = Invoke-Monitor }
 } catch {
     Write-ErrorLine "実行エラー: $($_.Exception.Message)"
     $exitCode = 1

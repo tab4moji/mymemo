@@ -27,6 +27,10 @@
 if [[ ! $(which opencode) ]]; then \curl -fsSL https://opencode.ai/install | bash && mkdir -p ~/.config/opencode/; fi
 ```
 
+```bash:アップグレード
+opencode upgrade --major
+```
+
 ### アンインストール
 
 ```bash
