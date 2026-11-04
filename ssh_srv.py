@@ -7,7 +7,8 @@
 """
 目的: Pinggyトンネルを維持し、クライアント切断を検知して自動で待機状態に戻る。
 機能: マルチプロセス監視、Ed25519署名、X25519/AES-GCM暗号化、個別排他tmux、
-      Keepalive、ntfy経由のクライアント接続依頼受付とy/N承認、承認済み鍵の自動再接続。
+      Keepalive、ntfy経由のクライアント接続依頼受付とy/N承認、承認済み鍵の自動再接続、
+      sshdホスト鍵の通知同梱(クライアント側ピン留め用)。
 
 更新履歴:
 001 2026-05-26 初版
@@ -25,6 +26,7 @@
 013 2026-10-26 ntfy Cache:no ヘッダー削除によるメッセージ到達性確保
 014 2026-11-04 クライアント自動接続依頼の受付、未承認鍵のy/N確認、
                 承認済み鍵の自動再接続、URLへのnonce付与、未接続タイムアウト追加
+015 2026-11-04 sshdホスト鍵(ed25519)をURL通知に同梱してクライアントにピン留めさせる(--hostkey)
 """
 
 import argparse
@@ -61,6 +63,7 @@ NEVER_CONNECTED_TIMEOUT = 300.0
 REQUEST_TTL_SECONDS = 300
 REQUEST_POLL_SECONDS = 3.0
 NONCE_PATTERN = re.compile(r"^[0-9a-f]{8,32}$")
+DEFAULT_HOSTKEY_PATH = "/etc/ssh/ssh_host_ed25519_key.pub"
 
 
 def generate_server_keys() -> tuple[str, str]:
@@ -103,10 +106,29 @@ def parse_args() -> argparse.Namespace:
         parser.add_argument(
             "--session", default="", help="排他用tmuxセッション名(省略時は鍵から自動導出)"
         )
+        parser.add_argument(
+            "--hostkey",
+            default=DEFAULT_HOSTKEY_PATH,
+            help="通知に同梱するsshdホスト公開鍵(ed25519)のパス",
+        )
         ret_args = parser.parse_args()
     except Exception as exc:
         raise RuntimeError(f"引数パースエラー: {exc}") from exc
     return ret_args
+
+
+def load_hostkey(path: str) -> str:
+    ret_key = ""
+    try:
+        with open(path, "r", encoding="utf-8") as fp:
+            parts = fp.readline().split()
+        if len(parts) < 2 or parts[0] != "ssh-ed25519":
+            raise ValueError("ssh-ed25519形式の公開鍵ではない")
+        base64.b64decode(parts[1], validate=True)
+        ret_key = f"{parts[0]} {parts[1]}"
+    except Exception as exc:
+        raise RuntimeError(f"ホスト鍵読込エラー ({path}): {exc}") from exc
+    return ret_key
 
 
 def validate_pubkey(text: str) -> str:
@@ -227,11 +249,12 @@ def send_url(
     url: str,
     session_name: str,
     nonce: str = "",
+    hostkey: str = "",
 ) -> None:
     ret_none = None
     try:
         topic = hashlib.sha256(client_pubkey.encode("ascii")).hexdigest()[:32]
-        message = f"{url}|{nonce}" if nonce else url
+        message = f"{url}|{nonce}|{hostkey}"
         payload = encrypt_and_sign(server_priv_b64, client_pubkey, message)
         headers = build_headers(subject)
 
@@ -523,6 +546,7 @@ def run_tunnel_worker(
     subject: str,
     session_name: str,
     nonce: str,
+    hostkey: str,
     stop_event: mp.Event,
     tunnel_online: mp.Event,
     current_ssh_pid: mp.Value,
@@ -564,6 +588,7 @@ def run_tunnel_worker(
                                 url,
                                 session_name,
                                 nonce,
+                                hostkey,
                             )
                             url_sent = True
                             tunnel_online.set()
@@ -643,6 +668,7 @@ def execute_session(
     subject: str,
     session_name: str,
     nonce: str,
+    hostkey: str,
 ) -> bool:
     ret_quit = False
     stop_event = mp.Event()
@@ -658,6 +684,7 @@ def execute_session(
             subject,
             session_name,
             nonce,
+            hostkey,
             stop_event,
             tunnel_online,
             current_ssh_pid,
@@ -680,13 +707,14 @@ def execute_session(
     return ret_quit
 
 
-def print_server_banner(server_pub_b64: str, req_topic: str) -> None:
+def print_server_banner(server_pub_b64: str, req_topic: str, hostkey: str) -> None:
     ret_none = None
     try:
         print("==================================================", file=sys.stderr)
         print("【サーバー証明用公開鍵 (Base64)】", file=sys.stderr)
         print(f"{server_pub_b64}", file=sys.stderr)
         print(f"【接続依頼トピック】 {req_topic}", file=sys.stderr)
+        print(f"【ピン留めするsshdホスト鍵】 {hostkey[:40]}...", file=sys.stderr)
         print("==================================================", file=sys.stderr)
     except Exception as exc:
         raise RuntimeError(f"バナー出力エラー: {exc}") from exc
@@ -699,9 +727,10 @@ def main() -> int:
         args = parse_args()
         print("Pinggy SSH サーバー管理デーモンを起動した", file=sys.stderr)
 
+        hostkey = load_hostkey(args.hostkey)
         server_priv_b64, server_pub_b64 = generate_server_keys()
         req_topic = build_request_topic(server_pub_b64)
-        print_server_banner(server_pub_b64, req_topic)
+        print_server_banner(server_pub_b64, req_topic, hostkey)
 
         approved = set()
         handled = set()
@@ -729,7 +758,12 @@ def main() -> int:
             print(f"[pinggy_ssh] 対象トピック: {topic}", file=sys.stderr)
 
             user_quit = execute_session(
-                server_priv_b64, client_pubkey, args.subject, session_name, nonce
+                server_priv_b64,
+                client_pubkey,
+                args.subject,
+                session_name,
+                nonce,
+                hostkey,
             )
 
             if user_quit:
