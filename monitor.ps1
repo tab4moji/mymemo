@@ -13,11 +13,13 @@
 # - 033: 2026-11-03: ソフトウェア/仮想GPU(Microsoft Basic Render Driver等)を一覧から除外。
 #                    D3DKMTからアダプター名を取得して判定。列挙に存在しないLUIDも除外する。
 # - 034: 2026-11-03: 033で除外できなかったため判定を強化。AdapterTypeのSoftwareDeviceビットでも判定。診断用 -Diag を追加。
+# - 035: 2026-11-04: 表示%を1tick(収集1回)単位のSMA4(単純移動平均)に変更。対象はCPU/MEM/GPU/VRAM/NPU/Disk/CAP。温度は平均しない。
 # 注意: 日本語カウンター名を含むため、UTF-8(BOM付き推奨)で保存すること。
 # 診断: ./monitor.ps1 -Diag でGPUアダプター情報(LUID/種別/名前/温度)を表示して終了する。
 param([switch]$Diag)
 
 $script:Esc = [char]27
+$script:SmaWindow = 4   # 表示%の単純移動平均(SMA)の長さ(tick数。1tick = 収集1回 = 約1秒)
 
 # ---------------------------------------------------------------
 # GPU温度取得用 C# (D3DKMT API)
@@ -569,6 +571,92 @@ function Get-TermSize {
     return $size
 }
 
+function Get-Column {
+    # 履歴の各スナップショットから $Key の値を取り出して並べる(古い順)
+    param($History, [string]$Key)
+    $col = [System.Collections.Generic.List[object]]::new()
+    foreach ($s in $History) { $col.Add($s[$Key]) }
+    return ,$col
+}
+
+function Get-Mean {
+    param($Values)
+    $sum = 0.0; $n = 0
+    foreach ($v in $Values) { $sum += [double]$v; $n++ }
+    $mean = 0.0
+    if ($n -gt 0) { $mean = $sum / $n }
+    return $mean
+}
+
+function ConvertTo-RoundedInt {
+    param($Value)
+    return [int][math]::Round([double]$Value, [MidpointRounding]::AwayFromZero)
+}
+
+function Merge-Series {
+    # tickごとの数値配列を、最新tickの要素数に合わせて添字ごとに平均する
+    param($Arrays, [int]$Length)
+    $out = [System.Collections.Generic.List[double]]::new()
+    for ($i = 0; $i -lt $Length; $i++) {
+        $sum = 0.0; $n = 0
+        foreach ($a in $Arrays) {
+            $x = @($a)
+            if ($i -lt $x.Count) { $sum += [double]$x[$i]; $n++ }
+        }
+        $v = 0.0
+        if ($n -gt 0) { $v = $sum / $n }
+        $out.Add($v)
+    }
+    return ,$out.ToArray()
+}
+
+function Merge-Records {
+    # tickごとのレコード配列(GPU/Disk)を平均する。AvgKeysは平均、LastKeysは最新値をそのまま使う
+    param($Arrays, [int]$Length, [string[]]$AvgKeys, [string[]]$LastKeys)
+    $lastArr = @($Arrays[$Arrays.Count - 1])
+    $out = @()
+    for ($i = 0; $i -lt $Length; $i++) {
+        $rec = @{}
+        foreach ($key in $LastKeys) { $rec[$key] = $lastArr[$i][$key] }
+        foreach ($key in $AvgKeys) {
+            $sum = 0.0; $n = 0
+            foreach ($a in $Arrays) {
+                $x = @($a)
+                if ($i -lt $x.Count) { $sum += [double]$x[$i][$key]; $n++ }
+            }
+            $v = 0.0
+            if ($n -gt 0) { $v = $sum / $n }
+            $rec[$key] = $v
+        }
+        $out += $rec
+    }
+    return ,$out
+}
+
+function Get-SmaSnapshot {
+    # 直近 $script:SmaWindow tick のスナップショットから、表示用の%をSMAした1件を作る。温度は平均しない。
+    param($History)
+    $last = $History[$History.Count - 1]
+    $cpus = Merge-Series (Get-Column $History 'CPUs') (@($last.CPUs).Count)
+    $npus = Merge-Series (Get-Column $History 'NPUs') (@($last.NPUs).Count)
+    $gpus = Merge-Records (Get-Column $History 'GPUs') (@($last.GPUs).Count) @('Usage', 'VRAM_MB') @('Temp')
+    $disks = Merge-Records (Get-Column $History 'Disks') (@($last.Disks).Count) @('Usage', 'CapPct') @()
+    foreach ($g in $gpus) { $g.Usage = ConvertTo-RoundedInt $g.Usage }
+    foreach ($d in $disks) {
+        $d.Usage = ConvertTo-RoundedInt $d.Usage
+        $d.CapPct = ConvertTo-RoundedInt $d.CapPct
+    }
+    $snap = @{
+        TotalCPU = ConvertTo-RoundedInt (Get-Mean (Get-Column $History 'TotalCPU'))
+        TotalMEM = ConvertTo-RoundedInt (Get-Mean (Get-Column $History 'TotalMEM'))
+        CPUs     = @($cpus | ForEach-Object { ConvertTo-RoundedInt $_ })
+        NPUs     = @($npus | ForEach-Object { ConvertTo-RoundedInt $_ })
+        GPUs     = $gpus
+        Disks    = $disks
+    }
+    return $snap
+}
+
 function Start-Collector {
     param($Queue, $Ctl)
     $rs = [runspacefactory]::CreateRunspace()
@@ -626,6 +714,7 @@ function Invoke-Monitor {
         [Console]::Out.Flush()
 
         $latest = @{}
+        $history = [System.Collections.Generic.List[object]]::new()
         $vramCaps = @{}
         $prevCols = $size.Cols; $prevRows = $size.Rows
         $resized = $false
@@ -633,7 +722,13 @@ function Invoke-Monitor {
         while (-not (Test-QuitKey)) {
             $updated = $false
             $item = $null
-            while ($queue.TryDequeue([ref]$item)) { $latest = $item; $updated = $true }
+            while ($queue.TryDequeue([ref]$item)) {
+                # 1 tick分を履歴へ積み、SMAの窓を超えた古いものを捨てる
+                $history.Add($item)
+                if ($history.Count -gt $script:SmaWindow) { $history.RemoveAt(0) }
+                $updated = $true
+            }
+            if ($updated) { $latest = Get-SmaSnapshot $history }
 
             $size = Get-TermSize
             if ($size.Cols -ne $prevCols -or $size.Rows -ne $prevRows) {
