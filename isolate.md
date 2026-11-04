@@ -412,7 +412,7 @@ if __name__ == '__main__':
 
 #### Powershell7(pwsh) コード
 
-```powershell
+```powershell:isolate.ps1
 <#
 .SYNOPSIS
     Windows版 isolate (PowerShellラッパー)
@@ -556,7 +556,7 @@ isolate '["192.168.0.123:11434"]' bash
 ```
 
 ```pwershell
-.\isolate.ps1 -Program "notepad.exe" -AllowedIP "192.168.0.123" -AllowedPort 11434 -CommandArgs @("memo.txt")
+.\isolate.ps1 -Program "curl.exe" -AllowedIP "192.168.0.123" -AllowedPort 11434 -CommandArgs @("-m","5","-sS","-I","http://1.1.1.1")
 ```
 
 #### 2. オプション機能
