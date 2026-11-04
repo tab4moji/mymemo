@@ -6,7 +6,8 @@
 # ///
 """
 目的: Pinggyトンネルを維持し、クライアント切断を検知して自動で待機状態に戻る。
-機能: マルチプロセス監視、Ed25519署名、X25519/AES-GCM暗号化、個別排他tmux、Keepalive。
+機能: マルチプロセス監視、Ed25519署名、X25519/AES-GCM暗号化、個別排他tmux、
+      Keepalive、ntfy経由のクライアント接続依頼受付とy/N承認、承認済み鍵の自動再接続。
 
 更新履歴:
 001 2026-05-26 初版
@@ -22,6 +23,8 @@
 011 2026-10-20 tmuxセッション個別化とss監視排除による複数srv完全排他対応
 012 2026-10-26 PinggyトンネルKeepalive追加および送信先トピック可視化
 013 2026-10-26 ntfy Cache:no ヘッダー削除によるメッセージ到達性確保
+014 2026-11-04 クライアント自動接続依頼の受付、未承認鍵のy/N確認、
+                承認済み鍵の自動再接続、URLへのnonce付与、未接続タイムアウト追加
 """
 
 import argparse
@@ -54,6 +57,10 @@ RECONNECT_DELAY_SECONDS = 5
 HKDF_INFO = b"pinggy-ssh-x25519"
 CHECK_INTERVAL_SECONDS = 2.0
 DISCONNECT_THRESHOLD = 15
+NEVER_CONNECTED_TIMEOUT = 300.0
+REQUEST_TTL_SECONDS = 300
+REQUEST_POLL_SECONDS = 3.0
+NONCE_PATTERN = re.compile(r"^[0-9a-f]{8,32}$")
 
 
 def generate_server_keys() -> tuple[str, str]:
@@ -85,7 +92,10 @@ def parse_args() -> argparse.Namespace:
             description="Pinggyトンネルを維持し、切断時に自動で待機復帰する"
         )
         parser.add_argument(
-            "-k", "--pubkey", default="", help="クライアントX25519公開鍵(Base64)"
+            "-k",
+            "--pubkey",
+            default="",
+            help="クライアントX25519公開鍵(Base64)。初回のみ即開始し事前承認する",
         )
         parser.add_argument(
             "-s", "--subject", default="Pinggy URL", help="送信タイトル"
@@ -99,35 +109,29 @@ def parse_args() -> argparse.Namespace:
     return ret_args
 
 
-def acquire_client_pubkey(cli_arg_key: str, last_key: str = "") -> str:
+def validate_pubkey(text: str) -> str:
     ret_key = ""
     try:
-        target_key = cli_arg_key.strip()
-        if not target_key:
-            prompt = "クライアント公開鍵 (Base64) を入力してください ('q' で終了): "
-            if last_key:
-                prompt = (
-                    f"クライアント公開鍵 (Base64) [Enterで前回値再利用] ('q' で終了): "
-                )
-            print(prompt, end="", file=sys.stderr, flush=True)
-            line = sys.stdin.readline().strip()
-            if not line and last_key:
-                target_key = last_key
-            else:
-                target_key = line
-
-        if target_key.lower() == "q":
-            raise KeyboardInterrupt("ユーザーによる終了要求")
-
-        raw = base64.urlsafe_b64decode(target_key)
+        target = text.strip()
+        raw = base64.urlsafe_b64decode(target)
         if len(raw) != 32:
             raise ValueError(f"鍵長不正 (期待値: 32B, 実測: {len(raw)}B)")
-        ret_key = target_key
-    except KeyboardInterrupt:
-        raise
+        ret_key = target
     except Exception as exc:
-        raise RuntimeError(f"クライアント公開鍵の検証失敗: {exc}") from exc
+        raise ValueError(f"クライアント公開鍵の検証失敗: {exc}") from exc
     return ret_key
+
+
+def fingerprint(pubkey: str) -> str:
+    ret_fp = hashlib.sha256(pubkey.encode("ascii")).hexdigest()[:16]
+    return ret_fp
+
+
+def build_request_topic(server_pub_b64: str) -> str:
+    ret_topic = hashlib.sha256(
+        ("req:" + server_pub_b64.strip()).encode("ascii")
+    ).hexdigest()[:32]
+    return ret_topic
 
 
 def extract_url(text: str) -> str:
@@ -222,11 +226,13 @@ def send_url(
     subject: str,
     url: str,
     session_name: str,
+    nonce: str = "",
 ) -> None:
     ret_none = None
     try:
         topic = hashlib.sha256(client_pubkey.encode("ascii")).hexdigest()[:32]
-        payload = encrypt_and_sign(server_priv_b64, client_pubkey, url)
+        message = f"{url}|{nonce}" if nonce else url
+        payload = encrypt_and_sign(server_priv_b64, client_pubkey, message)
         headers = build_headers(subject)
 
         result = send_ntfy(topic, headers, payload)
@@ -238,6 +244,130 @@ def send_url(
     except Exception:
         raise
     return ret_none
+
+
+def parse_request_body(body: str) -> tuple[str, str]:
+    ret_pair = ("", "")
+    try:
+        data = json.loads(body)
+        pub = validate_pubkey(str(data.get("pub", "")))
+        nonce = str(data.get("nonce", ""))
+        if not NONCE_PATTERN.match(nonce):
+            raise ValueError("nonce形式不正")
+        ret_pair = (pub, nonce)
+    except Exception:
+        ret_pair = ("", "")
+    return ret_pair
+
+
+def fetch_requests(req_topic: str) -> list[tuple[str, str]]:
+    ret_list = []
+    try:
+        url = f"{NTFY_BASE_URL}/{req_topic}/json?poll=1&since={REQUEST_TTL_SECONDS}s"
+        with urllib.request.urlopen(url, timeout=10) as resp:
+            for line in resp:
+                line_str = line.decode("utf-8", errors="ignore").strip()
+                if not line_str:
+                    continue
+                try:
+                    msg = json.loads(line_str)
+                except json.JSONDecodeError:
+                    continue
+                if msg.get("event", "message") != "message":
+                    continue
+                pair = parse_request_body(msg.get("message", ""))
+                if pair[0]:
+                    ret_list.append(pair)
+    except Exception as exc:
+        print(f"[!] 接続依頼ポーリングエラー: {exc}", file=sys.stderr)
+        ret_list = []
+    return ret_list
+
+
+def confirm_request(pubkey: str, nonce: str) -> bool:
+    ret_ok = False
+    try:
+        print("\a", end="", file=sys.stderr)
+        print(
+            f"\n[?] 新規接続依頼 指紋={fingerprint(pubkey)} nonce={nonce}",
+            file=sys.stderr,
+        )
+        print("    クライアント表示の指紋と一致するか確認すること", file=sys.stderr)
+        print("    接続を許可するか [y/N]: ", end="", file=sys.stderr, flush=True)
+        answer = sys.stdin.readline().strip().lower()
+        ret_ok = answer in ("y", "yes")
+    except Exception as exc:
+        print(f"確認入力エラー: {exc}", file=sys.stderr)
+        ret_ok = False
+    return ret_ok
+
+
+def pick_request(
+    req_topic: str, approved: set, handled: set
+) -> tuple[str, str, bool]:
+    ret = ("", "", False)
+    try:
+        for pub, nonce in fetch_requests(req_topic):
+            key = (pub, nonce)
+            if key in handled:
+                continue
+            handled.add(key)
+            if pub in approved:
+                print(
+                    f"\n[+] 承認済み鍵からの依頼を自動受理した 指紋={fingerprint(pub)}",
+                    file=sys.stderr,
+                )
+                ret = (pub, nonce, False)
+                break
+            if confirm_request(pub, nonce):
+                approved.add(pub)
+                ret = (pub, nonce, False)
+                break
+            print("[i] 依頼を拒否した", file=sys.stderr)
+    except Exception as exc:
+        print(f"依頼処理エラー: {exc}", file=sys.stderr)
+    return ret
+
+
+def handle_manual_input(approved: set, last_key: str) -> tuple[str, str, bool]:
+    ret = ("", "", False)
+    try:
+        raw = sys.stdin.readline()
+        line = raw.strip()
+        if raw == "" or line.lower() == "q":
+            ret = ("", "", True)
+        elif not line:
+            if last_key:
+                ret = (last_key, "", False)
+        else:
+            try:
+                key = validate_pubkey(line)
+                approved.add(key)
+                ret = (key, "", False)
+            except ValueError as exc:
+                print(f"エラー: {exc}", file=sys.stderr)
+    except Exception as exc:
+        print(f"手動入力エラー: {exc}", file=sys.stderr)
+    return ret
+
+
+def wait_for_client(
+    req_topic: str, approved: set, handled: set, last_key: str
+) -> tuple[str, str, bool]:
+    ret = ("", "", False)
+    try:
+        hint = "[i] クライアントの接続依頼を待機中 ('q'で終了、鍵の直接貼付も可"
+        hint += "、Enterで前回鍵再利用)" if last_key else ")"
+        print(hint, file=sys.stderr)
+        while not ret[0] and not ret[2]:
+            rlist, _, _ = select.select([sys.stdin], [], [], REQUEST_POLL_SECONDS)
+            if rlist:
+                ret = handle_manual_input(approved, last_key)
+            else:
+                ret = pick_request(req_topic, approved, handled)
+    except Exception as exc:
+        raise RuntimeError(f"接続待機エラー: {exc}") from exc
+    return ret
 
 
 def count_session_clients(session_name: str) -> int:
@@ -269,6 +399,7 @@ def run_monitor_worker(
     try:
         has_connected = False
         zero_count = 0
+        idle_seconds = 0.0
         while not stop_event.is_set():
             if not tunnel_online.is_set():
                 zero_count = 0
@@ -284,6 +415,15 @@ def run_monitor_worker(
                         f"\n[+] クライアント接続を検知した (セッション: {session_name})",
                         file=sys.stderr,
                     )
+                else:
+                    idle_seconds += CHECK_INTERVAL_SECONDS
+                    if idle_seconds >= NEVER_CONNECTED_TIMEOUT:
+                        print(
+                            "\n[!] クライアント未接続のままタイムアウトした",
+                            file=sys.stderr,
+                        )
+                        disconnect_event.set()
+                        break
             else:
                 if active_count == 0:
                     zero_count += 1
@@ -382,6 +522,7 @@ def run_tunnel_worker(
     client_pubkey: str,
     subject: str,
     session_name: str,
+    nonce: str,
     stop_event: mp.Event,
     tunnel_online: mp.Event,
     current_ssh_pid: mp.Value,
@@ -422,6 +563,7 @@ def run_tunnel_worker(
                                 subject,
                                 url,
                                 session_name,
+                                nonce,
                             )
                             url_sent = True
                             tunnel_online.set()
@@ -500,6 +642,7 @@ def execute_session(
     client_pubkey: str,
     subject: str,
     session_name: str,
+    nonce: str,
 ) -> bool:
     ret_quit = False
     stop_event = mp.Event()
@@ -514,6 +657,7 @@ def execute_session(
             client_pubkey,
             subject,
             session_name,
+            nonce,
             stop_event,
             tunnel_online,
             current_ssh_pid,
@@ -536,6 +680,19 @@ def execute_session(
     return ret_quit
 
 
+def print_server_banner(server_pub_b64: str, req_topic: str) -> None:
+    ret_none = None
+    try:
+        print("==================================================", file=sys.stderr)
+        print("【サーバー証明用公開鍵 (Base64)】", file=sys.stderr)
+        print(f"{server_pub_b64}", file=sys.stderr)
+        print(f"【接続依頼トピック】 {req_topic}", file=sys.stderr)
+        print("==================================================", file=sys.stderr)
+    except Exception as exc:
+        raise RuntimeError(f"バナー出力エラー: {exc}") from exc
+    return ret_none
+
+
 def main() -> int:
     ret_code = 0
     try:
@@ -543,14 +700,28 @@ def main() -> int:
         print("Pinggy SSH サーバー管理デーモンを起動した", file=sys.stderr)
 
         server_priv_b64, server_pub_b64 = generate_server_keys()
-        print("==================================================", file=sys.stderr)
-        print("【サーバー証明用公開鍵 (Base64)】", file=sys.stderr)
-        print(f"{server_pub_b64}", file=sys.stderr)
-        print("==================================================", file=sys.stderr)
+        req_topic = build_request_topic(server_pub_b64)
+        print_server_banner(server_pub_b64, req_topic)
 
+        approved = set()
+        handled = set()
         client_pubkey = ""
+        nonce = ""
+        first_key = args.pubkey.strip()
+
         while True:
-            client_pubkey = acquire_client_pubkey(args.pubkey, last_key=client_pubkey)
+            if first_key:
+                client_pubkey = validate_pubkey(first_key)
+                approved.add(client_pubkey)
+                nonce = ""
+                first_key = ""
+            else:
+                client_pubkey, nonce, quit_req = wait_for_client(
+                    req_topic, approved, handled, client_pubkey
+                )
+                if quit_req:
+                    print("\n[+] ユーザー要求により正常終了した", file=sys.stderr)
+                    break
 
             topic = hashlib.sha256(client_pubkey.encode("ascii")).hexdigest()[:32]
             session_name = args.session if args.session else f"pg_{topic[:8]}"
@@ -558,7 +729,7 @@ def main() -> int:
             print(f"[pinggy_ssh] 対象トピック: {topic}", file=sys.stderr)
 
             user_quit = execute_session(
-                server_priv_b64, client_pubkey, args.subject, session_name
+                server_priv_b64, client_pubkey, args.subject, session_name, nonce
             )
 
             if user_quit:

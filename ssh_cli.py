@@ -7,7 +7,8 @@
 # ///
 """
 目的: サーバーEd25519署名を検証し、安全にPinggy経由のSSHセッションを確立する。
-機能: サーバー署名検証、poll=1によるURL取得、個別排他tmux、パススルー自動有効化。
+機能: サーバー署名検証、poll=1によるURL取得、個別排他tmux、パススルー自動有効化、
+      サーバーへの自動接続依頼(nonce照合)、再接続時の遅延リサイズ補正。
 
 更新履歴:
 001 2026-05-26 初版 (recv_msg.py 外部連携版)
@@ -23,6 +24,9 @@
 011 2026-10-26 デッドロック解消(現行URL優先再試行+Keepalive追加)
 012 2026-10-26 ntfy poll=1 パラメータ追加による無限ストリームブロック解消
 013 2026-10-29 yazi/Sixelプレビュー用tmuxパススルー自動有効化(allow-passthrough on)
+014 2026-11-04 サーバーへの自動接続依頼(nonce付き)、指紋表示、SIGWINCH遅延送信
+015 2026-11-04 resize-window -A がwindow-sizeをmanual固定する問題を修正
+                (ループ廃止、attach前にwindow単位のwindow-size上書きを解除)
 """
 
 import base64
@@ -34,6 +38,7 @@ import shutil
 import signal
 import subprocess
 import sys
+import threading
 import time
 import urllib.request
 
@@ -44,9 +49,11 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 
 RETRY_INTERVAL = 3
-URL_PATTERN = re.compile(r"^tcp://([^:]+):(\d+)$")
+URL_PATTERN = re.compile(r"^tcp://([^:|]+):(\d+)$")
 NTFY_BASE_URL = "https://ntfy.sh"
 HKDF_INFO = b"pinggy-ssh-x25519"
+REQUEST_RESEND_SECONDS = 60
+RESIZE_KICK_DELAYS = (0.8, 2.0, 4.0)
 
 
 def parse_server_pubkey(key_b64: str) -> ed25519.Ed25519PublicKey:
@@ -75,6 +82,18 @@ def generate_keys() -> tuple:
     except Exception as e:
         raise RuntimeError(f"鍵生成エラー: {e}")
     return ret_keys
+
+
+def build_request_topic(server_key_str: str) -> str:
+    ret_topic = hashlib.sha256(
+        ("req:" + server_key_str.strip()).encode("ascii")
+    ).hexdigest()[:32]
+    return ret_topic
+
+
+def fingerprint(pubkey: str) -> str:
+    ret_fp = hashlib.sha256(pubkey.encode("ascii")).hexdigest()[:16]
+    return ret_fp
 
 
 def display_qr_code(data: str) -> None:
@@ -147,10 +166,31 @@ def decrypt_and_verify(
     return ret_text
 
 
+def send_connect_request(req_topic: str, pub_b64: str, nonce: str) -> None:
+    ret = None
+    try:
+        body = json.dumps({"pub": pub_b64, "nonce": nonce})
+        req = urllib.request.Request(
+            f"{NTFY_BASE_URL}/{req_topic}",
+            data=body.encode("utf-8"),
+            headers={
+                "Content-Type": "text/plain; charset=utf-8",
+                "Title": "connect request",
+            },
+            method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            resp.read()
+    except Exception as e:
+        raise RuntimeError(f"接続依頼の送信失敗: {e}")
+    return ret
+
+
 def fetch_ntfy_url(
     priv_key: x25519.X25519PrivateKey,
     srv_pub: ed25519.Ed25519PublicKey,
     topic: str,
+    nonce: str,
 ) -> tuple[str, int]:
     ret_val = ("", 0)
     try:
@@ -171,8 +211,9 @@ def fetch_ntfy_url(
                         raw_msg_count += 1
                         enc_body = msg.get("message", "")
                         dec_body = decrypt_and_verify(priv_key, srv_pub, enc_body)
-                        m = URL_PATTERN.match(dec_body)
-                        if m:
+                        body, _, got_nonce = dec_body.partition("|")
+                        m = URL_PATTERN.match(body)
+                        if m and (not nonce or got_nonce == nonce):
                             candidates.append((m.group(1), int(m.group(2))))
                 except json.JSONDecodeError:
                     continue
@@ -188,7 +229,7 @@ def fetch_ntfy_url(
                     f"ntfyに {raw_msg_count}件受信したが復号・検証に失敗: {last_error}"
                 )
             raise RuntimeError(
-                f"ntfyトピック ({topic}) に有効な通知が未到達 (受信件数: {raw_msg_count})"
+                f"サーバー承認待ち (topic={topic}, 受信件数: {raw_msg_count})"
             )
     except Exception as e:
         raise RuntimeError(f"{e}")
@@ -206,12 +247,47 @@ def build_tmux_cmd(session_name: str) -> str:
         f"tmux set-option -ga update-environment TERM_PROGRAM 2>/dev/null; "
         f"tmux set-option -t {session_name} status off; "
         f"tmux set-option -t {session_name} prefix None; "
+        f"tmux set-option -w -u -t {session_name} window-size 2>/dev/null; "
         f"tmux set-option -t {session_name} window-size latest; "
         f"tmux set-window-option -t {session_name} aggressive-resize on 2>/dev/null; "
         f"tmux attach-session -d -t {session_name}; "
         f"else exec $SHELL; fi"
     )
     return ret_cmd
+
+
+def send_winch(proc: subprocess.Popen) -> None:
+    ret = None
+    try:
+        if proc.poll() is None:
+            proc.send_signal(signal.SIGWINCH)
+    except Exception as e:
+        print(f"[pinggy_ssh] SIGWINCH送信失敗: {e}", file=sys.stderr)
+    return ret
+
+
+def start_resize_kicks(proc: subprocess.Popen) -> list:
+    ret_timers = []
+    try:
+        if hasattr(signal, "SIGWINCH"):
+            for delay in RESIZE_KICK_DELAYS:
+                timer = threading.Timer(delay, send_winch, args=(proc,))
+                timer.daemon = True
+                timer.start()
+                ret_timers.append(timer)
+    except Exception as e:
+        raise RuntimeError(f"リサイズ補正タイマー起動エラー: {e}")
+    return ret_timers
+
+
+def cancel_timers(timers: list) -> None:
+    ret = None
+    try:
+        for timer in timers:
+            timer.cancel()
+    except Exception as e:
+        print(f"[pinggy_ssh] タイマー解除失敗: {e}", file=sys.stderr)
+    return ret
 
 
 def run_ssh(
@@ -224,6 +300,8 @@ def run_ssh(
     verbose: bool = False,
 ) -> int:
     ret_code = -1
+    proc = None
+    timers = []
     try:
         ssh_bin = shutil.which("tssh")
         if not ssh_bin:
@@ -258,16 +336,20 @@ def run_ssh(
             print(f"[pinggy_ssh] 実行: {' '.join(cmd)}", file=sys.stderr)
 
         proc = subprocess.Popen(cmd)
+        if use_tmux:
+            timers = start_resize_kicks(proc)
         ret_code = proc.wait()
     except KeyboardInterrupt:
         try:
-            if "proc" in locals():
+            if proc is not None:
                 proc.send_signal(signal.SIGINT)
                 ret_code = proc.wait()
         except Exception:
             pass
     except Exception as e:
         raise RuntimeError(f"SSH実行エラー: {e}")
+    finally:
+        cancel_timers(timers)
     return ret_code
 
 
@@ -334,6 +416,24 @@ def parse_cli_args(
     return ret
 
 
+def request_if_due(
+    req_topic: str, pub_b64: str, nonce: str, last_sent: float
+) -> float:
+    ret_sent = last_sent
+    try:
+        now = time.time()
+        if now - last_sent >= REQUEST_RESEND_SECONDS:
+            send_connect_request(req_topic, pub_b64, nonce)
+            ret_sent = now
+            print(
+                f"\n[pinggy_ssh] 接続依頼を送信した (nonce={nonce})",
+                file=sys.stderr,
+            )
+    except RuntimeError as e:
+        print(f"\n[pinggy_ssh] {e}", file=sys.stderr)
+    return ret_sent
+
+
 def main() -> None:
     ret = None
     try:
@@ -348,12 +448,14 @@ def main() -> None:
 
         server_pub = parse_server_pubkey(srv_key_str)
         priv_key, pub_b64, topic = generate_keys()
+        req_topic = build_request_topic(srv_key_str)
 
         session_name = session_arg if session_arg else f"pg_{topic[:8]}"
 
         print("【公開鍵 QRコード】", file=sys.stderr)
         display_qr_code(pub_b64)
         print(f"\n【クライアント公開鍵 (Base64)】\n{pub_b64}\n", file=sys.stderr)
+        print(f"[pinggy_ssh] 指紋(サーバーのy/Nで照合): {fingerprint(pub_b64)}", file=sys.stderr)
         print(f"[pinggy_ssh] トピック     : {topic}", file=sys.stderr)
         print(f"[pinggy_ssh] セッション名 : {session_name}", file=sys.stderr)
         print(f"[pinggy_ssh] ダウンロード先 : {download_path}", file=sys.stderr)
@@ -361,21 +463,28 @@ def main() -> None:
         attempt = 0
         current_host = ""
         current_port = 0
+        nonce = ""
+        last_sent = 0.0
 
         while True:
             attempt += 1
 
             if not current_host:
+                if not nonce:
+                    nonce = os.urandom(8).hex()
+                    last_sent = 0.0
+                last_sent = request_if_due(req_topic, pub_b64, nonce, last_sent)
                 print(
-                    f"[pinggy_ssh] ntfy待機中 (#{attempt})...",
+                    f"[pinggy_ssh] サーバー応答待機中 (#{attempt})...",
                     end="\r",
                     file=sys.stderr,
                     flush=True,
                 )
                 try:
                     current_host, current_port = fetch_ntfy_url(
-                        priv_key, server_pub, topic
+                        priv_key, server_pub, topic, nonce
                     )
+                    nonce = ""
                     print("", file=sys.stderr)
                 except RuntimeError as e:
                     print(f"\n[pinggy_ssh] 待機中: {e}", file=sys.stderr)
@@ -410,7 +519,7 @@ def main() -> None:
 
             if duration < 5.0:
                 print(
-                    f"[pinggy_ssh] 接続先 ({current_host}:{current_port}) が即座に応答停止。新URL取得へ移行...",
+                    f"[pinggy_ssh] 接続先 ({current_host}:{current_port}) が即座に応答停止。新規接続依頼へ移行...",
                     file=sys.stderr,
                 )
                 current_host = ""
