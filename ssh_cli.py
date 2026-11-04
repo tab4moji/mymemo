@@ -8,8 +8,9 @@
 """
 目的: サーバーEd25519署名を検証し、安全にPinggy経由のSSHセッションを確立する。
 機能: サーバー署名検証、poll=1によるURL取得、個別排他tmux、パススルー自動有効化、
-      サーバーへの自動接続依頼(サーバーX25519鍵宛てに暗号化・Ed25519署名付き・nonce照合)、
-      再接続時の遅延リサイズ補正、通知されたsshdホスト鍵のピン留め(中間者攻撃対策)。
+      サーバーへの自動接続依頼(サーバーX25519鍵宛てに暗号化・Ed25519署名付き・nonce照合・
+      再送のたびに暗号化し直し)、再接続時の遅延リサイズ補正、
+      通知されたsshdホスト鍵のピン留め(中間者攻撃対策)。
 
 更新履歴:
 001 2026-05-26 初版 (recv_msg.py 外部連携版)
@@ -34,6 +35,8 @@
                 指紋を識別鍵基準に変更
 018 2026-11-04 接続依頼本文をサーバーX25519鍵宛てに暗号化。--server-pubkey を
                 Ed25519+X25519の64B連結形式に変更(旧形式は非互換)
+019 2026-11-04 接続依頼を再送のたびに組み直し(使い捨て鍵とIVを毎回更新)し、
+                同一暗号文が並ぶことを防止
 """
 
 import base64
@@ -582,12 +585,22 @@ def parse_cli_args(
 
 
 def request_if_due(
-    req_topic: str, body: str, nonce: str, last_sent: float
+    req_topic: str,
+    srv_key_str: str,
+    server_x_pub: x25519.X25519PublicKey,
+    id_priv: ed25519.Ed25519PrivateKey,
+    id_b64: str,
+    pub_b64: str,
+    nonce: str,
+    last_sent: float,
 ) -> float:
     ret_sent = last_sent
     try:
         now = time.time()
         if now - last_sent >= REQUEST_RESEND_SECONDS:
+            body = build_request_body(
+                srv_key_str, server_x_pub, id_priv, id_b64, pub_b64, nonce
+            )
             send_connect_request(req_topic, body)
             ret_sent = now
             print(
@@ -632,7 +645,6 @@ def main() -> None:
         current_port = 0
         current_hostkey = ""
         nonce = ""
-        req_body = ""
         last_sent = 0.0
 
         while True:
@@ -641,11 +653,17 @@ def main() -> None:
             if not current_host:
                 if not nonce:
                     nonce = os.urandom(8).hex()
-                    req_body = build_request_body(
-                        srv_key_str, server_x_pub, id_priv, id_b64, pub_b64, nonce
-                    )
                     last_sent = 0.0
-                last_sent = request_if_due(req_topic, req_body, nonce, last_sent)
+                last_sent = request_if_due(
+                    req_topic,
+                    srv_key_str,
+                    server_x_pub,
+                    id_priv,
+                    id_b64,
+                    pub_b64,
+                    nonce,
+                    last_sent,
+                )
                 print(
                     f"[pinggy_ssh] サーバー応答待機中 (#{attempt})...",
                     end="\r",
