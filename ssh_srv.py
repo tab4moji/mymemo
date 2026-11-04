@@ -7,8 +7,9 @@
 """
 目的: Pinggyトンネルを維持し、クライアント切断を検知して自動で待機状態に戻る。
 機能: マルチプロセス監視、Ed25519署名、X25519/AES-GCM暗号化、個別排他tmux、
-      Keepalive、ntfy経由のクライアント接続依頼受付(クライアントEd25519署名検証)とy/N承認、
-      承認済み識別鍵の自動再接続、sshdホスト鍵の通知同梱(クライアント側ピン留め用)。
+      Keepalive、ntfy経由のクライアント接続依頼受付(依頼本文のX25519暗号化と
+      クライアントEd25519署名検証)とy/N承認、承認済み識別鍵の自動再接続、
+      sshdホスト鍵の通知同梱(クライアント側ピン留め用)。
 
 更新履歴:
 001 2026-05-26 初版
@@ -29,6 +30,8 @@
 015 2026-11-04 sshdホスト鍵(ed25519)をURL通知に同梱してクライアントにピン留めさせる(--hostkey)
 016 2026-11-04 接続依頼のEd25519署名検証を追加。承認済み集合を識別鍵単位に変更し、
                 署名不正な依頼を無視。-k/手動貼付鍵は事前承認集合に入れない
+017 2026-11-04 接続依頼本文をサーバーX25519鍵宛てに暗号化。サーバー公開鍵を
+                Ed25519+X25519の64B連結形式に変更(旧形式は非互換)
 """
 
 import argparse
@@ -59,6 +62,8 @@ NTFY_BASE_URL = "https://ntfy.sh"
 PINGGY_TTL_SECONDS = 3600
 RECONNECT_DELAY_SECONDS = 5
 HKDF_INFO = b"pinggy-ssh-x25519"
+REQUEST_HKDF_INFO = b"pinggy-req-x25519"
+REQUEST_AAD = b"pinggy-req-v3"
 CHECK_INTERVAL_SECONDS = 2.0
 DISCONNECT_THRESHOLD = 15
 NEVER_CONNECTED_TIMEOUT = 300.0
@@ -69,8 +74,8 @@ NONCE_PATTERN = re.compile(r"^[0-9a-f]{8,32}$")
 DEFAULT_HOSTKEY_PATH = "/etc/ssh/ssh_host_ed25519_key.pub"
 
 
-def generate_server_keys() -> tuple[str, str]:
-    ret = ("", "")
+def generate_server_keys() -> tuple[str, str, str]:
+    ret = ("", "", "")
     try:
         priv = ed25519.Ed25519PrivateKey.generate()
         priv_bytes = priv.private_bytes(
@@ -79,13 +84,25 @@ def generate_server_keys() -> tuple[str, str]:
             encryption_algorithm=serialization.NoEncryption(),
         )
         priv_b64 = base64.urlsafe_b64encode(priv_bytes).decode("ascii")
-
         pub_bytes = priv.public_key().public_bytes(
             encoding=serialization.Encoding.Raw,
             format=serialization.PublicFormat.Raw,
         )
-        pub_b64 = base64.urlsafe_b64encode(pub_bytes).decode("ascii")
-        ret = (priv_b64, pub_b64)
+
+        x_priv = x25519.X25519PrivateKey.generate()
+        x_priv_bytes = x_priv.private_bytes(
+            encoding=serialization.Encoding.Raw,
+            format=serialization.PrivateFormat.Raw,
+            encryption_algorithm=serialization.NoEncryption(),
+        )
+        x_priv_b64 = base64.urlsafe_b64encode(x_priv_bytes).decode("ascii")
+        x_pub_bytes = x_priv.public_key().public_bytes(
+            encoding=serialization.Encoding.Raw,
+            format=serialization.PublicFormat.Raw,
+        )
+
+        pub_b64 = base64.urlsafe_b64encode(pub_bytes + x_pub_bytes).decode("ascii")
+        ret = (priv_b64, x_priv_b64, pub_b64)
     except Exception as exc:
         raise RuntimeError(f"サーバー鍵生成エラー: {exc}") from exc
     return ret
@@ -281,10 +298,31 @@ def build_request_sign_data(
     return ret_data
 
 
-def parse_request_body(body: str, server_pub_b64: str) -> tuple[str, str, str]:
+def decrypt_request(body: str, req_priv: x25519.X25519PrivateKey) -> bytes:
+    ret_plain = b""
+    try:
+        raw = base64.urlsafe_b64decode(body.strip())
+        if len(raw) < 32 + 12 + 16:
+            raise ValueError("依頼パケット長不正")
+        eph_pub = x25519.X25519PublicKey.from_public_bytes(raw[:32])
+        aes_key = HKDF(
+            algorithm=hashes.SHA256(),
+            length=32,
+            salt=None,
+            info=REQUEST_HKDF_INFO,
+        ).derive(req_priv.exchange(eph_pub))
+        ret_plain = AESGCM(aes_key).decrypt(raw[32:44], raw[44:], REQUEST_AAD)
+    except Exception as exc:
+        raise ValueError(f"依頼復号失敗: {exc}") from exc
+    return ret_plain
+
+
+def parse_request_body(
+    body: str, req_priv: x25519.X25519PrivateKey, server_pub_b64: str
+) -> tuple[str, str, str]:
     ret_triple = ("", "", "")
     try:
-        data = json.loads(body)
+        data = json.loads(decrypt_request(body, req_priv).decode("utf-8"))
         id_b64 = str(data.get("id", ""))
         pub = validate_pubkey(str(data.get("pub", "")))
         nonce = str(data.get("nonce", ""))
@@ -307,10 +345,13 @@ def parse_request_body(body: str, server_pub_b64: str) -> tuple[str, str, str]:
 
 
 def fetch_requests(
-    req_topic: str, server_pub_b64: str
+    req_topic: str, server_pub_b64: str, req_priv_b64: str
 ) -> list[tuple[str, str, str]]:
     ret_list = []
     try:
+        req_priv = x25519.X25519PrivateKey.from_private_bytes(
+            base64.urlsafe_b64decode(req_priv_b64)
+        )
         url = f"{NTFY_BASE_URL}/{req_topic}/json?poll=1&since={REQUEST_TTL_SECONDS}s"
         with urllib.request.urlopen(url, timeout=10) as resp:
             for line in resp:
@@ -323,7 +364,9 @@ def fetch_requests(
                     continue
                 if msg.get("event", "message") != "message":
                     continue
-                triple = parse_request_body(msg.get("message", ""), server_pub_b64)
+                triple = parse_request_body(
+                    msg.get("message", ""), req_priv, server_pub_b64
+                )
                 if triple[0]:
                     ret_list.append(triple)
     except Exception as exc:
@@ -337,7 +380,7 @@ def confirm_request(id_b64: str, nonce: str) -> bool:
     try:
         print("\a", end="", file=sys.stderr)
         print(
-            f"\n[?] 新規接続依頼(署名検証済) 指紋={fingerprint(id_b64)} nonce={nonce}",
+            f"\n[?] 新規接続依頼(復号・署名検証済) 指紋={fingerprint(id_b64)} nonce={nonce}",
             file=sys.stderr,
         )
         print("    クライアント表示の指紋と一致するか確認すること", file=sys.stderr)
@@ -351,11 +394,17 @@ def confirm_request(id_b64: str, nonce: str) -> bool:
 
 
 def pick_request(
-    req_topic: str, server_pub_b64: str, approved: set, handled: set
+    req_topic: str,
+    server_pub_b64: str,
+    req_priv_b64: str,
+    approved: set,
+    handled: set,
 ) -> tuple[str, str, bool]:
     ret = ("", "", False)
     try:
-        for id_b64, pub, nonce in fetch_requests(req_topic, server_pub_b64):
+        for id_b64, pub, nonce in fetch_requests(
+            req_topic, server_pub_b64, req_priv_b64
+        ):
             key = (id_b64, pub, nonce)
             if key in handled:
                 continue
@@ -400,6 +449,7 @@ def handle_manual_input(last_key: str) -> tuple[str, str, bool]:
 def wait_for_client(
     req_topic: str,
     server_pub_b64: str,
+    req_priv_b64: str,
     approved: set,
     handled: set,
     last_key: str,
@@ -414,7 +464,9 @@ def wait_for_client(
             if rlist:
                 ret = handle_manual_input(last_key)
             else:
-                ret = pick_request(req_topic, server_pub_b64, approved, handled)
+                ret = pick_request(
+                    req_topic, server_pub_b64, req_priv_b64, approved, handled
+                )
     except Exception as exc:
         raise RuntimeError(f"接続待機エラー: {exc}") from exc
     return ret
@@ -738,7 +790,7 @@ def print_server_banner(server_pub_b64: str, req_topic: str, hostkey: str) -> No
     ret_none = None
     try:
         print("==================================================", file=sys.stderr)
-        print("【サーバー証明用公開鍵 (Base64)】", file=sys.stderr)
+        print("【サーバー証明用公開鍵 (Ed25519+X25519連結 Base64)】", file=sys.stderr)
         print(f"{server_pub_b64}", file=sys.stderr)
         print(f"【接続依頼トピック】 {req_topic}", file=sys.stderr)
         print(f"【ピン留めするsshdホスト鍵】 {hostkey[:40]}...", file=sys.stderr)
@@ -755,7 +807,7 @@ def main() -> int:
         print("Pinggy SSH サーバー管理デーモンを起動した", file=sys.stderr)
 
         hostkey = load_hostkey(args.hostkey)
-        server_priv_b64, server_pub_b64 = generate_server_keys()
+        server_priv_b64, req_priv_b64, server_pub_b64 = generate_server_keys()
         req_topic = build_request_topic(server_pub_b64)
         print_server_banner(server_pub_b64, req_topic, hostkey)
 
@@ -772,7 +824,12 @@ def main() -> int:
                 first_key = ""
             else:
                 client_pubkey, nonce, quit_req = wait_for_client(
-                    req_topic, server_pub_b64, approved, handled, client_pubkey
+                    req_topic,
+                    server_pub_b64,
+                    req_priv_b64,
+                    approved,
+                    handled,
+                    client_pubkey,
                 )
                 if quit_req:
                     print("\n[+] ユーザー要求により正常終了した", file=sys.stderr)

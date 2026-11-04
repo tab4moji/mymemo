@@ -8,8 +8,8 @@
 """
 目的: サーバーEd25519署名を検証し、安全にPinggy経由のSSHセッションを確立する。
 機能: サーバー署名検証、poll=1によるURL取得、個別排他tmux、パススルー自動有効化、
-      サーバーへの自動接続依頼(Ed25519署名付き・nonce照合)、再接続時の遅延リサイズ補正、
-      通知されたsshdホスト鍵のピン留め(中間者攻撃対策)。
+      サーバーへの自動接続依頼(サーバーX25519鍵宛てに暗号化・Ed25519署名付き・nonce照合)、
+      再接続時の遅延リサイズ補正、通知されたsshdホスト鍵のピン留め(中間者攻撃対策)。
 
 更新履歴:
 001 2026-05-26 初版 (recv_msg.py 外部連携版)
@@ -32,6 +32,8 @@
                 --allow-unpinned 追加、nonce無し通知をフォールバック候補として受理
 017 2026-11-04 接続依頼にEd25519識別鍵の署名を付与(サーバー鍵・X25519鍵・nonceに束縛)、
                 指紋を識別鍵基準に変更
+018 2026-11-04 接続依頼本文をサーバーX25519鍵宛てに暗号化。--server-pubkey を
+                Ed25519+X25519の64B連結形式に変更(旧形式は非互換)
 """
 
 import base64
@@ -59,21 +61,28 @@ URL_PATTERN = re.compile(r"^tcp://([^:|]+):(\d+)$")
 HOSTKEY_PATTERN = re.compile(r"^ssh-ed25519 [A-Za-z0-9+/]+={0,2}$")
 NTFY_BASE_URL = "https://ntfy.sh"
 HKDF_INFO = b"pinggy-ssh-x25519"
+REQUEST_HKDF_INFO = b"pinggy-req-x25519"
+REQUEST_AAD = b"pinggy-req-v3"
 REQUEST_SIGN_PREFIX = "pinggy-req-v1"
 REQUEST_RESEND_SECONDS = 60
 RESIZE_KICK_DELAYS = (0.8, 2.0, 4.0)
 
 
-def parse_server_pubkey(key_b64: str) -> ed25519.Ed25519PublicKey:
-    ret_key = None
+def parse_server_pubkey(key_b64: str) -> tuple:
+    ret_keys = (None, None)
     try:
         raw_bytes = base64.urlsafe_b64decode(key_b64.strip())
-        if len(raw_bytes) != 32:
-            raise ValueError(f"鍵長不正 (期待値: 32B, 実測: {len(raw_bytes)}B)")
-        ret_key = ed25519.Ed25519PublicKey.from_public_bytes(raw_bytes)
+        if len(raw_bytes) != 64:
+            raise ValueError(
+                f"鍵長不正 (期待値: 64B[Ed25519+X25519], 実測: {len(raw_bytes)}B)"
+            )
+        ret_keys = (
+            ed25519.Ed25519PublicKey.from_public_bytes(raw_bytes[:32]),
+            x25519.X25519PublicKey.from_public_bytes(raw_bytes[32:]),
+        )
     except Exception as e:
         raise RuntimeError(f"サーバー公開鍵の解析失敗: {e}")
-    return ret_key
+    return ret_keys
 
 
 def generate_keys() -> tuple:
@@ -191,6 +200,7 @@ def decrypt_and_verify(
 
 def build_request_body(
     server_key_str: str,
+    server_x_pub: x25519.X25519PublicKey,
     id_priv: ed25519.Ed25519PrivateKey,
     id_b64: str,
     pub_b64: str,
@@ -202,11 +212,28 @@ def build_request_body(
             f"{REQUEST_SIGN_PREFIX}|{server_key_str.strip()}|{id_b64}|{pub_b64}|{nonce}"
         ).encode("utf-8")
         sig = base64.urlsafe_b64encode(id_priv.sign(sign_data)).decode("ascii")
-        ret_body = json.dumps(
-            {"v": 2, "id": id_b64, "pub": pub_b64, "nonce": nonce, "sig": sig}
+        plaintext = json.dumps(
+            {"v": 3, "id": id_b64, "pub": pub_b64, "nonce": nonce, "sig": sig}
+        ).encode("utf-8")
+
+        eph_priv = x25519.X25519PrivateKey.generate()
+        eph_pub_bytes = eph_priv.public_key().public_bytes(
+            encoding=serialization.Encoding.Raw,
+            format=serialization.PublicFormat.Raw,
+        )
+        aes_key = HKDF(
+            algorithm=hashes.SHA256(),
+            length=32,
+            salt=None,
+            info=REQUEST_HKDF_INFO,
+        ).derive(eph_priv.exchange(server_x_pub))
+        iv = os.urandom(12)
+        ciphertext = AESGCM(aes_key).encrypt(iv, plaintext, REQUEST_AAD)
+        ret_body = base64.urlsafe_b64encode(eph_pub_bytes + iv + ciphertext).decode(
+            "ascii"
         )
     except Exception as e:
-        raise RuntimeError(f"接続依頼の署名生成エラー: {e}")
+        raise RuntimeError(f"接続依頼の署名・暗号化エラー: {e}")
     return ret_body
 
 
@@ -585,7 +612,7 @@ def main() -> None:
             allow_unpinned,
         ) = parse_cli_args(sys.argv[1:])
 
-        server_pub = parse_server_pubkey(srv_key_str)
+        server_pub, server_x_pub = parse_server_pubkey(srv_key_str)
         priv_key, pub_b64, topic = generate_keys()
         id_priv, id_b64 = generate_identity()
         req_topic = build_request_topic(srv_key_str)
@@ -615,7 +642,7 @@ def main() -> None:
                 if not nonce:
                     nonce = os.urandom(8).hex()
                     req_body = build_request_body(
-                        srv_key_str, id_priv, id_b64, pub_b64, nonce
+                        srv_key_str, server_x_pub, id_priv, id_b64, pub_b64, nonce
                     )
                     last_sent = 0.0
                 last_sent = request_if_due(req_topic, req_body, nonce, last_sent)
