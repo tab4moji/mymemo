@@ -8,7 +8,7 @@
 """
 目的: サーバーEd25519署名を検証し、安全にPinggy経由のSSHセッションを確立する。
 機能: サーバー署名検証、poll=1によるURL取得、個別排他tmux、パススルー自動有効化、
-      サーバーへの自動接続依頼(nonce照合)、再接続時の遅延リサイズ補正、
+      サーバーへの自動接続依頼(Ed25519署名付き・nonce照合)、再接続時の遅延リサイズ補正、
       通知されたsshdホスト鍵のピン留め(中間者攻撃対策)。
 
 更新履歴:
@@ -30,6 +30,8 @@
                 (ループ廃止、attach前にwindow単位のwindow-size上書きを解除)
 016 2026-11-04 通知のホスト鍵を一時known_hostsに書き出して厳格検証(StrictHostKeyChecking=yes)、
                 --allow-unpinned 追加、nonce無し通知をフォールバック候補として受理
+017 2026-11-04 接続依頼にEd25519識別鍵の署名を付与(サーバー鍵・X25519鍵・nonceに束縛)、
+                指紋を識別鍵基準に変更
 """
 
 import base64
@@ -57,6 +59,7 @@ URL_PATTERN = re.compile(r"^tcp://([^:|]+):(\d+)$")
 HOSTKEY_PATTERN = re.compile(r"^ssh-ed25519 [A-Za-z0-9+/]+={0,2}$")
 NTFY_BASE_URL = "https://ntfy.sh"
 HKDF_INFO = b"pinggy-ssh-x25519"
+REQUEST_SIGN_PREFIX = "pinggy-req-v1"
 REQUEST_RESEND_SECONDS = 60
 RESIZE_KICK_DELAYS = (0.8, 2.0, 4.0)
 
@@ -87,6 +90,21 @@ def generate_keys() -> tuple:
     except Exception as e:
         raise RuntimeError(f"鍵生成エラー: {e}")
     return ret_keys
+
+
+def generate_identity() -> tuple:
+    ret_ident = (None, "")
+    try:
+        id_priv = ed25519.Ed25519PrivateKey.generate()
+        pub_bytes = id_priv.public_key().public_bytes(
+            encoding=serialization.Encoding.Raw,
+            format=serialization.PublicFormat.Raw,
+        )
+        id_b64 = base64.urlsafe_b64encode(pub_bytes).decode("ascii")
+        ret_ident = (id_priv, id_b64)
+    except Exception as e:
+        raise RuntimeError(f"識別鍵生成エラー: {e}")
+    return ret_ident
 
 
 def build_request_topic(server_key_str: str) -> str:
@@ -171,10 +189,30 @@ def decrypt_and_verify(
     return ret_text
 
 
-def send_connect_request(req_topic: str, pub_b64: str, nonce: str) -> None:
+def build_request_body(
+    server_key_str: str,
+    id_priv: ed25519.Ed25519PrivateKey,
+    id_b64: str,
+    pub_b64: str,
+    nonce: str,
+) -> str:
+    ret_body = ""
+    try:
+        sign_data = (
+            f"{REQUEST_SIGN_PREFIX}|{server_key_str.strip()}|{id_b64}|{pub_b64}|{nonce}"
+        ).encode("utf-8")
+        sig = base64.urlsafe_b64encode(id_priv.sign(sign_data)).decode("ascii")
+        ret_body = json.dumps(
+            {"v": 2, "id": id_b64, "pub": pub_b64, "nonce": nonce, "sig": sig}
+        )
+    except Exception as e:
+        raise RuntimeError(f"接続依頼の署名生成エラー: {e}")
+    return ret_body
+
+
+def send_connect_request(req_topic: str, body: str) -> None:
     ret = None
     try:
-        body = json.dumps({"pub": pub_b64, "nonce": nonce})
         req = urllib.request.Request(
             f"{NTFY_BASE_URL}/{req_topic}",
             data=body.encode("utf-8"),
@@ -517,13 +555,13 @@ def parse_cli_args(
 
 
 def request_if_due(
-    req_topic: str, pub_b64: str, nonce: str, last_sent: float
+    req_topic: str, body: str, nonce: str, last_sent: float
 ) -> float:
     ret_sent = last_sent
     try:
         now = time.time()
         if now - last_sent >= REQUEST_RESEND_SECONDS:
-            send_connect_request(req_topic, pub_b64, nonce)
+            send_connect_request(req_topic, body)
             ret_sent = now
             print(
                 f"\n[pinggy_ssh] 接続依頼を送信した (nonce={nonce})",
@@ -549,6 +587,7 @@ def main() -> None:
 
         server_pub = parse_server_pubkey(srv_key_str)
         priv_key, pub_b64, topic = generate_keys()
+        id_priv, id_b64 = generate_identity()
         req_topic = build_request_topic(srv_key_str)
 
         session_name = session_arg if session_arg else f"pg_{topic[:8]}"
@@ -556,7 +595,7 @@ def main() -> None:
         print("【公開鍵 QRコード】", file=sys.stderr)
         display_qr_code(pub_b64)
         print(f"\n【クライアント公開鍵 (Base64)】\n{pub_b64}\n", file=sys.stderr)
-        print(f"[pinggy_ssh] 指紋(サーバーのy/Nで照合): {fingerprint(pub_b64)}", file=sys.stderr)
+        print(f"[pinggy_ssh] 指紋(サーバーのy/Nで照合): {fingerprint(id_b64)}", file=sys.stderr)
         print(f"[pinggy_ssh] トピック     : {topic}", file=sys.stderr)
         print(f"[pinggy_ssh] セッション名 : {session_name}", file=sys.stderr)
         print(f"[pinggy_ssh] ダウンロード先 : {download_path}", file=sys.stderr)
@@ -566,6 +605,7 @@ def main() -> None:
         current_port = 0
         current_hostkey = ""
         nonce = ""
+        req_body = ""
         last_sent = 0.0
 
         while True:
@@ -574,8 +614,11 @@ def main() -> None:
             if not current_host:
                 if not nonce:
                     nonce = os.urandom(8).hex()
+                    req_body = build_request_body(
+                        srv_key_str, id_priv, id_b64, pub_b64, nonce
+                    )
                     last_sent = 0.0
-                last_sent = request_if_due(req_topic, pub_b64, nonce, last_sent)
+                last_sent = request_if_due(req_topic, req_body, nonce, last_sent)
                 print(
                     f"[pinggy_ssh] サーバー応答待機中 (#{attempt})...",
                     end="\r",

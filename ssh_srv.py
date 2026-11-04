@@ -7,8 +7,8 @@
 """
 目的: Pinggyトンネルを維持し、クライアント切断を検知して自動で待機状態に戻る。
 機能: マルチプロセス監視、Ed25519署名、X25519/AES-GCM暗号化、個別排他tmux、
-      Keepalive、ntfy経由のクライアント接続依頼受付とy/N承認、承認済み鍵の自動再接続、
-      sshdホスト鍵の通知同梱(クライアント側ピン留め用)。
+      Keepalive、ntfy経由のクライアント接続依頼受付(クライアントEd25519署名検証)とy/N承認、
+      承認済み識別鍵の自動再接続、sshdホスト鍵の通知同梱(クライアント側ピン留め用)。
 
 更新履歴:
 001 2026-05-26 初版
@@ -27,6 +27,8 @@
 014 2026-11-04 クライアント自動接続依頼の受付、未承認鍵のy/N確認、
                 承認済み鍵の自動再接続、URLへのnonce付与、未接続タイムアウト追加
 015 2026-11-04 sshdホスト鍵(ed25519)をURL通知に同梱してクライアントにピン留めさせる(--hostkey)
+016 2026-11-04 接続依頼のEd25519署名検証を追加。承認済み集合を識別鍵単位に変更し、
+                署名不正な依頼を無視。-k/手動貼付鍵は事前承認集合に入れない
 """
 
 import argparse
@@ -62,6 +64,7 @@ DISCONNECT_THRESHOLD = 15
 NEVER_CONNECTED_TIMEOUT = 300.0
 REQUEST_TTL_SECONDS = 300
 REQUEST_POLL_SECONDS = 3.0
+REQUEST_SIGN_PREFIX = "pinggy-req-v1"
 NONCE_PATTERN = re.compile(r"^[0-9a-f]{8,32}$")
 DEFAULT_HOSTKEY_PATH = "/etc/ssh/ssh_host_ed25519_key.pub"
 
@@ -98,7 +101,7 @@ def parse_args() -> argparse.Namespace:
             "-k",
             "--pubkey",
             default="",
-            help="クライアントX25519公開鍵(Base64)。初回のみ即開始し事前承認する",
+            help="クライアントX25519公開鍵(Base64)。初回のみ即開始する(承認集合には入れない)",
         )
         parser.add_argument(
             "-s", "--subject", default="Pinggy URL", help="送信タイトル"
@@ -269,21 +272,43 @@ def send_url(
     return ret_none
 
 
-def parse_request_body(body: str) -> tuple[str, str]:
-    ret_pair = ("", "")
+def build_request_sign_data(
+    server_pub_b64: str, id_b64: str, pub_b64: str, nonce: str
+) -> bytes:
+    ret_data = (
+        f"{REQUEST_SIGN_PREFIX}|{server_pub_b64.strip()}|{id_b64}|{pub_b64}|{nonce}"
+    ).encode("utf-8")
+    return ret_data
+
+
+def parse_request_body(body: str, server_pub_b64: str) -> tuple[str, str, str]:
+    ret_triple = ("", "", "")
     try:
         data = json.loads(body)
+        id_b64 = str(data.get("id", ""))
         pub = validate_pubkey(str(data.get("pub", "")))
         nonce = str(data.get("nonce", ""))
         if not NONCE_PATTERN.match(nonce):
             raise ValueError("nonce形式不正")
-        ret_pair = (pub, nonce)
+        id_raw = base64.urlsafe_b64decode(id_b64)
+        if len(id_raw) != 32:
+            raise ValueError("識別鍵長不正")
+        if base64.urlsafe_b64encode(id_raw).decode("ascii") != id_b64:
+            raise ValueError("識別鍵表現が正規形ではない")
+        sig = base64.urlsafe_b64decode(str(data.get("sig", "")))
+        id_key = ed25519.Ed25519PublicKey.from_public_bytes(id_raw)
+        id_key.verify(
+            sig, build_request_sign_data(server_pub_b64, id_b64, pub, nonce)
+        )
+        ret_triple = (id_b64, pub, nonce)
     except Exception:
-        ret_pair = ("", "")
-    return ret_pair
+        ret_triple = ("", "", "")
+    return ret_triple
 
 
-def fetch_requests(req_topic: str) -> list[tuple[str, str]]:
+def fetch_requests(
+    req_topic: str, server_pub_b64: str
+) -> list[tuple[str, str, str]]:
     ret_list = []
     try:
         url = f"{NTFY_BASE_URL}/{req_topic}/json?poll=1&since={REQUEST_TTL_SECONDS}s"
@@ -298,21 +323,21 @@ def fetch_requests(req_topic: str) -> list[tuple[str, str]]:
                     continue
                 if msg.get("event", "message") != "message":
                     continue
-                pair = parse_request_body(msg.get("message", ""))
-                if pair[0]:
-                    ret_list.append(pair)
+                triple = parse_request_body(msg.get("message", ""), server_pub_b64)
+                if triple[0]:
+                    ret_list.append(triple)
     except Exception as exc:
         print(f"[!] 接続依頼ポーリングエラー: {exc}", file=sys.stderr)
         ret_list = []
     return ret_list
 
 
-def confirm_request(pubkey: str, nonce: str) -> bool:
+def confirm_request(id_b64: str, nonce: str) -> bool:
     ret_ok = False
     try:
         print("\a", end="", file=sys.stderr)
         print(
-            f"\n[?] 新規接続依頼 指紋={fingerprint(pubkey)} nonce={nonce}",
+            f"\n[?] 新規接続依頼(署名検証済) 指紋={fingerprint(id_b64)} nonce={nonce}",
             file=sys.stderr,
         )
         print("    クライアント表示の指紋と一致するか確認すること", file=sys.stderr)
@@ -326,24 +351,24 @@ def confirm_request(pubkey: str, nonce: str) -> bool:
 
 
 def pick_request(
-    req_topic: str, approved: set, handled: set
+    req_topic: str, server_pub_b64: str, approved: set, handled: set
 ) -> tuple[str, str, bool]:
     ret = ("", "", False)
     try:
-        for pub, nonce in fetch_requests(req_topic):
-            key = (pub, nonce)
+        for id_b64, pub, nonce in fetch_requests(req_topic, server_pub_b64):
+            key = (id_b64, pub, nonce)
             if key in handled:
                 continue
             handled.add(key)
-            if pub in approved:
+            if id_b64 in approved:
                 print(
-                    f"\n[+] 承認済み鍵からの依頼を自動受理した 指紋={fingerprint(pub)}",
+                    f"\n[+] 承認済み識別鍵からの署名付き依頼を自動受理した 指紋={fingerprint(id_b64)}",
                     file=sys.stderr,
                 )
                 ret = (pub, nonce, False)
                 break
-            if confirm_request(pub, nonce):
-                approved.add(pub)
+            if confirm_request(id_b64, nonce):
+                approved.add(id_b64)
                 ret = (pub, nonce, False)
                 break
             print("[i] 依頼を拒否した", file=sys.stderr)
@@ -352,7 +377,7 @@ def pick_request(
     return ret
 
 
-def handle_manual_input(approved: set, last_key: str) -> tuple[str, str, bool]:
+def handle_manual_input(last_key: str) -> tuple[str, str, bool]:
     ret = ("", "", False)
     try:
         raw = sys.stdin.readline()
@@ -364,9 +389,7 @@ def handle_manual_input(approved: set, last_key: str) -> tuple[str, str, bool]:
                 ret = (last_key, "", False)
         else:
             try:
-                key = validate_pubkey(line)
-                approved.add(key)
-                ret = (key, "", False)
+                ret = (validate_pubkey(line), "", False)
             except ValueError as exc:
                 print(f"エラー: {exc}", file=sys.stderr)
     except Exception as exc:
@@ -375,7 +398,11 @@ def handle_manual_input(approved: set, last_key: str) -> tuple[str, str, bool]:
 
 
 def wait_for_client(
-    req_topic: str, approved: set, handled: set, last_key: str
+    req_topic: str,
+    server_pub_b64: str,
+    approved: set,
+    handled: set,
+    last_key: str,
 ) -> tuple[str, str, bool]:
     ret = ("", "", False)
     try:
@@ -385,9 +412,9 @@ def wait_for_client(
         while not ret[0] and not ret[2]:
             rlist, _, _ = select.select([sys.stdin], [], [], REQUEST_POLL_SECONDS)
             if rlist:
-                ret = handle_manual_input(approved, last_key)
+                ret = handle_manual_input(last_key)
             else:
-                ret = pick_request(req_topic, approved, handled)
+                ret = pick_request(req_topic, server_pub_b64, approved, handled)
     except Exception as exc:
         raise RuntimeError(f"接続待機エラー: {exc}") from exc
     return ret
@@ -741,12 +768,11 @@ def main() -> int:
         while True:
             if first_key:
                 client_pubkey = validate_pubkey(first_key)
-                approved.add(client_pubkey)
                 nonce = ""
                 first_key = ""
             else:
                 client_pubkey, nonce, quit_req = wait_for_client(
-                    req_topic, approved, handled, client_pubkey
+                    req_topic, server_pub_b64, approved, handled, client_pubkey
                 )
                 if quit_req:
                     print("\n[+] ユーザー要求により正常終了した", file=sys.stderr)
