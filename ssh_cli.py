@@ -9,8 +9,9 @@
 目的: サーバーEd25519署名を検証し、安全にPinggy経由のSSHセッションを確立する。
 機能: サーバー署名検証、poll=1によるURL取得、個別排他tmux、パススルー自動有効化、
       サーバーへの自動接続依頼(サーバーX25519鍵宛てに暗号化・Ed25519署名付き・nonce照合・
-      再送のたびに暗号化し直し)、再接続時の遅延リサイズ補正、
-      通知されたsshdホスト鍵のピン留め(中間者攻撃対策)。
+      再送のたびに暗号化し直し)、再接続時の継続的リサイズ補正、
+      通知されたsshdホスト鍵のピン留め(中間者攻撃対策)、
+      切断後の端末リセットと画面クリア。
 
 更新履歴:
 001 2026-05-26 初版 (recv_msg.py 外部連携版)
@@ -37,6 +38,11 @@
                 Ed25519+X25519の64B連結形式に変更(旧形式は非互換)
 019 2026-11-04 接続依頼を再送のたびに組み直し(使い捨て鍵とIVを毎回更新)し、
                 同一暗号文が並ぶことを防止
+020 2026-11-05 切断後(通信5秒以上持続時)に端末モード(代替画面・マウス等)を解除して
+                画面を消してから再接続処理に入る。termios保存/復元を追加。
+                リサイズ補正を固定3回から30秒間の毎秒送信へ変更し、
+                tsshのラッパー経由でも届くようフォアグラウンドのプロセス
+                グループへSIGWINCHを送る
 """
 
 import base64
@@ -53,6 +59,11 @@ import threading
 import time
 import urllib.request
 
+try:
+    import termios
+except ImportError:  # Windows には termios が無い
+    termios = None
+
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ed25519, x25519
@@ -68,7 +79,24 @@ REQUEST_HKDF_INFO = b"pinggy-req-x25519"
 REQUEST_AAD = b"pinggy-req-v3"
 REQUEST_SIGN_PREFIX = "pinggy-req-v1"
 REQUEST_RESEND_SECONDS = 60
-RESIZE_KICK_DELAYS = (0.8, 2.0, 4.0)
+RESIZE_KICK_INTERVAL = 1.0
+RESIZE_KICK_SECONDS = 30.0
+QUICK_FAIL_SECONDS = 5.0
+# 切断で取り残された端末状態を戻して画面を消す(スクロールバックは消さない)
+TERM_RESET_SEQUENCE = (
+    "\x1b[?1049l"  # 代替画面を抜ける
+    "\x1b[?1000l\x1b[?1002l\x1b[?1003l"  # マウス追跡を解除
+    "\x1b[?1005l\x1b[?1006l\x1b[?1015l"  # マウス座標形式を解除
+    "\x1b[?1004l"  # フォーカス通知を解除
+    "\x1b[?2004l"  # bracketed paste を解除
+    "\x1b[?25h"  # カーソルを表示
+    "\x1b[?1l\x1b>"  # カーソルキー・テンキーを通常モードへ
+    "\x1b[?6l\x1b[?7h"  # 原点モード解除・自動折り返しを有効化
+    "\x0f\x1b(B"  # 文字セットを ASCII へ
+    "\x1b[0 q"  # カーソル形状を既定へ
+    "\x1b[0m\x1b[r"  # 属性とスクロール領域を初期化
+    "\x1b[2J\x1b[H"  # 画面を消してホームへ
+)
 
 
 def parse_server_pubkey(key_b64: str) -> tuple:
@@ -360,33 +388,95 @@ def send_winch(proc: subprocess.Popen) -> None:
     ret = None
     try:
         if proc.poll() is None:
-            proc.send_signal(signal.SIGWINCH)
+            if hasattr(os, "killpg"):
+                # 端末のリサイズ時にカーネルが行うのと同じく、フォア
+                # グラウンドのプロセスグループ全体へ送る。tsshが
+                # ラッパー経由で起動されても本体に届く
+                os.killpg(os.getpgrp(), signal.SIGWINCH)
+            else:
+                proc.send_signal(signal.SIGWINCH)
     except Exception as e:
         print(f"[pinggy_ssh] SIGWINCH送信失敗: {e}", file=sys.stderr)
     return ret
 
 
-def start_resize_kicks(proc: subprocess.Popen) -> list:
-    ret_timers = []
-    try:
-        if hasattr(signal, "SIGWINCH"):
-            for delay in RESIZE_KICK_DELAYS:
-                timer = threading.Timer(delay, send_winch, args=(proc,))
-                timer.daemon = True
-                timer.start()
-                ret_timers.append(timer)
-    except Exception as e:
-        raise RuntimeError(f"リサイズ補正タイマー起動エラー: {e}")
-    return ret_timers
-
-
-def cancel_timers(timers: list) -> None:
+def resize_kick_loop(
+    proc: subprocess.Popen, stop_event: threading.Event
+) -> None:
     ret = None
     try:
-        for timer in timers:
-            timer.cancel()
+        deadline = time.monotonic() + RESIZE_KICK_SECONDS
+        while not stop_event.wait(RESIZE_KICK_INTERVAL):
+            if time.monotonic() >= deadline:
+                break
+            send_winch(proc)
     except Exception as e:
-        print(f"[pinggy_ssh] タイマー解除失敗: {e}", file=sys.stderr)
+        print(f"[pinggy_ssh] リサイズ補正ループ異常: {e}", file=sys.stderr)
+    return ret
+
+
+def start_resize_kicks(proc: subprocess.Popen) -> tuple:
+    ret_handle = (None, None)
+    try:
+        if hasattr(signal, "SIGWINCH"):
+            stop_event = threading.Event()
+            thread = threading.Thread(
+                target=resize_kick_loop,
+                args=(proc, stop_event),
+                daemon=True,
+            )
+            thread.start()
+            ret_handle = (thread, stop_event)
+    except Exception as e:
+        raise RuntimeError(f"リサイズ補正スレッド起動エラー: {e}")
+    return ret_handle
+
+
+def stop_resize_kicks(handle: tuple) -> None:
+    ret = None
+    try:
+        thread, stop_event = handle
+        if stop_event is not None:
+            stop_event.set()
+            thread.join(timeout=2.0)
+    except Exception as e:
+        print(f"[pinggy_ssh] リサイズ補正の停止失敗: {e}", file=sys.stderr)
+    return ret
+
+
+def save_tty_state() -> list:
+    ret_state = []
+    try:
+        if termios is not None and sys.stdin.isatty():
+            ret_state = termios.tcgetattr(sys.stdin.fileno())
+    except Exception as e:
+        print(f"[pinggy_ssh] 端末状態の保存失敗: {e}", file=sys.stderr)
+    return ret_state
+
+
+def restore_tty_state(state: list) -> None:
+    ret = None
+    try:
+        if state and termios is not None:
+            fd = sys.stdin.fileno()
+            # バックグラウンドからのtcsetattrはSIGTTOUで停止するため避ける
+            if os.tcgetpgrp(fd) == os.getpgrp():
+                termios.tcsetattr(fd, termios.TCSADRAIN, state)
+    except Exception as e:
+        print(f"[pinggy_ssh] 端末状態の復元失敗: {e}", file=sys.stderr)
+    return ret
+
+
+def reset_local_terminal() -> None:
+    ret = None
+    try:
+        if sys.stderr.isatty():
+            if os.name == "nt":
+                os.system("")  # Windowsコンソールのエスケープ処理を有効化
+            sys.stderr.write(TERM_RESET_SEQUENCE)
+            sys.stderr.flush()
+    except Exception as e:
+        print(f"[pinggy_ssh] 画面クリア失敗: {e}", file=sys.stderr)
     return ret
 
 
@@ -459,7 +549,7 @@ def run_ssh(
 ) -> int:
     ret_code = -1
     proc = None
-    timers = []
+    kicks = (None, None)
     kh_path = ""
     try:
         ssh_bin = shutil.which("tssh")
@@ -492,7 +582,7 @@ def run_ssh(
 
         proc = subprocess.Popen(cmd)
         if use_tmux:
-            timers = start_resize_kicks(proc)
+            kicks = start_resize_kicks(proc)
         ret_code = proc.wait()
     except KeyboardInterrupt:
         try:
@@ -504,7 +594,7 @@ def run_ssh(
     except Exception as e:
         raise RuntimeError(f"SSH実行エラー: {e}")
     finally:
-        cancel_timers(timers)
+        stop_resize_kicks(kicks)
         remove_file(kh_path)
     return ret_code
 
@@ -640,6 +730,7 @@ def main() -> None:
         print(f"[pinggy_ssh] セッション名 : {session_name}", file=sys.stderr)
         print(f"[pinggy_ssh] ダウンロード先 : {download_path}", file=sys.stderr)
 
+        tty_state = save_tty_state()
         attempt = 0
         current_host = ""
         current_port = 0
@@ -700,6 +791,12 @@ def main() -> None:
             )
             duration = time.time() - t_start
 
+            restore_tty_state(tty_state)
+            if duration >= QUICK_FAIL_SECONDS:
+                # 実際に画面を使っていた接続のみ。即失敗時はtsshの
+                # エラー表示を残すため消さない
+                reset_local_terminal()
+
             print(
                 f"[pinggy_ssh] SSH 終了 (code={exit_code}, 通信持続={int(duration)}s)",
                 file=sys.stderr,
@@ -709,7 +806,7 @@ def main() -> None:
                 print("[pinggy_ssh] ユーザー割り込み終了。", file=sys.stderr)
                 break
 
-            if duration < 5.0:
+            if duration < QUICK_FAIL_SECONDS:
                 print(
                     f"[pinggy_ssh] 接続先 ({current_host}:{current_port}) が即座に応答停止。新規接続依頼へ移行...",
                     file=sys.stderr,
