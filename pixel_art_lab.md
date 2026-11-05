@@ -1,4 +1,4 @@
-## 私立麦茶牛乳ドット絵研究所 - The Private Pixel Art Lab @mugichagyunew -
+## ドット絵研究所 - The Private Pixel Art Lab -
 
 ### 平面基礎
 
