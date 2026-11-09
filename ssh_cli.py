@@ -45,6 +45,7 @@
                 グループへSIGWINCHを送る
 021 2026-11-09 X11フォワーディング対応(既定で有効。-X相当。--x11-trusted で -Y、
                 --no-x11 で無効化、-X/-Yの直接指定も可)。
+                SSH圧縮(Compression=yes)を既定で有効化(X11描画の転送量削減)
                 tmux再アタッチ時にDISPLAY/XAUTHORITYを更新対象に追加
 """
 
@@ -591,6 +592,8 @@ def run_ssh(
             "ServerAliveInterval=15",
             "-o",
             "ServerAliveCountMax=3",
+            "-o",
+            "Compression=yes",
             "-p",
             str(port),
         ]
