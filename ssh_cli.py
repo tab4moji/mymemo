@@ -43,6 +43,8 @@
                 リサイズ補正を固定3回から30秒間の毎秒送信へ変更し、
                 tsshのラッパー経由でも届くようフォアグラウンドのプロセス
                 グループへSIGWINCHを送る
+021 2026-11-09 X11フォワーディング対応(--x11 / --x11-trusted、-X/-Yの直接指定も可)。
+                tmux再アタッチ時にDISPLAY/XAUTHORITYを更新対象に追加
 """
 
 import base64
@@ -364,7 +366,32 @@ def fetch_ntfy_url(
     return ret_val
 
 
-def build_tmux_cmd(session_name: str) -> str:
+X11_FLAGS = ("-X", "-Y", "-XY", "-YX")
+
+
+def is_x11_requested(extra_args: list[str]) -> bool:
+    ret = False
+    try:
+        ret = any(a in X11_FLAGS for a in extra_args) or any(
+            a.lower() == "forwardx11=yes" for a in extra_args
+        )
+    except Exception as e:
+        raise RuntimeError(f"X11指定判定エラー: {e}")
+    return ret
+
+
+def build_tmux_cmd(session_name: str, x11: bool = False) -> str:
+    # 再アタッチのたびにDISPLAY/XAUTHORITYを更新対象にする。
+    # 既存シェルには反映されないため、新しいwindow/paneか
+    # `eval "$(tmux show-environment -s DISPLAY)"` で取り込む
+    x11_part = (
+        f"tmux set-option -ga update-environment DISPLAY 2>/dev/null; "
+        f"tmux set-option -ga update-environment XAUTHORITY 2>/dev/null; "
+        f'[ -n "$DISPLAY" ] && tmux set-environment -g DISPLAY "$DISPLAY" 2>/dev/null; '
+        f'[ -n "$XAUTHORITY" ] && tmux set-environment -g XAUTHORITY "$XAUTHORITY" 2>/dev/null; '
+        if x11
+        else ""
+    )
     ret_cmd = (
         f"if command -v tmux >/dev/null 2>&1; then "
         f"tmux has-session -t {session_name} 2>/dev/null || "
@@ -373,6 +400,7 @@ def build_tmux_cmd(session_name: str) -> str:
         f"tmux set-option -t {session_name} allow-passthrough on 2>/dev/null; "
         f"tmux set-option -ga update-environment TERM 2>/dev/null; "
         f"tmux set-option -ga update-environment TERM_PROGRAM 2>/dev/null; "
+        f"{x11_part}"
         f"tmux set-option -t {session_name} status off; "
         f"tmux set-option -t {session_name} prefix None; "
         f"tmux set-option -w -u -t {session_name} window-size 2>/dev/null; "
@@ -569,10 +597,17 @@ def run_ssh(
             cmd += ["--download-path", download_path]
         cmd.append(host)
 
+        x11 = is_x11_requested(extra_args)
+        if x11 and not os.environ.get("DISPLAY"):
+            print(
+                "[pinggy_ssh] 警告: ローカルのDISPLAYが未設定。X11転送は機能しない可能性がある",
+                file=sys.stderr,
+            )
+
         if use_tmux:
             if "-t" not in extra_args and "-tt" not in extra_args:
                 cmd.append("-t")
-            tmux_script = build_tmux_cmd(session_name)
+            tmux_script = build_tmux_cmd(session_name, x11)
             cmd += extra_args + [tmux_script]
         else:
             cmd += extra_args
@@ -638,6 +673,12 @@ def parse_cli_args(
                 i += 2
             elif arg == "--no-tmux":
                 use_tmux = False
+                i += 1
+            elif arg == "--x11":
+                extra_args.append("-X")
+                i += 1
+            elif arg == "--x11-trusted":
+                extra_args.append("-Y")
                 i += 1
             elif arg == "--allow-unpinned":
                 allow_unpinned = True
