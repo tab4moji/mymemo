@@ -43,7 +43,8 @@
                 リサイズ補正を固定3回から30秒間の毎秒送信へ変更し、
                 tsshのラッパー経由でも届くようフォアグラウンドのプロセス
                 グループへSIGWINCHを送る
-021 2026-11-09 X11フォワーディング対応(--x11 / --x11-trusted、-X/-Yの直接指定も可)。
+021 2026-11-09 X11フォワーディング対応(既定で有効。-X相当。--x11-trusted で -Y、
+                --no-x11 で無効化、-X/-Yの直接指定も可)。
                 tmux再アタッチ時にDISPLAY/XAUTHORITYを更新対象に追加
 """
 
@@ -646,6 +647,7 @@ def parse_cli_args(
         verbose = False
         allow_unpinned = False
         extra_args = []
+        x11_mode = "-X"  # 既定でX11転送(信頼しない転送)を有効にする
 
         i = 0
         while i < len(raw_args):
@@ -675,10 +677,13 @@ def parse_cli_args(
                 use_tmux = False
                 i += 1
             elif arg == "--x11":
-                extra_args.append("-X")
+                x11_mode = "-X"
                 i += 1
             elif arg == "--x11-trusted":
-                extra_args.append("-Y")
+                x11_mode = "-Y"
+                i += 1
+            elif arg == "--no-x11":
+                x11_mode = ""
                 i += 1
             elif arg == "--allow-unpinned":
                 allow_unpinned = True
@@ -689,6 +694,10 @@ def parse_cli_args(
             else:
                 extra_args.append(arg)
                 i += 1
+
+        # -X/-Y/ForwardX11=yes を直接指定済みならそれを尊重し重複追加しない
+        if x11_mode and not is_x11_requested(extra_args):
+            extra_args.append(x11_mode)
 
         if not srv_key_str:
             raise ValueError(
