@@ -47,6 +47,8 @@
                 --no-x11 で無効化、-X/-Yの直接指定も可)。
                 SSH圧縮(Compression=yes)を既定で有効化(X11描画の転送量削減)
                 tmux再アタッチ時にDISPLAY/XAUTHORITYを更新対象に追加
+022 2026-11-12 接続不能時(code=16)および現行URL再試行失敗時に古いURLを破棄して
+                新規接続依頼へ移行するよう修正。~/.ssh/config自動作成による警告抑止。
 """
 
 import base64
@@ -567,6 +569,19 @@ def build_hostkey_options(host: str, port: int, hostkey: str) -> tuple[list, str
     return ret
 
 
+def ensure_ssh_config() -> None:
+    try:
+        cfg_path = os.path.expanduser("~/.ssh/config")
+        if not os.path.exists(cfg_path):
+            ssh_dir = os.path.dirname(cfg_path)
+            os.makedirs(ssh_dir, mode=0o700, exist_ok=True)
+            with open(cfg_path, "a", encoding="ascii"):
+                pass
+            os.chmod(cfg_path, 0o600)
+    except OSError:
+        pass
+
+
 def run_ssh(
     host: str,
     port: int,
@@ -582,6 +597,7 @@ def run_ssh(
     kicks = (None, None)
     kh_path = ""
     try:
+        ensure_ssh_config()
         ssh_bin = shutil.which("tssh")
         if not ssh_bin:
             raise RuntimeError("tssh コマンドが見つかりません")
@@ -788,6 +804,7 @@ def main() -> None:
         current_host = ""
         current_port = 0
         current_hostkey = ""
+        retrying_current = False
         nonce = ""
         last_sent = 0.0
 
@@ -845,7 +862,7 @@ def main() -> None:
             duration = time.time() - t_start
 
             restore_tty_state(tty_state)
-            if duration >= QUICK_FAIL_SECONDS:
+            if duration >= QUICK_FAIL_SECONDS and exit_code != 16:
                 # 実際に画面を使っていた接続のみ。即失敗時はtsshの
                 # エラー表示を残すため消さない
                 reset_local_terminal()
@@ -859,19 +876,32 @@ def main() -> None:
                 print("[pinggy_ssh] ユーザー割り込み終了。", file=sys.stderr)
                 break
 
-            if duration < QUICK_FAIL_SECONDS:
+            is_conn_failure = exit_code == 16 or duration < QUICK_FAIL_SECONDS
+
+            if is_conn_failure:
                 print(
-                    f"[pinggy_ssh] 接続先 ({current_host}:{current_port}) が即座に応答停止。新規接続依頼へ移行...",
+                    f"[pinggy_ssh] 接続先 ({current_host}:{current_port}) が応答停止/接続不能 (code={exit_code})。新規接続依頼へ移行...",
                     file=sys.stderr,
                 )
                 current_host = ""
                 current_port = 0
                 current_hostkey = ""
+                retrying_current = False
+            elif retrying_current:
+                print(
+                    f"[pinggy_ssh] 再試行先 ({current_host}:{current_port}) から切断。新規接続依頼へ移行...",
+                    file=sys.stderr,
+                )
+                current_host = ""
+                current_port = 0
+                current_hostkey = ""
+                retrying_current = False
             else:
                 print(
                     f"[pinggy_ssh] 切断検出。現行URL ({current_host}:{current_port}) へ即時再試行...",
                     file=sys.stderr,
                 )
+                retrying_current = True
 
             time.sleep(RETRY_INTERVAL)
     except KeyboardInterrupt:
