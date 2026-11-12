@@ -32,6 +32,8 @@
                 署名不正な依頼を無視。-k/手動貼付鍵は事前承認集合に入れない
 017 2026-11-04 接続依頼本文をサーバーX25519鍵宛てに暗号化。サーバー公開鍵を
                 Ed25519+X25519の64B連結形式に変更(旧形式は非互換)
+018 2026-11-12 サーバー公開鍵をHex(128文字英数字)形式に変更し、コピーしやすいように改善。
+                OSC 52によるクリップボード自動コピー機能を追加。旧Base64形式との互換性を維持
 """
 
 import argparse
@@ -74,8 +76,8 @@ NONCE_PATTERN = re.compile(r"^[0-9a-f]{8,32}$")
 DEFAULT_HOSTKEY_PATH = "/etc/ssh/ssh_host_ed25519_key.pub"
 
 
-def generate_server_keys() -> tuple[str, str, str]:
-    ret = ("", "", "")
+def generate_server_keys() -> tuple[str, str, str, str]:
+    ret = ("", "", "", "")
     try:
         priv = ed25519.Ed25519PrivateKey.generate()
         priv_bytes = priv.private_bytes(
@@ -101,8 +103,10 @@ def generate_server_keys() -> tuple[str, str, str]:
             format=serialization.PublicFormat.Raw,
         )
 
-        pub_b64 = base64.urlsafe_b64encode(pub_bytes + x_pub_bytes).decode("ascii")
-        ret = (priv_b64, x_priv_b64, pub_b64)
+        raw_pub = pub_bytes + x_pub_bytes
+        pub_hex = raw_pub.hex()
+        pub_b64 = base64.urlsafe_b64encode(raw_pub).decode("ascii")
+        ret = (priv_b64, x_priv_b64, pub_hex, pub_b64)
     except Exception as exc:
         raise RuntimeError(f"サーバー鍵生成エラー: {exc}") from exc
     return ret
@@ -169,9 +173,9 @@ def fingerprint(pubkey: str) -> str:
     return ret_fp
 
 
-def build_request_topic(server_pub_b64: str) -> str:
+def build_request_topic(server_pub_str: str) -> str:
     ret_topic = hashlib.sha256(
-        ("req:" + server_pub_b64.strip()).encode("ascii")
+        ("req:" + server_pub_str.strip()).encode("ascii")
     ).hexdigest()[:32]
     return ret_topic
 
@@ -290,10 +294,10 @@ def send_url(
 
 
 def build_request_sign_data(
-    server_pub_b64: str, id_b64: str, pub_b64: str, nonce: str
+    server_pub_str: str, id_b64: str, pub_b64: str, nonce: str
 ) -> bytes:
     ret_data = (
-        f"{REQUEST_SIGN_PREFIX}|{server_pub_b64.strip()}|{id_b64}|{pub_b64}|{nonce}"
+        f"{REQUEST_SIGN_PREFIX}|{server_pub_str.strip()}|{id_b64}|{pub_b64}|{nonce}"
     ).encode("utf-8")
     return ret_data
 
@@ -318,7 +322,10 @@ def decrypt_request(body: str, req_priv: x25519.X25519PrivateKey) -> bytes:
 
 
 def parse_request_body(
-    body: str, req_priv: x25519.X25519PrivateKey, server_pub_b64: str
+    body: str,
+    req_priv: x25519.X25519PrivateKey,
+    server_pub_hex: str,
+    server_pub_b64: str = "",
 ) -> tuple[str, str, str]:
     ret_triple = ("", "", "")
     try:
@@ -335,9 +342,23 @@ def parse_request_body(
             raise ValueError("識別鍵表現が正規形ではない")
         sig = base64.urlsafe_b64decode(str(data.get("sig", "")))
         id_key = ed25519.Ed25519PublicKey.from_public_bytes(id_raw)
-        id_key.verify(
-            sig, build_request_sign_data(server_pub_b64, id_b64, pub, nonce)
-        )
+        verified = False
+        try:
+            id_key.verify(
+                sig, build_request_sign_data(server_pub_hex, id_b64, pub, nonce)
+            )
+            verified = True
+        except Exception:
+            if server_pub_b64:
+                try:
+                    id_key.verify(
+                        sig, build_request_sign_data(server_pub_b64, id_b64, pub, nonce)
+                    )
+                    verified = True
+                except Exception:
+                    pass
+        if not verified:
+            raise ValueError("署名検証失敗")
         ret_triple = (id_b64, pub, nonce)
     except Exception:
         ret_triple = ("", "", "")
@@ -345,7 +366,10 @@ def parse_request_body(
 
 
 def fetch_requests(
-    req_topic: str, server_pub_b64: str, req_priv_b64: str
+    req_topic: str,
+    server_pub_hex: str,
+    req_priv_b64: str,
+    server_pub_b64: str = "",
 ) -> list[tuple[str, str, str]]:
     ret_list = []
     try:
@@ -365,7 +389,10 @@ def fetch_requests(
                 if msg.get("event", "message") != "message":
                     continue
                 triple = parse_request_body(
-                    msg.get("message", ""), req_priv, server_pub_b64
+                    msg.get("message", ""),
+                    req_priv,
+                    server_pub_hex,
+                    server_pub_b64,
                 )
                 if triple[0]:
                     ret_list.append(triple)
@@ -395,15 +422,16 @@ def confirm_request(id_b64: str, nonce: str) -> bool:
 
 def pick_request(
     req_topic: str,
-    server_pub_b64: str,
+    server_pub_hex: str,
     req_priv_b64: str,
     approved: set,
     handled: set,
+    server_pub_b64: str = "",
 ) -> tuple[str, str, bool]:
     ret = ("", "", False)
     try:
         for id_b64, pub, nonce in fetch_requests(
-            req_topic, server_pub_b64, req_priv_b64
+            req_topic, server_pub_hex, req_priv_b64, server_pub_b64
         ):
             key = (id_b64, pub, nonce)
             if key in handled:
@@ -448,11 +476,12 @@ def handle_manual_input(last_key: str) -> tuple[str, str, bool]:
 
 def wait_for_client(
     req_topic: str,
-    server_pub_b64: str,
+    server_pub_hex: str,
     req_priv_b64: str,
     approved: set,
     handled: set,
     last_key: str,
+    server_pub_b64: str = "",
 ) -> tuple[str, str, bool]:
     ret = ("", "", False)
     try:
@@ -465,7 +494,12 @@ def wait_for_client(
                 ret = handle_manual_input(last_key)
             else:
                 ret = pick_request(
-                    req_topic, server_pub_b64, req_priv_b64, approved, handled
+                    req_topic,
+                    server_pub_hex,
+                    req_priv_b64,
+                    approved,
+                    handled,
+                    server_pub_b64,
                 )
     except Exception as exc:
         raise RuntimeError(f"接続待機エラー: {exc}") from exc
@@ -786,12 +820,52 @@ def execute_session(
     return ret_quit
 
 
-def print_server_banner(server_pub_b64: str, req_topic: str, hostkey: str) -> None:
+def copy_to_clipboard_osc52(text: str) -> None:
+    try:
+        if not sys.stderr.isatty():
+            return
+        b64_data = base64.b64encode(text.encode("utf-8")).decode("ascii")
+        if os.environ.get("TMUX"):
+            osc = f"\x1bPtmux;\x1b\x1b]52;c;{b64_data}\x07\x1b\\"
+        else:
+            osc = f"\x1b]52;c;{b64_data}\x07"
+        sys.stderr.write(osc)
+        sys.stderr.flush()
+    except Exception:
+        pass
+
+
+def copy_to_clipboard(text: str) -> None:
+    copy_to_clipboard_osc52(text)
+    for cmd in (
+        ["wl-copy"],
+        ["xclip", "-selection", "clipboard"],
+        ["xsel", "--clipboard", "--input"],
+        ["pbcopy"],
+    ):
+        if shutil.which(cmd[0]):
+            try:
+                subprocess.run(
+                    cmd,
+                    input=text.encode("utf-8"),
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    timeout=0.5,
+                )
+                break
+            except Exception:
+                pass
+
+
+def print_server_banner(server_pub_hex: str, req_topic: str, hostkey: str) -> None:
     ret_none = None
     try:
+        copy_to_clipboard(server_pub_hex)
         print("==================================================", file=sys.stderr)
-        print("【サーバー証明用公開鍵 (Ed25519+X25519連結 Base64)】", file=sys.stderr)
-        print(f"{server_pub_b64}", file=sys.stderr)
+        print("【サーバー証明用公開鍵 (Hex 128文字 / コピー用)】", file=sys.stderr)
+        print(f"{server_pub_hex}", file=sys.stderr)
+        print("  ※記号(-や_)無しの英数字のみ。ダブルクリックで一括選択できます", file=sys.stderr)
+        print("  ※OSC 52対応ターミナルではクリップボードに自動コピーされています", file=sys.stderr)
         print(f"【接続依頼トピック】 {req_topic}", file=sys.stderr)
         print(f"【ピン留めするsshdホスト鍵】 {hostkey[:40]}...", file=sys.stderr)
         print("==================================================", file=sys.stderr)
@@ -807,9 +881,11 @@ def main() -> int:
         print("Pinggy SSH サーバー管理デーモンを起動した", file=sys.stderr)
 
         hostkey = load_hostkey(args.hostkey)
-        server_priv_b64, req_priv_b64, server_pub_b64 = generate_server_keys()
-        req_topic = build_request_topic(server_pub_b64)
-        print_server_banner(server_pub_b64, req_topic, hostkey)
+        server_priv_b64, req_priv_b64, server_pub_hex, server_pub_b64 = generate_server_keys()
+        topic_hex = build_request_topic(server_pub_hex)
+        topic_b64 = build_request_topic(server_pub_b64)
+        req_topic = f"{topic_hex},{topic_b64}"
+        print_server_banner(server_pub_hex, topic_hex, hostkey)
 
         approved = set()
         handled = set()
@@ -825,11 +901,12 @@ def main() -> int:
             else:
                 client_pubkey, nonce, quit_req = wait_for_client(
                     req_topic,
-                    server_pub_b64,
+                    server_pub_hex,
                     req_priv_b64,
                     approved,
                     handled,
                     client_pubkey,
+                    server_pub_b64,
                 )
                 if quit_req:
                     print("\n[+] ユーザー要求により正常終了した", file=sys.stderr)

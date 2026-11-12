@@ -49,6 +49,7 @@
                 tmux再アタッチ時にDISPLAY/XAUTHORITYを更新対象に追加
 022 2026-11-12 接続不能時(code=16)および現行URL再試行失敗時に古いURLを破棄して
                 新規接続依頼へ移行するよう修正。~/.ssh/config自動作成による警告抑止。
+023 2026-11-12 サーバー公開鍵のHex(128文字英数字)自動判別入力に対応。記号なしでコピー可能に。
 """
 
 import base64
@@ -105,10 +106,20 @@ TERM_RESET_SEQUENCE = (
 )
 
 
-def parse_server_pubkey(key_b64: str) -> tuple:
-    ret_keys = (None, None)
+def parse_server_pubkey(key_str: str) -> tuple:
+    ret_keys = (None, None, "")
     try:
-        raw_bytes = base64.urlsafe_b64decode(key_b64.strip())
+        s = key_str.strip()
+        raw_bytes = None
+        # Hex (128文字英数字) または Base64
+        if len(s) == 128 and all(c in "0123456789abcdefABCDEF" for c in s):
+            raw_bytes = bytes.fromhex(s)
+            canonical_key = s.lower()
+        else:
+            pad = "=" * ((4 - len(s) % 4) % 4)
+            raw_bytes = base64.urlsafe_b64decode(s + pad)
+            canonical_key = s
+
         if len(raw_bytes) != 64:
             raise ValueError(
                 f"鍵長不正 (期待値: 64B[Ed25519+X25519], 実測: {len(raw_bytes)}B)"
@@ -116,6 +127,7 @@ def parse_server_pubkey(key_b64: str) -> tuple:
         ret_keys = (
             ed25519.Ed25519PublicKey.from_public_bytes(raw_bytes[:32]),
             x25519.X25519PublicKey.from_public_bytes(raw_bytes[32:]),
+            canonical_key,
         )
     except Exception as e:
         raise RuntimeError(f"サーバー公開鍵の解析失敗: {e}")
@@ -784,7 +796,7 @@ def main() -> None:
             allow_unpinned,
         ) = parse_cli_args(sys.argv[1:])
 
-        server_pub, server_x_pub = parse_server_pubkey(srv_key_str)
+        server_pub, server_x_pub, srv_key_str = parse_server_pubkey(srv_key_str)
         priv_key, pub_b64, topic = generate_keys()
         id_priv, id_b64 = generate_identity()
         req_topic = build_request_topic(srv_key_str)
