@@ -533,7 +533,7 @@ set -g status-interval 10
 set -g status-style "bg=colour235,fg=colour255"
 
 set -g status-left-length 80
-set -g status-left "#[fg=colour46,bold]#(cat /tmp/uim-fep-status-#{s/%//:pane_id} 2>/dev/null || echo 'mozc')#[default] "
+set -g status-left "#{?#{==:#{client_key_table},off},#[fg=colour208,bold][PASSTHROUGH] ,}#[fg=colour46,bold]#(cat /tmp/uim-fep-status-#{s/%//:pane_id} 2>/dev/null || echo \"mozc\")#[default] "
 
 set -g status-right-length 50
 set -g status-right "#[fg=colour220]#($HOME/.local/bin/tmux-status-right)#[default]"
@@ -545,6 +545,19 @@ set -g window-status-current-format ""
 # Mouse & vi copy mode
 set -g mouse on
 setw -g mode-keys vi
+
+# Nested tmux toggle with F10: disable local prefix/keys to pass Ctrl+z to SSH tmux
+bind -T root F10 \
+  set prefix None \;\
+  set key-table off \;\
+  set status-style "bg=colour52,fg=colour255" \;\
+  refresh-client -S
+
+bind -T off F10 \
+  set -u prefix \;\
+  set -u key-table \;\
+  set -u status-style \;\
+  refresh-client -S
 ```
 
 #### 5. ローカルログイン時の `tmux` 自動起動 (`~/.profile`)
