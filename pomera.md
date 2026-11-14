@@ -415,7 +415,7 @@ bash -c 'for i in {0..255}; do printf "\x1b[48;5;%dm%3d\x1b[0m " "$i"; (((i+1)%1
 ### 日本語入力環境 (`tmux` 内限定の `uim-fep` + `Mozc`)
 
 生のコンソール (kmscon) には IME を常駐させず、**`tmux` を起動した時（ペイン内）限定で Mozc を有効化**します。
-また、`tmux` を外側に配置しプレフィックスを `Ctrl+z` にすることで、`Ctrl+b` やメタキーが Mozc や tmux に奪われずアプリ側へそのまま通るようにします。
+また、`tmux` を外側に配置しプレフィックスを `Ctrl+\` にすることで、`Ctrl+b` や SSH 先の `tmux` (`Ctrl+z`) が奪われずそのまま通るようにします。
 
 ```text
 電源投入 → kmscon (VT1) → login
@@ -515,19 +515,20 @@ chmod +x ~/.local/bin/tmux-status-right
 ```
 
 #### 4. `~/.tmux.conf` の設定
-- `Ctrl+b` を他アプリで使えるよう解除し、プレフィックスを `Ctrl+z` に設定
+- `Ctrl+b`（他アプリ）や `Ctrl+z`（SSH 先の `tmux` 等）と衝突しないよう、手元 `tmux` のプレフィックスを **`Ctrl+\` (`C-\`)** に設定
 - `default-command` でペイン内のみ `tmux-uim-fep` を起動
-- 最下段 1 行のみに左「`mozc[...]`」、右「`MM/DD HH:MM JST 🔋[███░░] xx%`」を表示（`0:bash` 等のウィンドウ一覧は非表示）
+- 最下段 1 行のみに左「`mozc[...]`」、右「`MM/DD HH:MM JST 󰁾 xx%`」を表示（`0:bash` 等のウィンドウ一覧は非表示）
 
 ```tmux
 # Default terminal
 set -g default-terminal "tmux-256color"
 set -ga terminal-overrides ",xterm-256color:Tc"
 
-# Use Ctrl+z as prefix so Ctrl+b passes through to applications
+# Use Ctrl+\ as prefix so Ctrl+b and Ctrl+z (remote tmux) pass through cleanly
 unbind C-b
-set -g prefix C-z
-bind C-z send-prefix
+unbind C-z
+set -g prefix "C-\\"
+bind "C-\\" send-prefix
 
 # Run uim-fep (mozc) inside tmux panes only
 set-option -g default-command "$HOME/.local/bin/tmux-uim-fep"
@@ -551,19 +552,6 @@ set -g window-status-current-format ""
 # Mouse & vi copy mode
 set -g mouse on
 setw -g mode-keys vi
-
-# Nested tmux toggle with F10: disable local prefix/keys to pass Ctrl+z to SSH tmux
-bind -T root F10 \
-  set prefix None \;\
-  set key-table off \;\
-  set status-style "bg=colour52,fg=colour255" \;\
-  refresh-client -S
-
-bind -T off F10 \
-  set -u prefix \;\
-  set -u key-table \;\
-  set -u status-style \;\
-  refresh-client -S
 ```
 
 #### 5. ローカルログイン時の `tmux` 自動起動 (`~/.profile`)
@@ -577,4 +565,4 @@ fi
 ```
 
 これで電源投入 → ログイン直後から、最下段 1 行に Mozc 状態・JST 時刻・バッテリーゲージを備えた日本語入力可能な快適コンソールが立ち上がります。
-(`Ctrl+z d` で `tmux` をデタッチすれば、Mozc の動いていない生のコンソールへ戻ることもできます)
+(`Ctrl+\ d` で `tmux` をデタッチすれば、Mozc の動いていない生のコンソールへ戻ることもできます)
