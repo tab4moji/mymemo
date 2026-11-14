@@ -533,7 +533,7 @@ set -g status-interval 10
 set -g status-style "bg=colour235,fg=colour255"
 
 set -g status-left-length 80
-set -g status-left "#{?#{==:#{client_key_table},off},#[fg=colour208,bold][PASSTHROUGH] ,}#[fg=colour46,bold]#(cat /tmp/uim-fep-status-#{s/%//:pane_id} 2>/dev/null || echo \"mozc\")#[default] "
+set -g status-left "#[fg=colour46,bold]#(cat /tmp/uim-fep-status-#{s/%//:pane_id} 2>/dev/null || echo 'mozc')#[default] "
 
 set -g status-right-length 50
 set -g status-right "#[fg=colour220]#($HOME/.local/bin/tmux-status-right)#[default]"
