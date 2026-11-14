@@ -487,29 +487,29 @@ uim-fep -u mozc -s backtick -b "$SOCK"
 EOF
 chmod +x ~/.local/bin/tmux-uim-fep
 
-# 右端用: JST時刻 + バッテリーゲージ (🔋[███░░] xx%)
+# 右端用: JST時刻 + Nerd Font バッテリーアイコン (10段階 + 充電アイコン)
 cat << 'EOF' > ~/.local/bin/tmux-status-right
 #!/bin/bash
 CAP=$(cat /sys/class/power_supply/BATTERY/capacity 2>/dev/null || echo "0")
 STAT=$(cat /sys/class/power_supply/BATTERY/status 2>/dev/null)
 
-FILLED=$(( (CAP + 10) / 20 ))
-[ "$FILLED" -gt 5 ] && FILLED=5
-[ "$FILLED" -lt 0 ] && FILLED=0
-EMPTY=$(( 5 - FILLED ))
-
-GAUGE=""
-for ((i=0; i<FILLED; i++)); do GAUGE="${GAUGE}█"; done
-for ((i=0; i<EMPTY; i++)); do GAUGE="${GAUGE}░"; done
-
 if [ "$STAT" = "Charging" ]; then
-    ICON="🔋⚡"
-else
-    ICON="🔋"
+    ICON="󰂄"
+elif [ "$CAP" -ge 95 ]; then ICON="󰁹"
+elif [ "$CAP" -ge 85 ]; then ICON="󰂂"
+elif [ "$CAP" -ge 75 ]; then ICON="󰂁"
+elif [ "$CAP" -ge 65 ]; then ICON="󰂀"
+elif [ "$CAP" -ge 55 ]; then ICON="󰁿"
+elif [ "$CAP" -ge 45 ]; then ICON="󰁾"
+elif [ "$CAP" -ge 35 ]; then ICON="󰁽"
+elif [ "$CAP" -ge 25 ]; then ICON="󰁼"
+elif [ "$CAP" -ge 15 ]; then ICON="󰁻"
+elif [ "$CAP" -ge 5 ];  then ICON="󰁺"
+else ICON="󰂎"
 fi
 
 TIME=$(TZ=Asia/Tokyo date "+%m/%d %H:%M JST")
-echo "${TIME} ${ICON}[${GAUGE}] ${CAP}%"
+echo "${TIME} ${ICON} ${CAP}%"
 EOF
 chmod +x ~/.local/bin/tmux-status-right
 ```
