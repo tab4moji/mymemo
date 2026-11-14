@@ -11,6 +11,28 @@
 
 ### kmscon
 
+#### ビルド済みバイナリ（無保証）
+
+クロスビルド環境の構築が不要な方向けに、Linux 6.18 / Debian 13 (trixie, armhf) 向けにパッチ適用済みのビルド済みバイナリを配置しています。
+※ 無保証です。ダウンロードして利用する場合は必ず [kmscon ライセンス条項](https://github.com/kmscon/kmscon?tab=License-1-ov-file) (MIT License) を遵守してください。
+
+- **kmscon 本体バイナリ**: [kmscon](./kmscon) (配置パス: `/usr/local/bin/kmscon`)
+- **FreeType フォントモジュール**: [mod-freetype.so](./mod-freetype.so) (配置パス: `/usr/local/lib/kmscon/mod-freetype.so`)
+- **Unifont モジュール (フォールバック用)**: [mod-unifont.so](./mod-unifont.so) (配置パス: `/usr/local/lib/kmscon/mod-unifont.so`)
+
+Pomera 側で直接ダウンロードして配置する場合は以下のコマンドを実行します：
+
+```bash
+# 本体バイナリのダウンロードと配置
+sudo curl -fSL https://tab4moji.github.io/mymemo/kmscon -o /usr/local/bin/kmscon
+sudo chmod +x /usr/local/bin/kmscon
+
+# モジュールのダウンロードと配置 (/usr/local/lib/kmscon/ ディレクトリへ)
+sudo mkdir -p /usr/local/lib/kmscon
+sudo curl -fSL https://tab4moji.github.io/mymemo/mod-freetype.so -o /usr/local/lib/kmscon/mod-freetype.so
+sudo curl -fSL https://tab4moji.github.io/mymemo/mod-unifont.so -o /usr/local/lib/kmscon/mod-unifont.so
+```
+
 #### 使いたい有名フォント
 
 Hack と源柔ゴシックを合成したプログラミングフォント 白源 (はくげん／HackGen)
@@ -318,14 +340,19 @@ sudo apt update && sudo apt install -y \
     fontconfig
 ```
 
-#### 2. ファイルの転送と配置
-生成物 (`kmscon`, `mod-freetype.so`) を Pomera に転送し、配置します：
+#### 2. ファイルの配置 (自前ビルドまたはダウンロード)
+自前でビルドした生成物 (`output/kmscon`, `output/mod-freetype.so`) を転送するか、または先述のビルド済みバイナリを配置します：
+
 ```bash
-# PC から転送
+# 【自前ビルドした場合】PC から転送
 scp output/kmscon output/mod-*.so pi@<pomera-ip>:~/kmscon/
 
-# Pomera 側でバイナリとモジュールをシステムパスに配置
+# 【共通】Pomera 側でバイナリとモジュールをシステムパスに配置
+# 1. 本体バイナリ (/usr/local/bin/)
 sudo cp ~/kmscon/kmscon /usr/local/bin/kmscon
+sudo chmod +x /usr/local/bin/kmscon
+
+# 2. フォントエンジンモジュール (/usr/local/lib/kmscon/) ※FreeType に必須
 sudo mkdir -p /usr/local/lib/kmscon
 sudo cp ~/kmscon/mod-*.so /usr/local/lib/kmscon/
 ```
