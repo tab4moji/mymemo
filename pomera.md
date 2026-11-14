@@ -459,8 +459,14 @@ rm -f "$SOCK" "$STAT"
 echo "mozc" > "$STAT"
 
 (
+    LAST_MODE="mozc"
     stdbuf -o0 uim-fep-tick -s "$SOCK" 2>/dev/null | while IFS= read -r line; do
-        printf "%s\n" "$line" > "$STAT"
+        if [[ "$line" =~ ^[a-zA-Z0-9_-]+\[.*\]$ ]]; then
+            LAST_MODE="$line"
+            printf "%s\n" "$LAST_MODE" > "$STAT"
+        else
+            printf "%s %s\n" "$LAST_MODE" "$line" > "$STAT"
+        fi
         tmux refresh-client -S 2>/dev/null || true
     done
 ) &
