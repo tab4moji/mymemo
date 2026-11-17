@@ -375,7 +375,7 @@ IgnoreOnIsolate=yes
 ConditionPathExists=/dev/tty0
 
 [Service]
-ExecStart=/usr/local/bin/kmscon --vt=%I --no-drm --font-name 'HackGen35 Console NF' --font-engine freetype --font-size 14 --term xterm-256color --xkb-model jp106 --xkb-layout jp --no-libseat
+ExecStart=/usr/local/bin/kmscon --vt=%I --no-drm --font-name 'HackGen35 Console NF' --font-engine freetype --font-size 14 --term xterm-256color --xkb-model jp106 --xkb-layout jp --no-libseat --grab-zoom-in='<Ctrl><Shift>plus,<Ctrl><Shift>equal,<Ctrl>plus,<Ctrl>equal'
 UtmpIdentifier=%I
 TTYPath=/dev/%I
 TTYReset=yes
