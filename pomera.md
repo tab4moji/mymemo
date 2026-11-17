@@ -375,7 +375,7 @@ IgnoreOnIsolate=yes
 ConditionPathExists=/dev/tty0
 
 [Service]
-ExecStart=/usr/local/bin/kmscon --vt=%I --no-drm --font-name 'HackGen35 Console NF' --font-engine freetype --font-size 14 --term xterm-256color --xkb-model jp106 --xkb-layout jp --no-libseat --grab-zoom-in='<Ctrl><Shift>plus,<Ctrl><Shift>equal,<Ctrl>plus,<Ctrl>equal'
+ExecStart=/usr/local/bin/kmscon --vt=%I --no-drm --font-name 'HackGen35 Console NF' --font-engine freetype --font-size 14 --term xterm-256color --xkb-model jp106 --xkb-layout jp --no-libseat --grab-zoom-in='<Ctrl>semicolon,<Ctrl><Shift>plus,<Ctrl>plus'
 UtmpIdentifier=%I
 TTYPath=/dev/%I
 TTYReset=yes
@@ -399,6 +399,11 @@ sudo systemctl start kmsconvt@tty1.service
 ```
 
 これで、電源投入時から VT 切り替え操作なしで、自動的に美しい HackGen35 フォントのコンソールが画面いっぱいに表示されます。
+
+※ **フォントサイズ変更ショートカット**:
+- `Ctrl + ;`（または `Ctrl + Shift + ;`）: 拡大
+- `Ctrl + -`: 縮小
+- `Ctrl + 0`: デフォルトサイズ (`14`) にリセット（※`--grab-zoom-reset` パッチ組み込み済み）
 
 ---
 
