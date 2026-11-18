@@ -238,7 +238,9 @@ function processCodeBlocks() {
         const lines = originalText.split(/\r\n|\r|\n/);
         const totalLines = lines.length;
 
-        code.className = `language-${lang}`;
+        // highlight.js 未登録の言語 (例: tmux) は plaintext 扱いにする
+        const hlLang = hljs.getLanguage(lang) ? lang : 'plaintext';
+        code.className = `language-${hlLang}`;
         code.innerHTML = '';
 
         const wrapper = document.createElement('div');
@@ -279,7 +281,7 @@ function processCodeBlocks() {
         wrapper.appendChild(pre);
 
         if (totalLines > FOLD_THRESHOLD) {
-            renderSnipped(code, lines, lang);
+            renderSnipped(code, lines, hlLang);
         } else {
             renderFull(code, originalText);
         }
