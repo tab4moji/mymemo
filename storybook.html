@@ -328,13 +328,18 @@ function extractMovements() {
         const moverId = subj || item;
         const fromLoc = ev.location || (moverId ? locOf.get(moverId) : null);
         if (fromLoc && dest && fromLoc !== dest) {
-          const names = [];
-          if (subj) names.push(labelOf(subj));
-          if (item && item !== subj) names.push(labelOf(item));
+          const movers = [];
+          if (subj) {
+            movers.push({ id: subj, name: labelOf(subj), type: ENTITY_MAP.get(subj)?.type || null });
+          }
+          if (item && item !== subj) {
+            movers.push({ id: item, name: labelOf(item), type: ENTITY_MAP.get(item)?.type || null });
+          }
           transitions.push({
             from: fromLoc,
             to: dest,
-            label: names.join(" / ") || "移動",
+            label: movers.map(m => m.name).join(" / ") || "移動",
+            movers,
             sentenceId: rec.sentence_id,
             refId
           });
@@ -637,7 +642,7 @@ function renderMap(locData) {
     const stroke = isHi ? "#fbbf24" : "#34d399";
     parts.push(`<g class="ev-group" onclick="selectEvent(${eg.tr.refId})">`);
     parts.push(`<rect x="${eg.peakX - eg.pillW / 2}" y="${eg.peakY + shiftY - 21}" width="${eg.pillW}" height="17" rx="4" fill="#0f172a" stroke="${stroke}" stroke-width="0.9"/>`);
-    parts.push(`<text x="${eg.peakX}" y="${eg.peakY + shiftY - 9}" text-anchor="middle" fill="#f8fafc" font-size="10.5" font-weight="600">${escapeXml(eg.labelText)}</text>`);
+    parts.push(`<text x="${eg.peakX}" y="${eg.peakY + shiftY - 9}" text-anchor="middle" fill="#f8fafc" font-size="10.5" font-weight="600">${renderMoveLabelSpans(eg.tr)}</text>`);
     parts.push(`</g>`);
   }
 
@@ -645,6 +650,33 @@ function renderMap(locData) {
   document.getElementById("mapWrap").innerHTML = parts.join("");
   document.getElementById("mapSummary").textContent = `場所: ${locIds.length} / 場所間の移動線: ${transitions.length}`;
   attachMapDrag();
+}
+
+function renderMoveLabelSpans(tr) {
+  const prefix = `文${tr.sentenceId}: `;
+  const movers = tr.movers || [];
+  if (movers.length === 0) {
+    return `${escapeXml(prefix)}${escapeXml(truncate(tr.label || "移動", 18))}`;
+  }
+  const tspans = [`<tspan fill="#cbd5e1">${escapeXml(prefix)}</tspan>`];
+  let rem = 18;
+  for (let i = 0; i < movers.length; i++) {
+    if (rem <= 0) break;
+    if (i > 0) {
+      if (rem <= 3) {
+        tspans.push(`<tspan fill="#94a3b8">…</tspan>`);
+        break;
+      }
+      tspans.push(`<tspan fill="#94a3b8"> / </tspan>`);
+      rem -= 3;
+    }
+    const m = movers[i];
+    const part = truncate(m.name, rem);
+    const color = TYPE_COLORS[m.type] || "#f8fafc";
+    tspans.push(`<tspan fill="${color}">${escapeXml(part)}</tspan>`);
+    rem -= part.length;
+  }
+  return tspans.join("");
 }
 
 function attachMapDrag() {
