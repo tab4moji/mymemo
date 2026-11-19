@@ -375,7 +375,7 @@ IgnoreOnIsolate=yes
 ConditionPathExists=/dev/tty0
 
 [Service]
-ExecStart=/usr/local/bin/kmscon --vt=%I --no-drm --font-name 'HackGen35 Console NF' --font-engine freetype --font-size 18 --term xterm-256color --xkb-model jp106 --xkb-layout jp --no-libseat
+ExecStart=/usr/local/bin/kmscon --vt=%I --no-drm --font-name 'HackGen35 Console NF' --font-engine freetype --font-size 14 --term xterm-256color --xkb-model jp106 --xkb-layout jp --no-libseat --grab-zoom-in='<Ctrl>semicolon,<Ctrl><Shift>plus,<Ctrl>plus'
 UtmpIdentifier=%I
 TTYPath=/dev/%I
 TTYReset=yes
@@ -400,6 +400,11 @@ sudo systemctl start kmsconvt@tty1.service
 
 これで、電源投入時から VT 切り替え操作なしで、自動的に美しい HackGen35 フォントのコンソールが画面いっぱいに表示されます。
 
+※ **フォントサイズ変更ショートカット**:
+- `Ctrl + ;`（または `Ctrl + Shift + ;`）: 拡大
+- `Ctrl + -`: 縮小
+- `Ctrl + 0`: デフォルトサイズ (`14`) にリセット（※`--grab-zoom-reset` パッチ組み込み済み）
+
 ---
 
 ### 動作確認 (256色テスト)
@@ -410,4 +415,159 @@ sudo systemctl start kmsconvt@tty1.service
 bash -c 'for i in {0..255}; do printf "\x1b[48;5;%dm%3d\x1b[0m " "$i"; (((i+1)%16==0)) && echo; done'
 ```
 
-あとは `tmux` や日本語入力 FEP（`uim-fep`）など、好みのコンソール環境をお楽しみください。
+---
+
+### 日本語入力環境 (`tmux` 内限定の `uim-fep` + `Mozc`)
+
+生のコンソール (kmscon) には IME を常駐させず、**`tmux` を起動した時（ペイン内）限定で Mozc を有効化**します。
+また、`tmux` を外側に配置しプレフィックスを `Ctrl+\` にすることで、`Ctrl+b` や SSH 先の `tmux` (`Ctrl+z`) が奪われずそのまま通るようにします。
+
+```text
+電源投入 → kmscon (VT1) → login
+  └─ ~/.profile で自動起動: tmux (main セッション)
+       └─ tmux ペイン内限定: ~/.local/bin/tmux-uim-fep
+            ├─ uim-fep -u mozc -s backtick (Mozc 日本語入力)
+            └─ uim-fep-tick 連携で最下段 1 行を即時更新
+```
+
+#### 1. `uim-fep` と `uim-mozc` のインストール
+Qt/GTK などの不要な GUI パッケージが入らないよう `--no-install-recommends` を付けて導入します：
+
+```bash
+sudo apt update
+sudo apt install -y --no-install-recommends \
+    tmux uim-fep uim-mozc mozc-server mozc-data
+```
+
+#### 2. `~/.uim` の設定
+デフォルトの入力メソッドを `mozc` にし、`Ctrl+Space` または `半角/全角` で ON/OFF できるようにします：
+
+```scheme
+(define default-im-name 'mozc)
+(define-key generic-on-key? '("<Control> " "zenkaku-hankaku"))
+(define-key generic-off-key? '("<Control> " "zenkaku-hankaku"))
+```
+
+#### 3. ステータスバー連携スクリプト (`~/.local/bin/`)
+`uim-fep -s backtick` は `uim-fep-tick` 側がソケットを作成する仕組みのため、先に `uim-fep-tick` を起動して変換状態や候補を即時 `tmux` の最下段ステータスバーへ反映します。
+
+```bash
+mkdir -p ~/.local/bin
+
+# ペイン単位の uim-fep + 即時ステータス更新ラッパー
+cat << 'EOF' > ~/.local/bin/tmux-uim-fep
+#!/bin/bash
+PANE_NUM="${TMUX_PANE#%}"
+SOCK="/tmp/uim-fep-${PANE_NUM}"
+STAT="/tmp/uim-fep-status-${PANE_NUM}"
+rm -f "$SOCK" "$STAT"
+echo "mozc" > "$STAT"
+
+(
+    LAST_MODE="mozc"
+    stdbuf -o0 uim-fep-tick -s "$SOCK" 2>/dev/null | while IFS= read -r line; do
+        if [[ "$line" =~ ^[a-zA-Z0-9_-]+\[.*\]$ ]]; then
+            LAST_MODE="$line"
+            printf "%s\n" "$LAST_MODE" > "$STAT"
+        else
+            printf "%s %s\n" "$LAST_MODE" "$line" > "$STAT"
+        fi
+        tmux refresh-client -S 2>/dev/null || true
+    done
+) &
+WATCHER_PID=$!
+
+for _ in $(seq 1 30); do
+    [ -S "$SOCK" ] && break
+    sleep 0.05
+done
+
+cleanup() {
+    kill "$WATCHER_PID" 2>/dev/null || true
+    rm -f "$SOCK" "$STAT"
+}
+trap cleanup EXIT
+
+uim-fep -u mozc -s backtick -b "$SOCK"
+EOF
+chmod +x ~/.local/bin/tmux-uim-fep
+
+# 右端用: JST時刻 + Nerd Font バッテリーアイコン (10段階 + 充電アイコン)
+cat << 'EOF' > ~/.local/bin/tmux-status-right
+#!/bin/bash
+CAP=$(cat /sys/class/power_supply/BATTERY/capacity 2>/dev/null || echo "0")
+STAT=$(cat /sys/class/power_supply/BATTERY/status 2>/dev/null)
+
+if [ "$STAT" = "Charging" ]; then
+    ICON="󰂄"
+elif [ "$CAP" -ge 95 ]; then ICON="󰁹"
+elif [ "$CAP" -ge 85 ]; then ICON="󰂂"
+elif [ "$CAP" -ge 75 ]; then ICON="󰂁"
+elif [ "$CAP" -ge 65 ]; then ICON="󰂀"
+elif [ "$CAP" -ge 55 ]; then ICON="󰁿"
+elif [ "$CAP" -ge 45 ]; then ICON="󰁾"
+elif [ "$CAP" -ge 35 ]; then ICON="󰁽"
+elif [ "$CAP" -ge 25 ]; then ICON="󰁼"
+elif [ "$CAP" -ge 15 ]; then ICON="󰁻"
+elif [ "$CAP" -ge 5 ];  then ICON="󰁺"
+else ICON="󰂎"
+fi
+
+TIME=$(TZ=Asia/Tokyo date "+%m/%d %H:%M JST")
+echo "${TIME} ${ICON} ${CAP}%"
+EOF
+chmod +x ~/.local/bin/tmux-status-right
+```
+
+#### 4. `~/.tmux.conf` の設定
+- `Ctrl+b`（他アプリ）や `Ctrl+z`（SSH 先の `tmux` 等）と衝突しないよう、手元 `tmux` のプレフィックスを **`Ctrl+\` (`C-\`)** に設定
+- `default-command` でペイン内のみ `tmux-uim-fep` を起動
+- 最下段 1 行のみに左「`mozc[...]`」、右「`MM/DD HH:MM JST 󰁾 xx%`」を表示（`0:bash` 等のウィンドウ一覧は非表示）
+
+```tmux
+# Default terminal
+set -g default-terminal "tmux-256color"
+set -ga terminal-overrides ",xterm-256color:Tc"
+
+# Use Ctrl+\ as prefix so Ctrl+b and Ctrl+z (remote tmux) pass through cleanly
+unbind C-b
+unbind C-z
+set -g prefix "C-\\"
+bind "C-\\" send-prefix
+
+# Run uim-fep (mozc) inside tmux panes only
+set-option -g default-command "$HOME/.local/bin/tmux-uim-fep"
+
+# Bottom-most 1 line status bar: <<mozc    JST time + battery>>
+set -g status on
+set -g status-position bottom
+set -g status-interval 10
+set -g status-style "bg=colour235,fg=colour255"
+
+set -g status-left-length 80
+set -g status-left "#[fg=colour46,bold]#(cat /tmp/uim-fep-status-#{s/%//:pane_id} 2>/dev/null || echo 'mozc')#[default] "
+
+set -g status-right-length 50
+set -g status-right "#[fg=colour220]#($HOME/.local/bin/tmux-status-right)#[default]"
+
+# Hide window list (no 0:bash)
+set -g window-status-format ""
+set -g window-status-current-format ""
+
+# Mouse & vi copy mode
+set -g mouse on
+setw -g mode-keys vi
+```
+
+#### 5. ローカルログイン時の `tmux` 自動起動 (`~/.profile`)
+SSH 接続時は起動せず、Pomera 実機の kmscon からログインした時のみ自動で `tmux` に入るよう `~/.profile` の末尾へ追記します：
+
+```bash
+# Auto-start tmux on local kmscon login (Mozc runs inside tmux only)
+if [ -z "$TMUX" ] && [ -z "$SSH_CONNECTION" ] && [ -z "$SSH_TTY" ] && [ -t 0 ]; then
+    tmux new-session -A -s main
+fi
+```
+
+これで電源投入 → ログイン直後から、最下段 1 行に Mozc 状態・JST 時刻・バッテリーゲージを備えた日本語入力可能な快適コンソールが立ち上がります。
+(`Ctrl+\ d` で `tmux` をデタッチすれば、Mozc の動いていない生のコンソールへ戻ることもできます)
