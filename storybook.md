@@ -583,3 +583,10 @@ $ cat momotaro.md | python3 split_sentences.py | python3 processor.py --limit 10
 - item_firewood [Item] 柴 @ loc_obaasan_house
 - time_now [Location] 今
 ```
+
+
+## 調査メモ2
+
+[生成シーケンス図](./storybook.html)
+
+##
