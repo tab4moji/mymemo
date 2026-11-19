@@ -120,7 +120,15 @@
   .diagram-wrap {
     flex: 1;
     overflow: auto;
-    padding: 12px 16px;
+    padding: 0 16px 12px;
+  }
+  .seq-header-sticky {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+    width: fit-content;
   }
   .inspector {
     width: 330px;
@@ -723,10 +731,14 @@ function renderSequence() {
     }
   }
   const totalH = y + 36;
+  const bodyH = Math.max(120, totalH - HEADER_H);
   const totalW = Math.max(760, LEFT_PAD + participants.length * COL_W + 40);
 
+  const headerParts = [];
+  headerParts.push(`<div class="seq-header-sticky"><svg xmlns="http://www.w3.org/2000/svg" width="${totalW}" height="${HEADER_H}" viewBox="0 0 ${totalW} ${HEADER_H}" style="display:block">`);
+
   const parts = [];
-  parts.push(`<svg xmlns="http://www.w3.org/2000/svg" width="${totalW}" height="${totalH}" viewBox="0 0 ${totalW} ${totalH}">`);
+  parts.push(`<svg xmlns="http://www.w3.org/2000/svg" width="${totalW}" height="${bodyH}" viewBox="0 ${HEADER_H} ${totalW} ${bodyH}" style="display:block">`);
   parts.push(`<defs>`);
   for (const [atype, color] of Object.entries(ACTION_COLORS)) {
     parts.push(`<marker id="arrow-${atype}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 1 L 10 5 L 0 9 z" fill="${color}"/></marker>`);
@@ -734,9 +746,15 @@ function renderSequence() {
   parts.push(`</defs>`);
 
   const firstSeenY = new Map();
+  const lastActiveY = new Map();
   const markSeen = (id, rowY) => {
     if (id && colIndex.has(id) && !firstSeenY.has(id)) {
       firstSeenY.set(id, rowY);
+    }
+  };
+  const markActive = (id, endY) => {
+    if (id && colIndex.has(id)) {
+      lastActiveY.set(id, Math.max(lastActiveY.get(id) || 0, endY));
     }
   };
   for (const row of rows) {
@@ -751,6 +769,12 @@ function renderSequence() {
       markSeen(ev.item, row.y + 10);
       markSeen(ev.location, row.y + 10);
       markSeen(ev.destination, row.y + 10);
+
+      // 最後の行動(subject)または他者からの行動受領(target/item)の位置を記録
+      const evEndY = row.y + 34;
+      markActive(ev.subject, evEndY);
+      markActive(ev.target, evEndY);
+      markActive(ev.item, evEndY);
     }
   }
 
@@ -760,18 +784,23 @@ function renderSequence() {
     const startY = firstSeenY.has(p.id) ? firstSeenY.get(p.id) : HEADER_H;
     const isInitial = startY <= HEADER_H + 30;
     const lineStartY = isInitial ? HEADER_H : startY;
+    const lineEndY = lastActiveY.has(p.id)
+      ? Math.max(lineStartY + 14, lastActiveY.get(p.id))
+      : lineStartY + 16;
 
-    parts.push(`<line x1="${cx}" y1="${lineStartY}" x2="${cx}" y2="${totalH - 20}" stroke="#e2e8f0" stroke-width="2.5"/>`);
+    parts.push(`<line x1="${cx}" y1="${lineStartY}" x2="${cx}" y2="${lineEndY}" stroke="#e2e8f0" stroke-width="2.5"/>`);
+    parts.push(`<line x1="${cx - 7}" y1="${lineEndY}" x2="${cx + 7}" y2="${lineEndY}" stroke="#e2e8f0" stroke-width="2.5"/>`);
     if (!isInitial) {
       parts.push(`<circle cx="${cx}" cy="${lineStartY}" r="5" fill="${color}"/>`);
       parts.push(`<rect x="${cx - 48}" y="${lineStartY - 18}" width="96" height="16" rx="4" fill="#0f172a" stroke="${color}" stroke-width="1"/>`);
       parts.push(`<text x="${cx}" y="${lineStartY - 6}" text-anchor="middle" fill="${color}" font-size="9.5" font-weight="600">登場: ${escapeXml(truncate(p.name, 7))}</text>`);
     }
-    parts.push(`<rect x="${cx - 76}" y="10" width="152" height="44" rx="8" fill="#1e293b" stroke="${color}" stroke-width="1.8"/>`);
-    parts.push(`<text x="${cx}" y="31" text-anchor="middle" fill="#f8fafc" font-size="13" font-weight="600">${escapeXml(truncate(p.name, 12))}</text>`);
+    headerParts.push(`<rect x="${cx - 76}" y="10" width="152" height="44" rx="8" fill="#1e293b" stroke="${color}" stroke-width="1.8"/>`);
+    headerParts.push(`<text x="${cx}" y="31" text-anchor="middle" fill="#f8fafc" font-size="13" font-weight="600">${escapeXml(truncate(p.name, 12))}</text>`);
     const sub = p.aliases.length ? `(${truncate(p.aliases.join(","), 14)})` : p.type;
-    parts.push(`<text x="${cx}" y="47" text-anchor="middle" fill="${color}" font-size="10">${escapeXml(sub)}</text>`);
+    headerParts.push(`<text x="${cx}" y="47" text-anchor="middle" fill="${color}" font-size="10">${escapeXml(sub)}</text>`);
   });
+  headerParts.push(`</svg></div>`);
 
   let evIdx = 0;
   window.__EVENT_REFS = [];
@@ -826,7 +855,7 @@ function renderSequence() {
   }
 
   parts.push(`</svg>`);
-  document.getElementById("diagramWrap").innerHTML = parts.join("");
+  document.getElementById("diagramWrap").innerHTML = headerParts.join("") + parts.join("");
 }
 
 function renderAll() {
