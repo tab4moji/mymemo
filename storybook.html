@@ -770,11 +770,15 @@ function renderSequence() {
       markSeen(ev.location, row.y + 10);
       markSeen(ev.destination, row.y + 10);
 
-      // 最後の行動(subject)または他者からの行動受領(target/item)の位置を記録
+      // 実際に線・ボックスが接続する列(subject, および矢印終点になる target/destination)のみ終端を更新
       const evEndY = row.y + 34;
-      markActive(ev.subject, evEndY);
-      markActive(ev.target, evEndY);
-      markActive(ev.item, evEndY);
+      const sCol = colIndex.has(ev.subject) ? ev.subject : participants[0].id;
+      markActive(sCol, evEndY);
+      if (ev.target && colIndex.has(ev.target)) {
+        markActive(ev.target, evEndY);
+      } else if (ev.destination && colIndex.has(ev.destination)) {
+        markActive(ev.destination, evEndY);
+      }
     }
   }
 
