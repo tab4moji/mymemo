@@ -1,6 +1,6 @@
-# StoryBook
+## StoryBook
 
-## 調査メモ
+### 調査メモ
 
 ```bash
 $ uv run --python 3.12 -m chat --host 192.168.11.6:11434
@@ -585,7 +585,7 @@ $ cat momotaro.md | python3 split_sentences.py | python3 processor.py --limit 10
 ```
 
 
-## 調査メモ2
+### 調査メモ2
 
 [生成シーケンス図](./storybook.html)
 
