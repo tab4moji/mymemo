@@ -617,7 +617,7 @@ function renderMap(locData) {
     const isHi = SELECTED_EV_ID === eg.tr.refId;
     const stroke = isHi ? "#fbbf24" : "#34d399";
     const marker = isHi ? "url(#map-arrow-hi)" : "url(#map-arrow)";
-    parts.push(`<g class="ev-group" onclick="selectEvent(${eg.tr.refId})">`);
+    parts.push(`<g class="ev-group" onclick="selectEvent(${eg.tr.refId}, true)">`);
     parts.push(`<path d="M ${eg.sx} ${eg.sy + shiftY} Q ${eg.cx} ${eg.cy + shiftY} ${eg.tx} ${eg.ty + shiftY}" fill="none" stroke="${stroke}" stroke-width="${isHi ? 2.6 : 1.8}" marker-end="${marker}"/>`);
     parts.push(`</g>`);
   }
@@ -640,7 +640,7 @@ function renderMap(locData) {
   for (const eg of edgeGeoms) {
     const isHi = SELECTED_EV_ID === eg.tr.refId;
     const stroke = isHi ? "#fbbf24" : "#34d399";
-    parts.push(`<g class="ev-group" onclick="selectEvent(${eg.tr.refId})">`);
+    parts.push(`<g class="ev-group" onclick="selectEvent(${eg.tr.refId}, true)">`);
     parts.push(`<rect x="${eg.peakX - eg.pillW / 2}" y="${eg.peakY + shiftY - 21}" width="${eg.pillW}" height="17" rx="4" fill="#0f172a" stroke="${stroke}" stroke-width="0.9"/>`);
     parts.push(`<text x="${eg.peakX}" y="${eg.peakY + shiftY - 9}" text-anchor="middle" fill="#f8fafc" font-size="10.5" font-weight="600">${renderMoveLabelSpans(eg.tr)}</text>`);
     parts.push(`</g>`);
@@ -848,7 +848,6 @@ function renderSequence() {
     } else {
       const { rec, ev, y: ey } = row;
       const refId = evIdx++;
-      window.__EVENT_REFS.push({ rec, ev });
 
       const color = ACTION_COLORS[ev.action_type] || "#94a3b8";
       const sIdx = colIndex.has(ev.subject) ? colIndex.get(ev.subject) : 0;
@@ -858,6 +857,14 @@ function renderSequence() {
         ? ev.target
         : (ev.destination && colIndex.has(ev.destination) ? ev.destination : null);
       const tx = tId ? (LEFT_PAD + colIndex.get(tId) * COL_W + COL_W / 2) : null;
+
+      window.__EVENT_REFS.push({
+        rec,
+        ev,
+        y: ey,
+        x: (tx !== null && tx !== sx) ? (sx + tx) / 2 : sx,
+        headerH: HEADER_H
+      });
 
       let label = ev.description || ev.action_type;
       const extras = [];
@@ -869,7 +876,7 @@ function renderSequence() {
 
       const isHi = SELECTED_EV_ID === refId;
       const midY = ey + 27;
-      parts.push(`<g class="ev-group" onclick="selectEvent(${refId})">`);
+      parts.push(`<g class="ev-group" data-ev-id="${refId}" onclick="selectEvent(${refId}, false)">`);
       if (tx !== null && tx !== sx) {
         const dir = tx > sx ? 1 : -1;
         const x1 = sx + dir * 6;
@@ -901,12 +908,38 @@ function renderAll() {
   renderSequence();
 }
 
-function selectEvent(idx) {
+function selectEvent(idx, scrollToSeq = false) {
+  const mapWrap = document.getElementById("mapWrap");
+  const wrap = document.getElementById("diagramWrap");
+  const prevMapTop = mapWrap ? mapWrap.scrollTop : 0;
+  const prevMapLeft = mapWrap ? mapWrap.scrollLeft : 0;
+  const prevSeqTop = wrap ? wrap.scrollTop : 0;
+  const prevSeqLeft = wrap ? wrap.scrollLeft : 0;
+
   SELECTED_EV_ID = idx;
   renderMap(extractMovements());
   renderSequence();
+
+  if (mapWrap) {
+    mapWrap.scrollTop = prevMapTop;
+    mapWrap.scrollLeft = prevMapLeft;
+  }
+
   const item = window.__EVENT_REFS[idx];
   if (!item) return;
+
+  if (wrap) {
+    if (scrollToSeq) {
+      const visibleH = Math.max(80, wrap.clientHeight - item.headerH);
+      const targetTop = Math.max(0, (item.y + 27) - item.headerH - visibleH / 2);
+      const targetLeft = Math.max(0, (item.x + 16) - wrap.clientWidth / 2);
+      wrap.scrollTo({ top: targetTop, left: targetLeft, behavior: "smooth" });
+    } else {
+      wrap.scrollTop = prevSeqTop;
+      wrap.scrollLeft = prevSeqLeft;
+    }
+  }
+
   const { rec, ev } = item;
   const insp = document.getElementById("inspector");
   insp.innerHTML = `
