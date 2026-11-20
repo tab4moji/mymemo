@@ -402,6 +402,12 @@ foreach ($name in $targets) {
 }
 ```
 
+### Windows 状態
+
+```powershell:ディスクアクセス
+Get-CimInstance Win32_PerfFormattedData_PerfProc_Process | Where-Object { $_.Name -notin "_Total","Idle" -and $_.IODataBytesPersec -gt 0 } | Sort-Object IODataBytesPersec -Descending | Select-Object -First 10 IDProcess, Name, @{N="MB/s";E={[math]::Round($_.IODataBytesPersec/1MB,2)}}
+```
+
 ### python3 on windows/pwsh
 
 - [uv の導入](./?content=uv#OyqTjGcF)
