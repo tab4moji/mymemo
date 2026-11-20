@@ -371,8 +371,35 @@ ssh ユーザー名@ホスト名
 
 ### Windows をパスワードなし起動したい
 
-```pwsh
+```powershell
 netplwiz
+```
+
+### サービス一覧
+
+```powershell
+Get-Service | Where-Object { $_.Status -eq 'Running' } | Sort-Object Name | Format-Table -AutoSize
+```
+
+```powershell:色々と止める
+$targets = @(
+    'DiagTrack',      # テレメトリ送信
+    'WSearch',        # Windows Search (インデックス作成)
+    'SysMain',        # アプリのプリフェッチ
+    'Spooler',        # 印刷 (プリンター不使用時)
+    'PhoneSvc',       # 電話連携
+    'PcaSvc',         # プログラム互換性アシスタント
+    'DPS',            # 診断ポリシー (トラブルシューティング)
+    'WdiSystemHost',  # 診断システムホスト
+    'SSDPSRV',        # ネットワーク機器の自動検出 (UPnP)
+    'TrkWks',         # ショートカットのリンク追跡
+    'CDPSvc'          # 接続デバイス プラットフォーム
+)
+
+foreach ($name in $targets) {
+    Set-Service -Name $name -StartupType Manual
+    Stop-Service -Name $name -Force -ErrorAction SilentlyContinue
+}
 ```
 
 ### python3 on windows/pwsh
