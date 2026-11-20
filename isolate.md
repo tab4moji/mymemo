@@ -30,12 +30,12 @@ options:
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-目的: AIエージェントおよび汎用コマンド用ネットワーク隔離サンドボックス
-機能:
-  - IPセグメントの衝突を回避するため 10.222.0.0/24 を採用
-  - TTY制御およびICMP/TCP両対応のログ監視
-  - クォートされた単一文字列コマンド("ping 8.8.8.8"など)の自動分割実行
-更新履歴: 10 2026-06-26 / 11 2026-06-27 TTY設定の完全保存・復元機能の追加 / 12 2026-06-27 エスケープシーケンスによる端末状態復帰（カーソル表示・マウス追跡無効化等）の追加 / 13 2026-06-27 端末復元出力をstderrに変更、文字色リセットと改行を追加 / 14 2026-06-27 os.systemを完全に排除し、run_sys_cmdに統一 / 15 2026-06-27 許可リストにIPアドレスのみ（ポート省略）が指定された場合のデフォルトポート（11434）補完処理を追加
+Purpose: Network isolation sandbox for AI agents and general commands
+Features:
+  - Uses 10.222.0.0/24 to avoid IP segment conflicts
+  - Full TTY preservation/restoration and kernel log monitoring (ICMP/TCP/UDP)
+  - Automatic splitting for single quoted command strings (e.g. "ping 8.8.8.8")
+Changelog: 10 2026-06-26 / 11 2026-06-27 Added full TTY save/restore / 12 2026-06-27 Added terminal escape-sequence restoration (cursor/mouse/alt-screen) / 13 2026-06-27 Switched terminal restore output to stderr with color reset and newline / 14 2026-06-27 Replaced all os.system calls with run_sys_cmd / 15 2026-06-27 Added default port (11434) completion when port is omitted / 16 2026-11-20 Added Trap DNS server and INPUT chain filtering to intercept name resolution / 17 2026-11-20 Added dummy IP responses (198.18.0.0/16) and hostname+port correlation in logs / 18 2026-11-20 Added upstream resolution proxy and dynamic iptables rules for allowed hostnames / 19 2026-11-20 Translated all internal comments, help text, and messages to English
 """
 
 import sys
@@ -50,19 +50,54 @@ import signal
 import shlex
 import termios
 import ipaddress
+import socket
 
 NS_NAME = "ISOLATE"
 VETH_H = "iso_h"
 VETH_G = "iso_g"
 CHAIN_NAME = "ISOLATE_FLT"
+INPUT_CHAIN_NAME = f"{CHAIN_NAME}_IN"
+NETNS_ETC_DIR = f"/etc/netns/{NS_NAME}"
 GUEST_IP = "10.222.0.2"
 HOST_IP = "10.222.0.1"
+FAKE_DNS_BLOCK_CIDR = "198.18.0.0/15"
+FAKE_DNS_DEFER_SEC = 0.5
+FAKE_DNS_NODATA_QTYPES = {"AAAA", "HTTPS", "SVCB"}
+DNS_QTYPE_MAP = {
+    1: "A",
+    2: "NS",
+    5: "CNAME",
+    6: "SOA",
+    12: "PTR",
+    15: "MX",
+    16: "TXT",
+    28: "AAAA",
+    33: "SRV",
+    64: "SVCB",
+    65: "HTTPS",
+    255: "ANY",
+}
 
 block_counts = {}
 journal_proc = None
 child_proc = None
 cleanup_done = False
 violation_event = threading.Event()
+violation_lock = threading.Lock()
+iptables_lock = threading.Lock()
+dns_udp_sock = None
+dns_tcp_sock = None
+dns_stop_event = threading.Event()
+fake_ip_by_host = {}
+host_by_fake_ip = {}
+allowed_host_ports = {}
+resolved_host_by_ip = {}
+dynamic_allowed_rules = set()
+cached_host_ips = []
+fake_ip_counter = 1
+dns_violation_timer = None
+pending_dns_violation = None
+journal_ready_event = threading.Event()
 original_tty_attrs = None
 
 def parse_target(target_str):
@@ -139,20 +174,520 @@ def check_targets_contradiction(targets):
                     
     return False, None, None
 
-def run_sys_cmd(cmd_list, ignore_error=False):
+def run_sys_cmd(cmd_list, ignore_error=False, input_text=None):
     status = True
     try:
         subprocess.run(
             cmd_list,
+            input=input_text,
+            text=input_text is not None,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
             check=not ignore_error
         )
     except subprocess.CalledProcessError:
         if not ignore_error:
-            print(f"[Error] コマンド実行失敗: {' '.join(cmd_list)}", file=sys.stderr)
+            print(f"[Error] Command execution failed: {' '.join(cmd_list)}", file=sys.stderr)
         status = False
     return status
+
+def is_ip_or_network(value):
+    try:
+        ipaddress.ip_network(value, strict=False)
+        return True
+    except ValueError:
+        return False
+
+def _cancel_dns_violation_timer_locked():
+    global dns_violation_timer, pending_dns_violation
+    if dns_violation_timer is not None:
+        dns_violation_timer.cancel()
+        dns_violation_timer = None
+    pending_dns_violation = None
+
+def reset_dns_tracking():
+    global fake_ip_counter
+    with violation_lock:
+        _cancel_dns_violation_timer_locked()
+        fake_ip_by_host.clear()
+        host_by_fake_ip.clear()
+        allowed_host_ports.clear()
+        resolved_host_by_ip.clear()
+        fake_ip_counter = 1
+    with iptables_lock:
+        dynamic_allowed_rules.clear()
+        cached_host_ips.clear()
+
+def get_or_alloc_fake_ip(qname):
+    """Return a deterministic fake IPv4 address in 198.18.0.0/16 for qname."""
+    global fake_ip_counter
+    key = qname.lower()
+    with violation_lock:
+        existing = fake_ip_by_host.get(key)
+        if existing is not None:
+            return existing
+        ip = f"198.18.{(fake_ip_counter >> 8) & 0xFF}.{fake_ip_counter & 0xFF}"
+        fake_ip_counter = 1 if fake_ip_counter >= 65534 else fake_ip_counter + 1
+        old_host = host_by_fake_ip.get(ip)
+        if old_host is not None and old_host != key:
+            fake_ip_by_host.pop(old_host, None)
+        fake_ip_by_host[key] = ip
+        host_by_fake_ip[ip] = key
+        return ip
+
+def register_resolved_host_ips(ips, hostname):
+    norm_host = hostname.rstrip(".").lower()
+    with violation_lock:
+        for ip in ips:
+            resolved_host_by_ip[ip] = norm_host
+
+def lookup_fake_ip_host(ip_str):
+    with violation_lock:
+        return host_by_fake_ip.get(ip_str)
+
+def lookup_ip_host(ip_str):
+    with violation_lock:
+        return host_by_fake_ip.get(ip_str) or resolved_host_by_ip.get(ip_str)
+
+def _fire_pending_dns_violation():
+    global dns_violation_timer, pending_dns_violation
+    with violation_lock:
+        desc = pending_dns_violation
+        pending_dns_violation = None
+        dns_violation_timer = None
+        if desc is not None and not violation_event.is_set():
+            print(f"\n[!] Violation detected: blocked {desc}. Terminating immediately.", file=sys.stderr)
+            violation_event.set()
+
+def flush_pending_dns_violation(silent_mode):
+    with violation_lock:
+        desc = pending_dns_violation
+        _cancel_dns_violation_timer_locked()
+        if not silent_mode and not violation_event.is_set() and desc is not None:
+            print(f"\n[!] Violation detected: blocked {desc}.", file=sys.stderr)
+            violation_event.set()
+
+def record_violation(target, silent_mode, detail=None, defer_sec=0.0):
+    global dns_violation_timer, pending_dns_violation
+    with violation_lock:
+        block_counts[target] = block_counts.get(target, 0) + 1
+        if not silent_mode and not violation_event.is_set():
+            desc = detail if detail else f"traffic to {target}"
+            if defer_sec <= 0:
+                _cancel_dns_violation_timer_locked()
+                print(f"\n[!] Violation detected: blocked {desc}. Terminating immediately.", file=sys.stderr)
+                violation_event.set()
+            elif pending_dns_violation is None:
+                pending_dns_violation = desc
+                dns_violation_timer = threading.Timer(defer_sec, _fire_pending_dns_violation)
+                dns_violation_timer.daemon = True
+                dns_violation_timer.start()
+
+def parse_dns_query(data):
+    """Parse DNS query name, qtype string, and question end offset per RFC 1035."""
+    if not isinstance(data, (bytes, bytearray)) or len(data) < 12:
+        return None, None, None
+
+    qdcount = int.from_bytes(data[4:6], "big")
+    if qdcount < 1:
+        return None, None, None
+
+    labels = []
+    pos = 12
+    qname_end = None
+    jumps = 0
+    seen_offsets = set()
+    terminated = False
+
+    while pos < len(data):
+        length = data[pos]
+        if length == 0:
+            if qname_end is None:
+                qname_end = pos + 1
+            terminated = True
+            break
+        if (length & 0xC0) == 0xC0:
+            if pos + 1 >= len(data):
+                return None, None, None
+            if qname_end is None:
+                qname_end = pos + 2
+            ptr = ((length & 0x3F) << 8) | data[pos + 1]
+            if ptr >= len(data) or ptr in seen_offsets or jumps >= 16:
+                return None, None, None
+            seen_offsets.add(ptr)
+            jumps += 1
+            pos = ptr
+        elif (length & 0xC0) != 0:
+            return None, None, None
+        else:
+            pos += 1
+            if pos + length > len(data):
+                return None, None, None
+            labels.append(data[pos:pos + length].decode("ascii", errors="replace"))
+            pos += length
+
+    if not terminated or qname_end is None or qname_end + 4 > len(data):
+        return None, None, None
+
+    qtype = int.from_bytes(data[qname_end:qname_end + 2], "big")
+    q_end = qname_end + 4
+    qname = ".".join(labels).lower() if labels else "."
+    qtype_str = DNS_QTYPE_MAP.get(qtype, f"TYPE{qtype}")
+    return qname, qtype_str, q_end
+
+def _build_dns_header(data, rcode, qdcount, ancount=0, ra=False):
+    txid = data[0:2]
+    req_flags = int.from_bytes(data[2:4], "big")
+    resp_flags = (req_flags & 0x7900) | 0x8000 | (0x0080 if ra else 0) | (rcode & 0x0F)
+    return (
+        txid
+        + resp_flags.to_bytes(2, "big")
+        + qdcount.to_bytes(2, "big")
+        + ancount.to_bytes(2, "big")
+        + b"\x00\x00\x00\x00"
+    )
+
+def encode_dns_name(qname):
+    """Encode a domain name into RFC 1035 wire-format labels."""
+    if not qname or qname == ".":
+        return b"\x00"
+    out = bytearray()
+    for label in qname.strip(".").split("."):
+        if not label:
+            continue
+        label_bytes = label.encode("ascii", errors="replace")[:63]
+        out.append(len(label_bytes))
+        out.extend(label_bytes)
+    out.append(0)
+    return bytes(out)
+
+def _has_dns_pointer(qname_bytes):
+    pos = 0
+    while pos < len(qname_bytes):
+        length = qname_bytes[pos]
+        if length == 0:
+            return False
+        if (length & 0xC0) == 0xC0:
+            return True
+        pos += 1 + length
+    return False
+
+def _build_dns_empty_answer_response(data, q_end, rcode, ra=True):
+    if not isinstance(data, (bytes, bytearray)) or len(data) < 12:
+        return None
+    if q_end is not None and 12 < q_end <= len(data):
+        return _build_dns_header(data, rcode=rcode, qdcount=1, ancount=0, ra=ra) + bytes(data[12:q_end])
+    return _build_dns_header(data, rcode=rcode, qdcount=0, ancount=0, ra=ra)
+
+def build_dns_a_records_response(data, q_end, qname, ips, ttl=60):
+    """Build a DNS NOERROR A response containing up to 16 IPv4 RRs fitting within 512 bytes."""
+    if not isinstance(data, (bytes, bytearray)) or len(data) < 12 or q_end is None or q_end <= 12 or q_end > len(data):
+        return None
+    if not ips:
+        return build_dns_nodata_response(data, q_end)
+
+    question = bytes(data[12:q_end])
+    qname_wire = data[12:max(12, q_end - 4)]
+    rr_name = encode_dns_name(qname) if _has_dns_pointer(qname_wire) else b"\xc0\x0c"
+    ttl_bytes = ttl.to_bytes(4, "big")
+    answers = bytearray()
+    ancount = 0
+
+    for ip_str in ips[:16]:
+        try:
+            ip_bytes = socket.inet_aton(ip_str)
+        except OSError:
+            continue
+        rr = rr_name + b"\x00\x01\x00\x01" + ttl_bytes + b"\x00\x04" + ip_bytes
+        if ancount > 0 and 12 + len(question) + len(answers) + len(rr) > 512:
+            break
+        answers.extend(rr)
+        ancount += 1
+
+    if ancount == 0:
+        return build_dns_nodata_response(data, q_end)
+
+    header = _build_dns_header(data, rcode=0, qdcount=1, ancount=ancount, ra=True)
+    return header + question + bytes(answers)
+
+def build_dns_a_response(data, q_end, qname, fake_ip):
+    """Build a DNS NOERROR A response containing a single fake IPv4 RR."""
+    return build_dns_a_records_response(data, q_end, qname, [fake_ip])
+
+def build_dns_nodata_response(data, q_end):
+    """Build a DNS NOERROR empty-answer (NODATA) response for AAAA/HTTPS/SVCB."""
+    if not isinstance(data, (bytes, bytearray)) or len(data) < 12 or q_end is None or q_end <= 12 or q_end > len(data):
+        return None
+    return _build_dns_empty_answer_response(data, q_end, rcode=0, ra=True)
+
+def build_dns_error_response(data, q_end, rcode):
+    """Build a DNS error response (e.g. NXDOMAIN=3, SERVFAIL=2)."""
+    return _build_dns_empty_answer_response(data, q_end, rcode=rcode, ra=True)
+
+def build_dns_refused_response(data, q_end):
+    """Build a DNS REFUSED (RCODE=5) response preserving TXID, Opcode, RD, and question."""
+    return _build_dns_empty_answer_response(data, q_end, rcode=5, ra=False)
+
+def resolve_host_ipv4(hostname):
+    """Resolve hostname to deduplicated IPv4 addresses via the host resolver."""
+    try:
+        infos = socket.getaddrinfo(hostname, None, socket.AF_INET, socket.SOCK_STREAM)
+    except socket.gaierror as e:
+        return [], e.errno
+    except Exception:
+        return [], None
+    ips = []
+    seen = set()
+    for info in infos:
+        ip = info[4][0]
+        if ip not in seen:
+            seen.add(ip)
+            ips.append(ip)
+    return ips, None
+
+def _is_in_fake_dns_range(ip_or_cidr):
+    try:
+        net = ipaddress.ip_network(ip_or_cidr, strict=False)
+        fake_net = ipaddress.ip_network(FAKE_DNS_BLOCK_CIDR, strict=False)
+        return net.version == 4 and net.overlaps(fake_net) and net.prefixlen >= fake_net.prefixlen
+    except ValueError:
+        return False
+
+def allow_ip_target(ip_or_cidr, port):
+    """Insert NAT, FORWARD, and INPUT allow rules for ip_or_cidr[:port] safely and idempotently."""
+    if _is_in_fake_dns_range(ip_or_cidr):
+        return False
+
+    key = (ip_or_cidr, port)
+    with iptables_lock:
+        if key in dynamic_allowed_rules:
+            return True
+
+        # NAT PREROUTING: insert at 3 (after HOST_IP:53 DNAT rules, before catch-all *:53 rules).
+        if ip_or_cidr in cached_host_ips:
+            if port:
+                run_sys_cmd(["sudo", "iptables", "-t", "nat", "-I", f"{CHAIN_NAME}_NAT", "3", "-p", "tcp", "-d", ip_or_cidr, "--dport", port, "-j", "DNAT", "--to-destination", f"{HOST_IP}:{port}"])
+            else:
+                run_sys_cmd(["sudo", "iptables", "-t", "nat", "-I", f"{CHAIN_NAME}_NAT", "3", "-d", ip_or_cidr, "-j", "DNAT", "--to-destination", HOST_IP])
+        else:
+            if port:
+                run_sys_cmd(["sudo", "iptables", "-t", "nat", "-I", f"{CHAIN_NAME}_NAT", "3", "-p", "tcp", "-d", ip_or_cidr, "--dport", port, "-j", "ACCEPT"])
+            else:
+                run_sys_cmd(["sudo", "iptables", "-t", "nat", "-I", f"{CHAIN_NAME}_NAT", "3", "-d", ip_or_cidr, "-j", "ACCEPT"])
+
+        # FORWARD chain: insert at 4 (after HOST_IP ACCEPT + FAKE_DNS_BLOCK_CIDR LOG/DROP, before tail LOG/DROP).
+        if port:
+            run_sys_cmd(["sudo", "iptables", "-I", CHAIN_NAME, "4", "-i", VETH_H, "-p", "tcp", "--dport", port, "-d", ip_or_cidr, "-j", "ACCEPT"])
+        else:
+            run_sys_cmd(["sudo", "iptables", "-I", CHAIN_NAME, "4", "-i", VETH_H, "-d", ip_or_cidr, "-j", "ACCEPT"])
+
+        # INPUT chain: insert at 4 (after ESTABLISHED,RELATED + Trap DNS UDP/TCP, before tail LOG/DROP).
+        dst_ip = HOST_IP if ip_or_cidr in cached_host_ips else ip_or_cidr
+        if port:
+            run_sys_cmd(["sudo", "iptables", "-I", INPUT_CHAIN_NAME, "4", "-i", VETH_H, "-p", "tcp", "--dport", port, "-d", dst_ip, "-j", "ACCEPT"])
+        else:
+            run_sys_cmd(["sudo", "iptables", "-I", INPUT_CHAIN_NAME, "4", "-i", VETH_H, "-d", dst_ip, "-j", "ACCEPT"])
+
+        dynamic_allowed_rules.add(key)
+        return True
+
+def handle_dns_payload(data, silent_mode):
+    qname, qtype_str, q_end = parse_dns_query(data)
+    if qname is not None:
+        if qname in allowed_host_ports:
+            if qtype_str == "A":
+                ips, err = resolve_host_ipv4(qname)
+                if not ips and err is not None:
+                    rcode = 3 if err == socket.EAI_NONAME else 2
+                    return build_dns_error_response(data, q_end, rcode)
+                if not ips:
+                    return build_dns_nodata_response(data, q_end)
+                allowed_port = allowed_host_ports[qname]
+                register_resolved_host_ips(ips, qname)
+                for ip in ips:
+                    allow_ip_target(ip, allowed_port)
+                return build_dns_a_records_response(data, q_end, qname, ips)
+            return build_dns_nodata_response(data, q_end)
+
+        if qtype_str == "A":
+            fake_ip = get_or_alloc_fake_ip(qname)
+            # Defer termination briefly so an immediate connection attempt reveals destination port.
+            record_violation(
+                f"DNS:{qname}",
+                silent_mode,
+                detail=f"DNS lookup ({qname} [A])",
+                defer_sec=FAKE_DNS_DEFER_SEC,
+            )
+            return build_dns_a_response(data, q_end, qname, fake_ip)
+        if qtype_str in FAKE_DNS_NODATA_QTYPES:
+            record_violation(
+                f"DNS:{qname}",
+                silent_mode,
+                detail=f"DNS lookup ({qname} [{qtype_str}])",
+                defer_sec=FAKE_DNS_DEFER_SEC,
+            )
+            return build_dns_nodata_response(data, q_end)
+
+    display_name = qname if qname else "<unknown>"
+    display_type = qtype_str if qtype_str else "UNKNOWN"
+    # Record violation before sending REFUSED so fast-exiting children cannot race ahead of reporting.
+    record_violation(
+        f"DNS:{display_name}",
+        silent_mode,
+        detail=f"DNS lookup ({display_name} [{display_type}])",
+    )
+    return build_dns_refused_response(data, q_end)
+
+def close_dns_trap_sockets():
+    global dns_udp_sock, dns_tcp_sock
+    dns_stop_event.set()
+    for sock in (dns_udp_sock, dns_tcp_sock):
+        if sock is not None:
+            try:
+                sock.close()
+            except Exception:
+                pass
+    dns_udp_sock = None
+    dns_tcp_sock = None
+
+def bind_dns_trap_sockets():
+    global dns_udp_sock, dns_tcp_sock
+    close_dns_trap_sockets()
+    dns_stop_event.clear()
+    udp_sock = None
+    tcp_sock = None
+    try:
+        udp_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        udp_sock.bind((HOST_IP, 0))
+        udp_sock.settimeout(0.5)
+        udp_port = udp_sock.getsockname()[1]
+
+        tcp_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        tcp_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        tcp_sock.bind((HOST_IP, 0))
+        tcp_sock.listen(16)
+        tcp_sock.settimeout(0.5)
+        tcp_port = tcp_sock.getsockname()[1]
+
+        dns_udp_sock = udp_sock
+        dns_tcp_sock = tcp_sock
+        return udp_port, tcp_port
+    except Exception as e:
+        print(f"[Error] Failed to bind DNS trap sockets: {e}", file=sys.stderr)
+        for sock in (udp_sock, tcp_sock):
+            if sock is not None:
+                try:
+                    sock.close()
+                except Exception:
+                    pass
+        return None, None
+
+def _handle_dns_udp_packet(sock, data, addr, silent_mode):
+    resp = handle_dns_payload(data, silent_mode)
+    if resp is not None and not dns_stop_event.is_set():
+        try:
+            sock.sendto(resp, addr)
+        except OSError:
+            pass
+
+def run_dns_udp_server(silent_mode):
+    sock = dns_udp_sock
+    if sock is None:
+        return
+    while not dns_stop_event.is_set():
+        try:
+            data, addr = sock.recvfrom(4096)
+        except socket.timeout:
+            continue
+        except OSError:
+            break
+        threading.Thread(
+            target=_handle_dns_udp_packet, args=(sock, data, addr, silent_mode), daemon=True
+        ).start()
+
+def _recv_exact(conn, n):
+    buf = bytearray()
+    while len(buf) < n:
+        chunk = conn.recv(n - len(buf))
+        if not chunk:
+            return None
+        buf.extend(chunk)
+    return bytes(buf)
+
+def _handle_dns_tcp_client(conn, silent_mode):
+    try:
+        conn.settimeout(2.0)
+        length_bytes = _recv_exact(conn, 2)
+        if not length_bytes:
+            return
+        msg_len = int.from_bytes(length_bytes, "big")
+        if msg_len == 0 or msg_len > 65535:
+            return
+        payload = _recv_exact(conn, msg_len)
+        if payload is None:
+            return
+        resp = handle_dns_payload(payload, silent_mode)
+        if resp is not None:
+            conn.sendall(len(resp).to_bytes(2, "big") + resp)
+    except (socket.timeout, OSError):
+        pass
+    finally:
+        try:
+            conn.close()
+        except Exception:
+            pass
+
+def run_dns_tcp_server(silent_mode):
+    sock = dns_tcp_sock
+    if sock is None:
+        return
+    while not dns_stop_event.is_set():
+        try:
+            conn, _ = sock.accept()
+        except socket.timeout:
+            continue
+        except OSError:
+            break
+        threading.Thread(
+            target=_handle_dns_tcp_client, args=(conn, silent_mode), daemon=True
+        ).start()
+
+def setup_netns_dns_files():
+    """Write per-netns resolv.conf and nsswitch.conf for ip netns exec bind-mounting."""
+    if not run_sys_cmd(["sudo", "mkdir", "-p", NETNS_ETC_DIR]):
+        return False
+
+    resolv_path = f"{NETNS_ETC_DIR}/resolv.conf"
+    if not run_sys_cmd(["sudo", "tee", resolv_path], input_text=f"nameserver {HOST_IP}\n"):
+        return False
+    if not run_sys_cmd(["sudo", "chmod", "644", resolv_path]):
+        return False
+
+    nsswitch_src = "/etc/nsswitch.conf"
+    if os.path.exists(nsswitch_src):
+        try:
+            with open(nsswitch_src, "r", encoding="utf-8") as f:
+                lines = f.readlines()
+            new_lines = []
+            replaced = False
+            for line in lines:
+                if re.match(r"^\s*hosts\s*:", line):
+                    new_lines.append("hosts:          files dns\n")
+                    replaced = True
+                else:
+                    new_lines.append(line)
+            if not replaced:
+                new_lines.append("hosts:          files dns\n")
+            nsswitch_path = f"{NETNS_ETC_DIR}/nsswitch.conf"
+            if not run_sys_cmd(["sudo", "tee", nsswitch_path], input_text="".join(new_lines)):
+                return False
+            if not run_sys_cmd(["sudo", "chmod", "644", nsswitch_path]):
+                return False
+        except Exception as e:
+            print(f"[Error] Failed to generate nsswitch.conf: {e}", file=sys.stderr)
+            return False
+
+    return True
 
 def get_host_ips():
     ips = ["127.0.0.1", "localhost"]
@@ -163,18 +698,44 @@ def get_host_ips():
         pass
     return ips
 
+def kill_netns_processes():
+    """Force-kill any process still running inside the isolated network namespace."""
+    try:
+        res = subprocess.run(
+            ["sudo", "ip", "netns", "pids", NS_NAME],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if res.returncode == 0 and res.stdout:
+            self_pid = str(os.getpid())
+            pids = [p for p in res.stdout.split() if p.isdigit() and p != self_pid]
+            if pids:
+                run_sys_cmd(["sudo", "kill", "-9", *pids], ignore_error=True)
+    except Exception:
+        pass
+
 def setup_network(targets, no_filter):
     status = True
     host_ips = get_host_ips()
 
+    close_dns_trap_sockets()
+    reset_dns_tracking()
+    dns_stop_event.clear()
+
     run_sys_cmd(["sudo", "ip", "link", "del", VETH_H], ignore_error=True)
+    kill_netns_processes()
     run_sys_cmd(["sudo", "ip", "netns", "del", NS_NAME], ignore_error=True)
+    run_sys_cmd(["sudo", "rm", "-rf", NETNS_ETC_DIR], ignore_error=True)
     run_sys_cmd(["sudo", "iptables", "-t", "nat", "-D", "PREROUTING", "-i", VETH_H, "-j", f"{CHAIN_NAME}_NAT"], ignore_error=True)
     run_sys_cmd(["sudo", "iptables", "-t", "nat", "-D", "POSTROUTING", "-s", f"{GUEST_IP}/32", "-j", "MASQUERADE"], ignore_error=True)
     run_sys_cmd(["sudo", "iptables", "-D", "FORWARD", "-o", VETH_H, "-m", "state", "--state", "ESTABLISHED,RELATED", "-j", "ACCEPT"], ignore_error=True)
     run_sys_cmd(["sudo", "iptables", "-D", "FORWARD", "-i", VETH_H, "-j", CHAIN_NAME], ignore_error=True)
+    run_sys_cmd(["sudo", "iptables", "-D", "INPUT", "-i", VETH_H, "-j", INPUT_CHAIN_NAME], ignore_error=True)
     run_sys_cmd(["sudo", "iptables", "-F", CHAIN_NAME], ignore_error=True)
     run_sys_cmd(["sudo", "iptables", "-X", CHAIN_NAME], ignore_error=True)
+    run_sys_cmd(["sudo", "iptables", "-F", INPUT_CHAIN_NAME], ignore_error=True)
+    run_sys_cmd(["sudo", "iptables", "-X", INPUT_CHAIN_NAME], ignore_error=True)
     run_sys_cmd(["sudo", "iptables", "-t", "nat", "-F", f"{CHAIN_NAME}_NAT"], ignore_error=True)
     run_sys_cmd(["sudo", "iptables", "-t", "nat", "-X", f"{CHAIN_NAME}_NAT"], ignore_error=True)
 
@@ -196,41 +757,66 @@ def setup_network(targets, no_filter):
             status = False
             break
 
+    if status:
+        run_sys_cmd(["sudo", "sysctl", "-w", f"net.ipv6.conf.{VETH_H}.disable_ipv6=1"], ignore_error=True)
+        run_sys_cmd(["sudo", "ip", "netns", "exec", NS_NAME, "sysctl", "-w", f"net.ipv6.conf.{VETH_G}.disable_ipv6=1"], ignore_error=True)
+
     if status and not no_filter:
+        udp_port, tcp_port = bind_dns_trap_sockets()
+        if udp_port is None or tcp_port is None:
+            return False
+
+        if not setup_netns_dns_files():
+            close_dns_trap_sockets()
+            return False
+
         run_sys_cmd(["sudo", "iptables", "-t", "nat", "-N", f"{CHAIN_NAME}_NAT"], ignore_error=True)
         run_sys_cmd(["sudo", "iptables", "-t", "nat", "-I", "PREROUTING", "1", "-i", VETH_H, "-j", f"{CHAIN_NAME}_NAT"])
 
-        for target in targets:
-            ip, port = parse_target(target)
-
-            if ip in host_ips:
-                if port:
-                    run_sys_cmd(["sudo", "iptables", "-t", "nat", "-A", f"{CHAIN_NAME}_NAT", "-p", "tcp", "-d", ip, "--dport", port, "-j", "DNAT", "--to-destination", f"{HOST_IP}:{port}"])
-                else:
-                    run_sys_cmd(["sudo", "iptables", "-t", "nat", "-A", f"{CHAIN_NAME}_NAT", "-d", ip, "-j", "DNAT", "--to-destination", HOST_IP])
-            else:
-                if port:
-                    run_sys_cmd(["sudo", "iptables", "-t", "nat", "-A", f"{CHAIN_NAME}_NAT", "-p", "tcp", "-d", ip, "--dport", port, "-j", "ACCEPT"])
-                else:
-                    run_sys_cmd(["sudo", "iptables", "-t", "nat", "-A", f"{CHAIN_NAME}_NAT", "-d", ip, "-j", "ACCEPT"])
+        # Intercept system DNS (HOST_IP:53) first even if targets include broad CIDRs (e.g. 10.0.0.0/8).
+        run_sys_cmd(["sudo", "iptables", "-t", "nat", "-A", f"{CHAIN_NAME}_NAT", "-d", HOST_IP, "-p", "udp", "--dport", "53", "-j", "DNAT", "--to-destination", f"{HOST_IP}:{udp_port}"])
+        run_sys_cmd(["sudo", "iptables", "-t", "nat", "-A", f"{CHAIN_NAME}_NAT", "-d", HOST_IP, "-p", "tcp", "--dport", "53", "-j", "DNAT", "--to-destination", f"{HOST_IP}:{tcp_port}"])
+        # Catch-all redirect for direct DNS queries to external or host DNS servers (e.g. 8.8.8.8, 10.255.255.254).
+        run_sys_cmd(["sudo", "iptables", "-t", "nat", "-A", f"{CHAIN_NAME}_NAT", "-p", "udp", "--dport", "53", "-j", "DNAT", "--to-destination", f"{HOST_IP}:{udp_port}"])
+        run_sys_cmd(["sudo", "iptables", "-t", "nat", "-A", f"{CHAIN_NAME}_NAT", "-p", "tcp", "--dport", "53", "-j", "DNAT", "--to-destination", f"{HOST_IP}:{tcp_port}"])
 
         run_sys_cmd(["sudo", "iptables", "-t", "nat", "-I", "POSTROUTING", "1", "-s", f"{GUEST_IP}/32", "-j", "MASQUERADE"])
         run_sys_cmd(["sudo", "iptables", "-I", "FORWARD", "1", "-o", VETH_H, "-m", "state", "--state", "ESTABLISHED,RELATED", "-j", "ACCEPT"])
         
         run_sys_cmd(["sudo", "iptables", "-N", CHAIN_NAME], ignore_error=True)
         run_sys_cmd(["sudo", "iptables", "-I", "FORWARD", "1", "-i", VETH_H, "-j", CHAIN_NAME])
-
         run_sys_cmd(["sudo", "iptables", "-A", CHAIN_NAME, "-i", VETH_H, "-d", HOST_IP, "-j", "ACCEPT"])
-        
-        for target in targets:
-            ip, port = parse_target(target)
-            if port:
-                run_sys_cmd(["sudo", "iptables", "-A", CHAIN_NAME, "-i", VETH_H, "-p", "tcp", "--dport", port, "-d", ip, "-j", "ACCEPT"])
-            else:
-                run_sys_cmd(["sudo", "iptables", "-A", CHAIN_NAME, "-i", VETH_H, "-d", ip, "-j", "ACCEPT"])
-
+        run_sys_cmd(["sudo", "iptables", "-A", CHAIN_NAME, "-i", VETH_H, "-d", FAKE_DNS_BLOCK_CIDR, "-j", "LOG", "--log-prefix", "[BLOCK] ", "--log-level", "4"])
+        run_sys_cmd(["sudo", "iptables", "-A", CHAIN_NAME, "-i", VETH_H, "-d", FAKE_DNS_BLOCK_CIDR, "-j", "DROP"])
         run_sys_cmd(["sudo", "iptables", "-A", CHAIN_NAME, "-j", "LOG", "--log-prefix", "[BLOCK] ", "--log-level", "4"])
         run_sys_cmd(["sudo", "iptables", "-A", CHAIN_NAME, "-j", "DROP"])
+
+        run_sys_cmd(["sudo", "iptables", "-N", INPUT_CHAIN_NAME], ignore_error=True)
+        run_sys_cmd(["sudo", "iptables", "-I", "INPUT", "1", "-i", VETH_H, "-j", INPUT_CHAIN_NAME])
+        run_sys_cmd(["sudo", "iptables", "-A", INPUT_CHAIN_NAME, "-i", VETH_H, "-m", "state", "--state", "ESTABLISHED,RELATED", "-j", "ACCEPT"])
+        run_sys_cmd(["sudo", "iptables", "-A", INPUT_CHAIN_NAME, "-i", VETH_H, "-p", "udp", "-d", HOST_IP, "--dport", str(udp_port), "-j", "ACCEPT"])
+        run_sys_cmd(["sudo", "iptables", "-A", INPUT_CHAIN_NAME, "-i", VETH_H, "-p", "tcp", "-d", HOST_IP, "--dport", str(tcp_port), "-j", "ACCEPT"])
+        run_sys_cmd(["sudo", "iptables", "-A", INPUT_CHAIN_NAME, "-j", "LOG", "--log-prefix", "[BLOCK] ", "--log-level", "4"])
+        run_sys_cmd(["sudo", "iptables", "-A", INPUT_CHAIN_NAME, "-j", "DROP"])
+
+        with iptables_lock:
+            cached_host_ips[:] = list(host_ips)
+
+        for target in targets:
+            host_or_ip, port = parse_target(target)
+            if is_ip_or_network(host_or_ip):
+                allow_ip_target(host_or_ip, port)
+            else:
+                norm_host = host_or_ip.rstrip(".").lower()
+                with violation_lock:
+                    allowed_host_ports[norm_host] = port
+                if norm_host in host_ips:
+                    allow_ip_target("127.0.0.1", port)
+                ips, _ = resolve_host_ipv4(norm_host)
+                if ips:
+                    register_resolved_host_ips(ips, norm_host)
+                    for ip in ips:
+                        allow_ip_target(ip, port)
 
     return status
 
@@ -243,8 +829,10 @@ def monitor_logs(silent_mode):
             cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True
         )
     except Exception as e:
-        print(f"[Error] ログ監視の起動に失敗: {e}", file=sys.stderr)
+        print(f"[Error] Failed to start log monitor: {e}", file=sys.stderr)
         status = False
+    finally:
+        journal_ready_event.set()
 
     if status:
         ip_pattern = re.compile(r'DST=([^ ]+)')
@@ -259,11 +847,10 @@ def monitor_logs(silent_mode):
                     dst_ip = ip_match.group(1)
                     port_match = port_pattern.search(line)
                     dst_port = port_match.group(1) if port_match else "N/A"
-                    target = f"{dst_ip}:{dst_port}"
-                    block_counts[target] = block_counts.get(target, 0) + 1
-                    if not silent_mode and not violation_event.is_set():
-                        print(f"\n[!] 違反検知: {target} への通信を遮断しました。直ちに終了します。", file=sys.stderr)
-                        violation_event.set()
+                    mapped_host = lookup_ip_host(dst_ip)
+                    dst_label = mapped_host if mapped_host else dst_ip
+                    target = f"{dst_label}:{dst_port}"
+                    record_violation(target, silent_mode)
     return status
 
 def cleanup():
@@ -271,7 +858,11 @@ def cleanup():
     status = True
     if not cleanup_done:
         cleanup_done = True
+        with violation_lock:
+            _cancel_dns_violation_timer_locked()
+        close_dns_trap_sockets()
         run_sys_cmd(["sudo", "pkill", "-9", "-f", f"ip netns exec {NS_NAME}"], ignore_error=True)
+        kill_netns_processes()
         if journal_proc is not None and journal_proc.poll() is None:
             journal_proc.terminate()
             journal_proc.wait(timeout=1)
@@ -280,12 +871,16 @@ def cleanup():
         run_sys_cmd(["sudo", "iptables", "-t", "nat", "-D", "POSTROUTING", "-s", f"{GUEST_IP}/32", "-j", "MASQUERADE"], ignore_error=True)
         run_sys_cmd(["sudo", "iptables", "-D", "FORWARD", "-o", VETH_H, "-m", "state", "--state", "ESTABLISHED,RELATED", "-j", "ACCEPT"], ignore_error=True)
         run_sys_cmd(["sudo", "iptables", "-D", "FORWARD", "-i", VETH_H, "-j", CHAIN_NAME], ignore_error=True)
+        run_sys_cmd(["sudo", "iptables", "-D", "INPUT", "-i", VETH_H, "-j", INPUT_CHAIN_NAME], ignore_error=True)
         run_sys_cmd(["sudo", "iptables", "-F", CHAIN_NAME], ignore_error=True)
         run_sys_cmd(["sudo", "iptables", "-X", CHAIN_NAME], ignore_error=True)
+        run_sys_cmd(["sudo", "iptables", "-F", INPUT_CHAIN_NAME], ignore_error=True)
+        run_sys_cmd(["sudo", "iptables", "-X", INPUT_CHAIN_NAME], ignore_error=True)
         run_sys_cmd(["sudo", "iptables", "-t", "nat", "-F", f"{CHAIN_NAME}_NAT"], ignore_error=True)
         run_sys_cmd(["sudo", "iptables", "-t", "nat", "-X", f"{CHAIN_NAME}_NAT"], ignore_error=True)
         run_sys_cmd(["sudo", "ip", "netns", "del", NS_NAME], ignore_error=True)
         run_sys_cmd(["sudo", "ip", "link", "del", VETH_H], ignore_error=True)
+        run_sys_cmd(["sudo", "rm", "-rf", NETNS_ETC_DIR], ignore_error=True)
 
         if original_tty_attrs is not None:
             try:
@@ -295,7 +890,7 @@ def cleanup():
         else:
             run_sys_cmd(["stty", "sane"], ignore_error=True)
 
-        # 端末制御エスケープシーケンスの復元（カーソル表示、マウス追跡無効化、代替バッファ終了、文字色リセット、改行）
+        # Restore terminal modes via escape sequences (show cursor, disable mouse tracking, exit alt buffer, reset colors, newline)
         if sys.stderr.isatty():
             try:
                 sys.stderr.write("\x1b[?25h\x1b[?1000l\x1b[?1002l\x1b[?1003l\x1b[?1006l\x1b[?1049l\x1b[0m\n")
@@ -304,10 +899,11 @@ def cleanup():
                 pass
 
         if block_counts:
-            print("\n=== 終了レポート ===", file=sys.stderr)
+            print("\n=== Summary Report ===", file=sys.stderr)
             for target, count in sorted(block_counts.items(), key=lambda x: x[1], reverse=True):
-                print(f"  {target} (遮断: {count}回)", file=sys.stderr)
-            print("==================\n", file=sys.stderr)
+                unit = "time" if count == 1 else "times"
+                print(f"  {target} (blocked: {count} {unit})", file=sys.stderr)
+            print("======================\n", file=sys.stderr)
     return status
 
 def signal_handler(sig, frame):
@@ -331,11 +927,11 @@ def main():
             pass
 
     status = 0
-    parser = argparse.ArgumentParser(description="AIエージェント隔離実行ツール")
-    parser.add_argument('-s', '--silent', action='store_true', help='違反を継続')
-    parser.add_argument('--no-filter', action='store_true', help='フィルタなし')
-    parser.add_argument('targets_json', help='許可IP:PORT、IPのみ、またはCIDRサブネット (例: \'["192.168.0.123:11434"]\', \'["192.168.0.123"]\', \'["192.168.0.0/24"]\')')
-    parser.add_argument('command', nargs=argparse.REMAINDER, help='コマンド')
+    parser = argparse.ArgumentParser(description="Network isolation sandbox for AI agents and general commands")
+    parser.add_argument('-s', '--silent', action='store_true', help='Continue execution on violations without terminating')
+    parser.add_argument('--no-filter', action='store_true', help='Disable network filtering and DNS interception')
+    parser.add_argument('targets_json', help='Allowed targets as JSON array: IP:PORT, IP, CIDR, CIDR:PORT, or hostname[:PORT] (e.g. \'["192.168.0.123:11434"]\', \'["192.168.0.0/24"]\', \'["www.googleapis.com:443"]\')')
+    parser.add_argument('command', nargs=argparse.REMAINDER, help='Command to run inside the sandbox')
 
     if len(sys.argv) == 1:
         parser.print_help()
@@ -343,18 +939,18 @@ def main():
 
     args = parser.parse_args()
     if not args.command:
-        print("[Error] コマンド未指定", file=sys.stderr)
+        print("[Error] No command specified", file=sys.stderr)
         return 1
 
     try:
         targets = json.loads(args.targets_json)
     except json.JSONDecodeError:
-        print("[Error] JSON解析失敗", file=sys.stderr)
+        print("[Error] Failed to parse targets_json as JSON", file=sys.stderr)
         return 1
 
     is_contradictory, t1, t2 = check_targets_contradiction(targets)
     if is_contradictory:
-        print(f"[Error] ターゲット指定に矛盾があります: {t1} と {t2}", file=sys.stderr)
+        print(f"[Error] Contradictory target specifications: {t1} and {t2}", file=sys.stderr)
         return 1
 
     signal.signal(signal.SIGINT, signal_handler)
@@ -365,7 +961,13 @@ def main():
             return 1
 
         if not args.no_filter:
+            journal_ready_event.clear()
             threading.Thread(target=monitor_logs, args=(args.silent,), daemon=True).start()
+            journal_ready_event.wait(timeout=0.5)
+            if dns_udp_sock is not None:
+                threading.Thread(target=run_dns_udp_server, args=(args.silent,), daemon=True).start()
+            if dns_tcp_sock is not None:
+                threading.Thread(target=run_dns_tcp_server, args=(args.silent,), daemon=True).start()
 
         primary_target = targets[0] if targets else "127.0.0.1:11434"
         pt_host, pt_port = parse_target(primary_target)
@@ -389,7 +991,7 @@ def main():
 
         real_cmd = args.command[1:] if args.command[0] == '--' else args.command
         
-        # コマンドが1つの文字列("ping 8.8.8.8"など)として渡された場合の対策
+        # Split a single quoted command string (e.g. "ping 8.8.8.8") into argv tokens
         if len(real_cmd) == 1 and ' ' in real_cmd[0]:
             real_cmd = shlex.split(real_cmd[0])
 
@@ -402,6 +1004,7 @@ def main():
             if violation_event.is_set():
                 break
             time.sleep(0.1)
+        flush_pending_dns_violation(args.silent)
     finally:
         cleanup()
 
