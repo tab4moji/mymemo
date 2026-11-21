@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>桃太郎 2・3周目精査版 (gemma4:e4b, 30文)</title>
+<title>Story Map &amp; Sequence Diagram</title>
 <style>
   :root {
     --bg: #0f172a;
@@ -30,6 +30,8 @@
     display: flex;
     flex-direction: column;
     height: 100vh;
+    height: 100dvh;
+    overflow: hidden;
   }
   header {
     padding: 10px 18px;
@@ -38,7 +40,25 @@
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 14px;
+    gap: 10px 14px;
+  }
+  .header-top {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .header-drawer {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+    flex: 1;
+    min-width: 0;
   }
   header h1 {
     margin: 0;
@@ -70,6 +90,11 @@
     cursor: pointer;
   }
   .btn:hover { background: #475569; }
+  .btn-xs {
+    padding: 2px 7px;
+    font-size: 11px;
+  }
+  .mobile-only { display: none; }
   .legend {
     margin-left: auto;
     display: flex;
@@ -100,11 +125,14 @@
     border-bottom: 2px solid var(--border);
     padding: 8px 14px 10px;
     flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
   }
   .section-bar {
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: 8px;
     font-size: 12px;
     color: var(--muted);
     margin-bottom: 6px;
@@ -116,11 +144,15 @@
     border: 1px solid #1e293b;
     border-radius: 8px;
     background: #0f172a;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
   }
   .diagram-wrap {
     flex: 1;
     overflow: auto;
     padding: 0 16px 12px;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
   }
   .seq-header-sticky {
     position: sticky;
@@ -134,14 +166,64 @@
     width: 330px;
     background: var(--panel);
     border-left: 1px solid var(--border);
-    padding: 14px;
-    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
     font-size: 12.5px;
   }
-  .inspector h2 {
-    margin: 0 0 8px;
+  .inspector.desktop-hidden { display: none; }
+  .sheet-handle {
+    display: none;
+    width: 38px;
+    height: 4px;
+    border-radius: 999px;
+    background: #475569;
+    margin: 8px auto 2px;
+    flex-shrink: 0;
+  }
+  .inspector-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    background: var(--panel);
+    flex-shrink: 0;
+  }
+  .inspector-head h2 {
+    margin: 0;
     font-size: 13.5px;
     color: var(--actor);
+  }
+  .inspector-body {
+    padding: 12px 14px;
+    overflow-y: auto;
+    flex: 1;
+    min-height: 0;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+  .inspector-body h3 {
+    margin: 0 0 6px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .inspector-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(2, 6, 23, 0.6);
+    z-index: 110;
+  }
+  .json-block { margin-bottom: 10px; }
+  .json-block summary {
+    cursor: pointer;
+    color: var(--actor);
+    font-size: 12px;
+    font-weight: 600;
+    padding: 4px 0;
+    user-select: none;
   }
   .inspector .sent-box, .inspector textarea {
     width: 100%;
@@ -164,11 +246,12 @@
     font-size: 11px;
     line-height: 1.45;
     color: #cbd5e1;
+    margin: 4px 0 0;
   }
   svg text { font-family: inherit; }
   .ev-group { cursor: pointer; }
   .ev-group:hover rect.ev-bg { stroke: #f8fafc; stroke-width: 1.5; }
-  .loc-node { cursor: grab; }
+  .loc-node { cursor: grab; touch-action: none; }
   .loc-node:active { cursor: grabbing; }
   .drop-overlay {
     display: none;
@@ -184,51 +267,115 @@
   }
   .drop-overlay.active { display: flex; }
   @media (max-width: 900px) {
+    header { padding: 8px 10px; gap: 6px; }
+    header h1 { font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .header-top { width: 100%; justify-content: space-between; min-width: 0; }
+    .header-actions { flex-shrink: 0; }
+    .mobile-only { display: inline-flex; align-items: center; }
+    .header-drawer { display: none; width: 100%; }
+    .header-drawer.open {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 8px;
+      padding-top: 6px;
+      border-top: 1px solid var(--border);
+    }
+    .legend { margin-left: 0; }
+    .map-hint { display: none; }
     .workspace { flex-direction: column; }
-    .inspector { width: 100%; height: 220px; border-left: none; border-top: 1px solid var(--border); }
+    .main-col { flex: 1; min-height: 0; }
+    .map-section { flex: 0 0 var(--map-split, 42%); min-height: 0; padding: 6px 8px; }
+    .map-wrap { flex: 1; max-height: none; min-height: 0; }
+    .diagram-wrap { flex: 1; min-height: 0; padding: 0 8px 10px; }
+    .sheet-handle { display: block; }
+    .inspector.desktop-hidden { display: flex; }
+    .inspector {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      width: 100%;
+      max-height: 75vh;
+      max-height: 75dvh;
+      height: auto;
+      z-index: 120;
+      border-left: none;
+      border-top: 1px solid var(--border);
+      border-radius: 14px 14px 0 0;
+      box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.55);
+      transform: translateY(105%);
+      visibility: hidden;
+      pointer-events: none;
+      transition: transform 0.2s ease, visibility 0.2s ease;
+    }
+    .inspector.open {
+      transform: translateY(0);
+      visibility: visible;
+      pointer-events: auto;
+    }
+    .inspector-backdrop.open { display: block; }
   }
 </style>
 </head>
 <body>
 <div class="drop-overlay" id="dropOverlay">JSONL ファイルをドロップして読み込み</div>
 <header>
-  <h1>桃太郎 2・3周目精査版 (gemma4:e4b, 30文)</h1>
-  <div class="controls">
-    <input type="file" id="fileInput" accept=".jsonl,.json,.txt" style="display:none">
-    <button class="btn" id="loadFileBtn">JSONL読込</button>
-    <button class="btn" id="togglePasteBtn">JSONL貼付</button>
-    <label><input type="checkbox" id="showItems"> Item レーン表示</label>
-    <label><input type="checkbox" id="showLocs"> Location レーン表示</label>
-    <label><input type="checkbox" id="showTopic" checked> 台詞/topic 表示</label>
+  <div class="header-top">
+    <h1>Story Map &amp; Sequence Diagram</h1>
+    <div class="header-actions">
+      <button class="btn mobile-only" id="toggleMenuBtn" type="button">設定</button>
+      <button class="btn" id="toggleInspectorBtn" type="button">詳細</button>
+    </div>
   </div>
-  <div class="legend">
-    <span class="badge" style="color:var(--comm)">COMMUNICATION</span>
-    <span class="badge" style="color:var(--phys)">PHYSICAL_ACTION</span>
-    <span class="badge" style="color:var(--move)">MOVEMENT</span>
-    <span class="badge" style="color:var(--state)">STATE_CHANGE</span>
-    <span class="badge" style="color:var(--appear)">APPEAR</span>
+  <div class="header-drawer" id="headerDrawer">
+    <div class="controls">
+      <input type="file" id="fileInput" accept=".jsonl,.json,.txt" style="display:none">
+      <button class="btn" id="loadFileBtn" type="button">JSONL読込</button>
+      <button class="btn" id="togglePasteBtn" type="button">JSONL貼付</button>
+      <label><input type="checkbox" id="showItems"> Item レーン表示</label>
+      <label><input type="checkbox" id="showLocs"> Location レーン表示</label>
+      <label><input type="checkbox" id="showTopic" checked> 台詞/topic 表示</label>
+    </div>
+    <div class="legend">
+      <span class="badge" style="color:var(--comm)">COMMUNICATION</span>
+      <span class="badge" style="color:var(--phys)">PHYSICAL_ACTION</span>
+      <span class="badge" style="color:var(--move)">MOVEMENT</span>
+      <span class="badge" style="color:var(--state)">STATE_CHANGE</span>
+      <span class="badge" style="color:var(--appear)">APPEAR</span>
+    </div>
   </div>
 </header>
 <div class="workspace">
   <div class="main-col">
     <section class="map-section">
       <div class="section-bar">
-        <span><strong>地図ブロック図</strong>（場所ブロック間の線の上部に移動した人物・物を表示 / ブロックはドラッグ移動可）</span>
-        <span id="mapSummary"></span>
+        <span><strong>地図ブロック図</strong><span class="map-hint">（場所ブロック間の線の上部に移動した人物・物を表示 / ブロックはドラッグ移動可）</span></span>
+        <span style="display:inline-flex;align-items:center;gap:8px;">
+          <span id="mapSummary"></span>
+          <button class="btn btn-xs mobile-only" id="cycleSplitBtn" type="button">比率</button>
+        </span>
       </div>
       <div class="map-wrap" id="mapWrap"></div>
     </section>
     <div class="diagram-wrap" id="diagramWrap"></div>
   </div>
+  <div class="inspector-backdrop" id="inspectorBackdrop"></div>
   <aside class="inspector" id="inspector">
-    <h2>詳細インスペクタ</h2>
-    <p style="color:var(--muted)">イベントや移動線をクリックすると、元の文と JSON 詳細を表示します。</p>
+    <div class="sheet-handle"></div>
+    <div class="inspector-head">
+      <h2 id="inspectorTitle">詳細インスペクタ</h2>
+      <button class="btn btn-xs" id="closeInspectorBtn" type="button">閉じる</button>
+    </div>
+    <div class="inspector-body" id="inspectorBody">
+      <p style="color:var(--muted);margin:0;">イベントや移動線をクリック/タップすると、本文と JSON 詳細を表示します。</p>
+    </div>
   </aside>
 </div>
 
 <script>
 let RECORDS = [{"sentence_id": 2, "text": "むかし、むかし、あるところに、おじいさんとおばあさんがありました。", "entities": [{"surface": "おじいさん", "type": "Actor", "resolution": "NEW", "id": "actor_ojiisan", "name": "おじいさん"}, {"surface": "おばあさん", "type": "Actor", "resolution": "NEW", "id": "actor_obaasan", "name": "おばあさん"}, {"surface": "あるところ", "type": "Location", "resolution": "NEW", "id": "loc_somewhere", "name": "あるところ"}], "events": [{"action_type": "APPEAR", "subject": "actor_ojiisan", "inference": "補完", "target": null, "location": "loc_somewhere", "destination": null, "item": null, "topic": null, "description": "存在した"}, {"action_type": "APPEAR", "subject": "actor_obaasan", "inference": "補完", "target": null, "location": "loc_somewhere", "destination": null, "item": null, "topic": null, "description": "存在した"}]}, {"sentence_id": 3, "text": "まいにち、おじいさんは山へしば刈りに、おばあさんは川へ洗濯に行きました。", "entities": [{"surface": "おじいさん", "type": "Actor", "resolution": "EXISTING", "id": "actor_ojiisan", "name": "おじいさん"}, {"surface": "山", "type": "Location", "resolution": "NEW", "id": "loc_mountain", "name": "山"}, {"surface": "おばあさん", "type": "Actor", "resolution": "EXISTING", "id": "actor_obaasan", "name": "おばあさん"}, {"surface": "川", "type": "Location", "resolution": "NEW", "id": "loc_river", "name": "川"}], "events": [{"action_type": "MOVEMENT", "subject": "actor_ojiisan", "inference": "明示", "target": null, "location": "loc_somewhere", "destination": "loc_mountain", "item": null, "topic": null, "description": "芝刈りに向かう"}, {"action_type": "MOVEMENT", "subject": "actor_obaasan", "inference": "明示", "target": null, "location": "loc_somewhere", "destination": "loc_river", "item": null, "topic": null, "description": "洗濯しに行く"}]}, {"sentence_id": 4, "text": "ある日、おばあさんが、川のそばで、せっせと洗濯をしていますと、川上から、大きな桃が一つ、「ドンブラコッコ、スッコッコ。ドンブラコッコ、スッコッコ。」と流れて来ました。", "entities": [{"surface": "おばあさん", "type": "Actor", "resolution": "EXISTING", "id": "actor_obaasan", "name": "おばあさん"}, {"surface": "川のそば", "type": "Location", "resolution": "NEW", "id": "loc_river", "name": "川のそば"}, {"surface": "桃", "type": "Item", "resolution": "NEW", "id": "item_peach", "name": "桃"}], "events": [{"action_type": "PHYSICAL_ACTION", "subject": "actor_obaasan", "inference": "明示", "target": null, "location": "loc_river", "destination": null, "item": null, "topic": null, "description": "洗濯をする"}, {"action_type": "MOVEMENT", "subject": "item_peach", "inference": "補完", "target": null, "location": "loc_river", "destination": "loc_river", "item": "item_peach", "topic": null, "description": "流れてくる"}, {"action_type": "COMMUNICATION", "subject": "item_peach", "inference": "補完", "target": null, "location": "loc_river", "destination": null, "item": "item_peach", "topic": "ドンブラコッコ、スッコッコ。ドンブラコッコ、スッコッコ。", "description": "音を立てて流れる"}]}, {"sentence_id": 5, "text": "「おやおや、これはみごとな桃だこと。おじいさんへのおみやげに、どれどれ、うちへ持って帰りましょう。」", "entities": [{"surface": "桃", "type": "Item", "resolution": "EXISTING", "id": "item_peach", "name": "桃"}, {"surface": "おじいさん", "type": "Actor", "resolution": "EXISTING", "id": "actor_ojiisan", "name": "おじいさん"}, {"surface": "うち", "type": "Location", "resolution": "NEW", "id": "loc_home", "name": "うち"}], "events": [{"action_type": "COMMUNICATION", "subject": "actor_obaasan", "inference": "明示", "target": null, "location": "loc_river", "destination": null, "item": "item_peach", "topic": "おやおや、これはみごとな桃だこと", "description": "感嘆して言う"}, {"action_type": "COMMUNICATION", "subject": "actor_obaasan", "inference": "明示", "target": "actor_ojiisan", "location": "loc_river", "destination": null, "item": null, "topic": "おじいさんへのおみやげに、どれどれ、うちへ持って帰りましょう", "description": "提案する"}]}, {"sentence_id": 6, "text": "おばあさんは、そう言いながら、腰をかがめて桃を取ろうとしましたが、遠くって手がとどきません。", "entities": [{"surface": "おばあさん", "type": "Actor", "resolution": "EXISTING", "id": "actor_obaasan", "name": "おばあさん"}, {"surface": "桃", "type": "Item", "resolution": "EXISTING", "id": "item_peach", "name": "桃"}], "events": [{"action_type": "PHYSICAL_ACTION", "subject": "actor_obaasan", "inference": "明示", "target": null, "location": "loc_river", "destination": null, "item": null, "topic": null, "description": "腰をかがめる"}, {"action_type": "PHYSICAL_ACTION", "subject": "actor_obaasan", "inference": "明示", "target": null, "location": "loc_river", "destination": null, "item": "item_peach", "topic": null, "description": "桃を取ろうとする"}, {"action_type": "STATE_CHANGE", "subject": "actor_obaasan", "inference": "明示", "target": null, "location": "loc_river", "destination": null, "item": "item_peach", "topic": null, "description": "手が届かないことに気づく"}]}, {"sentence_id": 7, "text": "おばあさんはそこで、「あっちの水は、かあらいぞ。こっちの水は、ああまいぞ。かあらい水は、よけて来い。ああまい水に、よって来い。」と歌いながら、手をたたきました。", "entities": [{"surface": "おばあさん", "type": "Actor", "resolution": "EXISTING", "id": "actor_obaasan", "name": "おばあさん"}, {"surface": "水", "type": "Item", "resolution": "NEW", "id": "item_water", "name": "水"}], "events": [{"action_type": "COMMUNICATION", "subject": "actor_obaasan", "inference": "明示", "target": null, "location": "loc_somewhere", "destination": null, "item": null, "topic": "あっちの水は、かあらいぞ。こっちの水は、ああまいぞ。かあらい水は、よけて来い。ああまい水に、よって来い", "description": "歌う"}, {"action_type": "PHYSICAL_ACTION", "subject": "actor_obaasan", "inference": "明示", "target": null, "location": "loc_somewhere", "destination": null, "item": null, "topic": null, "description": "手をたたく"}]}, {"sentence_id": 8, "text": "すると桃はまた、「ドンブラコッコ、スッコッコ。ドンブラコッコ、スッコッコ。」といいながら、おばあさんの前へ流れて来ました。", "entities": [{"surface": "桃", "type": "Item", "resolution": "EXISTING", "id": "item_peach", "name": "桃"}, {"surface": "おばあさん", "type": "Actor", "resolution": "EXISTING", "id": "actor_obaasan", "name": "おばあさん"}], "events": [{"action_type": "MOVEMENT", "subject": "item_peach", "inference": "補完", "target": null, "location": "loc_river", "destination": "loc_river", "item": "item_peach", "topic": null, "description": "流れてくる"}]}, {"sentence_id": 9, "text": "おばあさんはにこにこしながら、「早くおじいさんと二人で分けて食べましょう。」と言って、桃をひろい上げて、洗濯物といっしょにたらいの中に入れて、えっちら、おっちら、かかえておうちへ帰りました。", "entities": [{"surface": "おばあさん", "type": "Actor", "resolution": "EXISTING", "id": "actor_obaasan", "name": "おばあさん"}, {"surface": "おじいさん", "type": "Actor", "resolution": "EXISTING", "id": "actor_ojiisan", "name": "おじいさん"}, {"surface": "桃", "type": "Item", "resolution": "EXISTING", "id": "item_peach", "name": "桃"}, {"surface": "洗濯物", "type": "Item", "resolution": "NEW", "id": "item_laundry", "name": "洗濯物"}, {"surface": "たらい", "type": "Item", "resolution": "NEW", "id": "item_tub", "name": "たらい"}, {"surface": "おうち", "type": "Location", "resolution": "EXISTING", "id": "loc_home", "name": "うち"}], "events": [{"action_type": "COMMUNICATION", "subject": "actor_obaasan", "inference": "明示", "target": "actor_ojiisan", "location": "loc_river", "destination": null, "item": null, "topic": "早くおじいさんと二人で分けて食べましょう", "description": "話しかける"}, {"action_type": "PHYSICAL_ACTION", "subject": "actor_obaasan", "inference": "明示", "target": null, "location": "loc_river", "destination": null, "item": "item_peach", "topic": null, "description": "拾い上げる"}, {"action_type": "PHYSICAL_ACTION", "subject": "actor_obaasan", "inference": "明示", "target": null, "location": "loc_river", "destination": null, "item": "item_peach", "topic": null, "description": "入れる"}, {"action_type": "MOVEMENT", "subject": "actor_obaasan", "inference": "明示", "target": null, "location": "loc_river", "destination": "loc_home", "item": "item_peach", "topic": null, "description": "運んで帰る"}]}, {"sentence_id": 10, "text": "夕方になってやっと、おじいさんは山からしばを背負って帰って来ました。", "entities": [{"surface": "おじいさん", "type": "Actor", "resolution": "EXISTING", "id": "actor_ojiisan", "name": "おじいさん"}, {"surface": "山", "type": "Location", "resolution": "EXISTING", "id": "loc_mountain", "name": "山"}], "events": [{"action_type": "MOVEMENT", "subject": "actor_ojiisan", "inference": "明示", "target": null, "location": "loc_mountain", "destination": "loc_home", "item": null, "topic": null, "description": "帰宅する"}]}, {"sentence_id": 11, "text": "「おばあさん、今帰ったよ。」", "entities": [{"surface": "おばあさん", "type": "Actor", "resolution": "EXISTING", "id": "actor_obaasan", "name": "おばあさん"}], "events": [{"action_type": "COMMUNICATION", "subject": "actor_ojiisan", "inference": "明示", "target": "actor_obaasan", "location": "loc_home", "destination": null, "item": null, "topic": "今帰ったよ", "description": "話す"}]}, {"sentence_id": 12, "text": "「おや、おじいさん、おかいんなさい。待っていましたよ。さあ、早くお上がんなさい。いいものを上げますから。」", "entities": [{"surface": "おじいさん", "type": "Actor", "resolution": "EXISTING", "id": "actor_ojiisan", "name": "おじいさん"}], "events": [{"action_type": "COMMUNICATION", "subject": "actor_obaasan", "inference": "補完", "target": "actor_ojiisan", "location": "loc_home", "destination": null, "item": null, "topic": "おや、おじいさん、おかいんなさい", "description": "挨拶する"}, {"action_type": "COMMUNICATION", "subject": "actor_obaasan", "inference": "補完", "target": "actor_ojiisan", "location": "loc_home", "destination": null, "item": null, "topic": "待っていましたよ", "description": "付け加える"}, {"action_type": "COMMUNICATION", "subject": "actor_obaasan", "inference": "補完", "target": "actor_ojiisan", "location": "loc_home", "destination": null, "item": null, "topic": "さあ、早くお上がんなさい", "description": "促す"}, {"action_type": "COMMUNICATION", "subject": "actor_obaasan", "inference": "補完", "target": "actor_ojiisan", "location": "loc_home", "destination": null, "item": null, "topic": "いいものを上げますから", "description": "申し出る"}]}, {"sentence_id": 13, "text": "「それはありがたいな。何だね、そのいいものというのは。」", "entities": [{"surface": "それ", "type": "Item", "resolution": "UNRESOLVED", "id": "item_unknown", "name": "それ"}, {"surface": "いいもの", "type": "Item", "resolution": "UNRESOLVED", "id": "item_good_thing", "name": "いいもの"}], "events": [{"action_type": "COMMUNICATION", "subject": "actor_ojiisan", "inference": "補完", "target": null, "location": "loc_home", "destination": null, "item": null, "topic": "それはありがたいな", "description": "返答する"}, {"action_type": "COMMUNICATION", "subject": "actor_ojiisan", "inference": "補完", "target": null, "location": "loc_home", "destination": null, "item": null, "topic": "何だね、そのいいものというのは", "description": "尋ねる"}]}, {"sentence_id": 14, "text": "こういいながら、おじいさんはわらじをぬいで、上に上がりました。", "entities": [{"surface": "おじいさん", "type": "Actor", "resolution": "EXISTING", "id": "actor_ojiisan", "name": "おじいさん"}, {"surface": "わらじ", "type": "Item", "resolution": "NEW", "id": "item_waraji", "name": "わらじ"}], "events": [{"action_type": "PHYSICAL_ACTION", "subject": "actor_ojiisan", "inference": "明示", "target": null, "location": "loc_home", "destination": null, "item": "item_waraji", "topic": null, "description": "わらじを脱ぐ"}, {"action_type": "PHYSICAL_ACTION", "subject": "actor_ojiisan", "inference": "明示", "target": null, "location": "loc_home", "destination": null, "item": null, "topic": null, "description": "上に上がる"}]}, {"sentence_id": 15, "text": "その間に、おばあさんは戸棚の中からさっきの桃を重そうにかかえて来て、「ほら、ごらんなさいこの桃を。」と言いました。", "entities": [{"surface": "おばあさん", "type": "Actor", "resolution": "EXISTING", "id": "actor_obaasan", "name": "おばあさん"}, {"surface": "戸棚", "type": "Item", "resolution": "NEW", "id": "item_cabinet", "name": "戸棚"}, {"surface": "さっきの桃", "type": "Item", "resolution": "EXISTING", "id": "item_peach", "name": "桃"}], "events": [{"action_type": "PHYSICAL_ACTION", "subject": "actor_obaasan", "inference": "明示", "target": null, "location": "loc_home", "destination": null, "item": "item_peach", "topic": null, "description": "戸棚から桃を取り出す"}, {"action_type": "PHYSICAL_ACTION", "subject": "actor_obaasan", "inference": "明示", "target": null, "location": "loc_home", "destination": null, "item": "item_peach", "topic": null, "description": "桃を重そうに抱えてくる"}, {"action_type": "COMMUNICATION", "subject": "actor_obaasan", "inference": "明示", "target": null, "location": "loc_home", "destination": null, "item": "item_peach", "topic": "ほら、ごらんなさいこの桃を", "description": "桃を見せる"}]}, {"sentence_id": 16, "text": "「ほほう、これはこれは。どこからこんなみごとな桃を買って来た。」", "entities": [{"surface": "桃", "type": "Item", "resolution": "EXISTING", "id": "item_peach", "name": "桃"}], "events": [{"action_type": "COMMUNICATION", "subject": "actor_ojiisan", "inference": "明示", "target": null, "location": "loc_home", "destination": null, "item": null, "topic": "ほほう、これはこれは。どこからこんなみごとな桃を買って来た", "description": "尋ねる"}]}, {"sentence_id": 17, "text": "「いいえ、買って来たのではありません。今日川で拾って来たのですよ。」", "entities": [{"surface": "川", "type": "Location", "resolution": "EXISTING", "id": "loc_river", "name": "川"}], "events": [{"action_type": "COMMUNICATION", "subject": "actor_obaasan", "inference": "補完", "target": null, "location": "loc_home", "destination": null, "item": null, "topic": "いいえ、買って来たのではありません", "description": "否定する"}, {"action_type": "COMMUNICATION", "subject": "actor_obaasan", "inference": "補完", "target": null, "location": "loc_river", "destination": null, "item": null, "topic": "今日川で拾って来たのですよ", "description": "説明する"}]}, {"sentence_id": 18, "text": "「え、なに、川で拾って来た。それはいよいよめずらしい。」", "entities": [{"surface": "川", "type": "Location", "resolution": "EXISTING", "id": "loc_river", "name": "川"}], "events": [{"action_type": "COMMUNICATION", "subject": "actor_obaasan", "inference": "補完", "target": null, "location": "loc_river", "destination": null, "item": null, "topic": "え、なに、川で拾って来た", "description": "驚いて発言する"}, {"action_type": "COMMUNICATION", "subject": "actor_obaasan", "inference": "補完", "target": null, "location": "loc_home", "destination": null, "item": null, "topic": "それはいよいよめずらしい", "description": "感想を述べる"}]}, {"sentence_id": 19, "text": "こうおじいさんは言いながら、桃を両手にのせて、ためつ、すがめつ、ながめていますと、だしぬけに、桃はぽんと中から二つに割れて、「おぎゃあ、おぎゃあ。」と勇ましいうぶ声を上げながら、かわいらしい赤さんが元気よくとび出しました。", "entities": [{"surface": "おじいさん", "type": "Actor", "resolution": "EXISTING", "id": "actor_ojiisan", "name": "おじいさん"}, {"surface": "桃", "type": "Item", "resolution": "EXISTING", "id": "item_peach", "name": "桃"}, {"surface": "赤さん", "type": "Actor", "resolution": "NEW", "id": "actor_akasan", "name": "赤さん"}, {"surface": "川", "type": "Location", "resolution": "EXISTING", "id": "loc_river", "name": "川"}], "events": [{"action_type": "PHYSICAL_ACTION", "subject": "actor_ojiisan", "inference": "補完", "target": null, "location": "loc_home", "destination": null, "item": "item_peach", "topic": null, "description": "桃を両手に持つ"}, {"action_type": "PHYSICAL_ACTION", "subject": "actor_ojiisan", "inference": "補完", "target": null, "location": "loc_home", "destination": null, "item": "item_peach", "topic": null, "description": "桃を眺める"}, {"action_type": "PHYSICAL_ACTION", "subject": "item_peach", "inference": "補完", "target": null, "location": "loc_home", "destination": null, "item": "item_peach", "topic": null, "description": "桃が割れる"}, {"action_type": "PHYSICAL_ACTION", "subject": "actor_akasan", "inference": "補完", "target": null, "location": "loc_home", "destination": null, "item": null, "topic": null, "description": "元気よく飛び出す"}]}, {"sentence_id": 20, "text": "「おやおや、まあ。」おじいさんも、おばあさんも、びっくりして、二人いっしょに声を立てました。", "entities": [{"surface": "おじいさん", "type": "Actor", "resolution": "EXISTING", "id": "actor_ojiisan", "name": "おじいさん"}, {"surface": "おばあさん", "type": "Actor", "resolution": "EXISTING", "id": "actor_obaasan", "name": "おばあさん"}], "events": [{"action_type": "COMMUNICATION", "subject": "actor_ojiisan", "inference": "明示", "target": null, "location": "loc_home", "destination": null, "item": null, "topic": "おやおや、まあ", "description": "声を上げる"}, {"action_type": "COMMUNICATION", "subject": "actor_obaasan", "inference": "明示", "target": null, "location": "loc_home", "destination": null, "item": null, "topic": "おやおや、まあ", "description": "声を上げる"}, {"action_type": "STATE_CHANGE", "subject": "actor_ojiisan", "inference": "明示", "target": "actor_obaasan", "location": "loc_home", "destination": null, "item": null, "topic": null, "description": "びっくりする"}, {"action_type": "STATE_CHANGE", "subject": "actor_obaasan", "inference": "明示", "target": "actor_ojiisan", "location": "loc_home", "destination": null, "item": null, "topic": null, "description": "びっくりする"}]}, {"sentence_id": 21, "text": "「まあまあ、わたしたちが、へいぜい、どうかして子供が一人ほしい、ほしいと言っていたものだから、きっと神さまがこの子をさずけて下さったにちがいない。」", "entities": [{"surface": "子供", "type": "Actor", "resolution": "EXISTING", "id": "actor_akasan", "name": "子供"}, {"surface": "神さま", "type": "Actor", "resolution": "NEW", "id": "actor_kamisama", "name": "神さま"}], "events": [{"action_type": "COMMUNICATION", "subject": "actor_ojiisan", "inference": "明示", "target": null, "location": "loc_home", "destination": null, "item": null, "topic": "まあまあ、わたしたちが、へいぜい、どうかして子供が一人ほしい、ほしいと言っていたものだから、きっと神さまがこの子をさずけて下さったにちがいない", "description": "語る"}]}, {"sentence_id": 22, "text": "おじいさんも、おばあさんも、うれしがって、こう言いました。", "entities": [{"surface": "おじいさん", "type": "Actor", "resolution": "EXISTING", "id": "actor_ojiisan", "name": "おじいさん"}, {"surface": "おばあさん", "type": "Actor", "resolution": "EXISTING", "id": "actor_obaasan", "name": "おばあさん"}], "events": [{"action_type": "STATE_CHANGE", "subject": "actor_ojiisan", "inference": "明示", "target": null, "location": "loc_home", "destination": null, "item": null, "topic": null, "description": "嬉しがる"}, {"action_type": "STATE_CHANGE", "subject": "actor_obaasan", "inference": "明示", "target": null, "location": "loc_home", "destination": null, "item": null, "topic": null, "description": "嬉しがる"}, {"action_type": "COMMUNICATION", "subject": "actor_ojiisan", "inference": "明示", "target": "actor_obaasan", "location": "loc_home", "destination": null, "item": null, "topic": null, "description": "話す"}, {"action_type": "COMMUNICATION", "subject": "actor_obaasan", "inference": "明示", "target": "actor_ojiisan", "location": "loc_home", "destination": null, "item": null, "topic": null, "description": "話す"}]}, {"sentence_id": 23, "text": "そこであわてておじいさんがお湯をわかすやら、おばあさんがむつきをそろえるやら、大さわぎをして、赤さんを抱き上げて、うぶ湯をつかわせました。", "entities": [{"surface": "おじいさん", "type": "Actor", "resolution": "EXISTING", "id": "actor_ojiisan", "name": "おじいさん"}, {"surface": "お湯", "type": "Item", "resolution": "NEW", "id": "item_hot_water", "name": "お湯"}, {"surface": "おばあさん", "type": "Actor", "resolution": "EXISTING", "id": "actor_obaasan", "name": "おばあさん"}, {"surface": "むつき", "type": "Item", "resolution": "NEW", "id": "item_mutsuki", "name": "むつき"}, {"surface": "赤さん", "type": "Actor", "resolution": "EXISTING", "id": "actor_akasan", "name": "子供"}, {"surface": "うぶ湯", "type": "Item", "resolution": "NEW", "id": "item_ubuy", "name": "うぶ湯"}], "events": [{"action_type": "PHYSICAL_ACTION", "subject": "actor_ojiisan", "inference": "補完", "target": null, "location": "loc_home", "destination": null, "item": "item_hot_water", "topic": null, "description": "お湯を沸かす"}, {"action_type": "PHYSICAL_ACTION", "subject": "actor_obaasan", "inference": "補完", "target": null, "location": "loc_home", "destination": null, "item": "item_mutsuki", "topic": null, "description": "むつきをそろえる"}, {"action_type": "COMMUNICATION", "subject": "actor_ojiisan", "inference": "補完", "target": "actor_obaasan", "location": "loc_home", "destination": null, "item": null, "topic": "大騒ぎをする", "description": "大騒ぎをする"}, {"action_type": "PHYSICAL_ACTION", "subject": "actor_ojiisan", "inference": "補完", "target": "actor_akasan", "location": "loc_home", "destination": null, "item": null, "topic": null, "description": "赤さんを抱き上げる"}, {"action_type": "PHYSICAL_ACTION", "subject": "actor_obaasan", "inference": "補完", "target": "actor_akasan", "location": "loc_home", "destination": null, "item": "item_ubuy", "topic": null, "description": "うぶ湯を飲ませる"}]}, {"sentence_id": 24, "text": "するといきなり、「うん。」と言いながら、赤さんは抱いているおばあさんの手をはねのけました。", "entities": [{"surface": "赤さん", "type": "Actor", "resolution": "EXISTING", "id": "actor_akasan", "name": "子供"}, {"surface": "おばあさん", "type": "Actor", "resolution": "EXISTING", "id": "actor_obaasan", "name": "おばあさん"}], "events": [{"action_type": "PHYSICAL_ACTION", "subject": "actor_akasan", "inference": "明示", "target": "actor_obaasan", "location": "loc_home", "destination": null, "item": null, "topic": null, "description": "手をはねのける"}]}, {"sentence_id": 25, "text": "「おやおや、何という元気のいい子だろう。」", "entities": [{"surface": "子", "type": "Actor", "resolution": "EXISTING", "id": "actor_akasan", "name": "子供"}], "events": [{"action_type": "COMMUNICATION", "subject": "actor_obaasan", "inference": "明示", "target": null, "location": "loc_home", "destination": null, "item": null, "topic": "おやおや、何という元気のいい子だろう", "description": "つぶやく"}]}, {"sentence_id": 26, "text": "おじいさんとおばあさんは、こう言って顔を見合わせながら、「あッは、あッは。」とおもしろそうに笑いました。", "entities": [{"surface": "おじいさん", "type": "Actor", "resolution": "EXISTING", "id": "actor_ojiisan", "name": "おじいさん"}, {"surface": "おばあさん", "type": "Actor", "resolution": "EXISTING", "id": "actor_obaasan", "name": "おばあさん"}], "events": [{"action_type": "COMMUNICATION", "subject": "actor_ojiisan", "inference": "補完", "target": "actor_obaasan", "location": "loc_home", "destination": null, "item": null, "topic": null, "description": "顔を見合わせた"}, {"action_type": "COMMUNICATION", "subject": "actor_obaasan", "inference": "補完", "target": "actor_ojiisan", "location": "loc_home", "destination": null, "item": null, "topic": "あッは、あッは。", "description": "笑った"}]}, {"sentence_id": 27, "text": "そして桃の中から生まれた子だというので、この子に桃太郎という名をつけました。", "entities": [{"surface": "桃", "type": "Item", "resolution": "EXISTING", "id": "item_peach", "name": "桃"}, {"surface": "子", "type": "Actor", "resolution": "EXISTING", "id": "actor_akasan", "name": "桃太郎"}], "events": [{"action_type": "STATE_CHANGE", "subject": "actor_ojiisan", "inference": "補完", "target": "actor_obaasan", "location": "loc_home", "destination": null, "item": "item_peach", "topic": null, "description": "子を産んだと考える"}, {"action_type": "PHYSICAL_ACTION", "subject": "actor_ojiisan", "inference": "補完", "target": "actor_akasan", "location": "loc_home", "destination": null, "item": null, "topic": null, "description": "名前をつけた"}]}, {"sentence_id": 29, "text": "おじいさんとおばあさんは、それはそれはだいじにして桃太郎を育てました。", "entities": [{"surface": "おじいさん", "type": "Actor", "resolution": "EXISTING", "id": "actor_ojiisan", "name": "おじいさん"}, {"surface": "おばあさん", "type": "Actor", "resolution": "EXISTING", "id": "actor_obaasan", "name": "おばあさん"}, {"surface": "桃太郎", "type": "Actor", "resolution": "EXISTING", "id": "actor_akasan", "name": "桃太郎"}], "events": [{"action_type": "PHYSICAL_ACTION", "subject": "actor_ojiisan", "inference": "明示", "target": "actor_akasan", "location": "loc_home", "destination": null, "item": null, "topic": null, "description": "大切に育てる"}, {"action_type": "PHYSICAL_ACTION", "subject": "actor_obaasan", "inference": "明示", "target": "actor_akasan", "location": "loc_home", "destination": null, "item": null, "topic": null, "description": "大切に育てる"}]}, {"sentence_id": 30, "text": "桃太郎はだんだん成長するにつれて、あたりまえの子供にくらべては、ずっと体も大きいし、力がばかに強くって、すもうをとっても近所の村じゅうで、かなうものは一人もないくらいでしたが、そのくせ気だてはごくやさしくって、おじいさんとおばあさんによく孝行をしました。", "entities": [{"surface": "桃太郎", "type": "Actor", "resolution": "EXISTING", "id": "actor_akasan", "name": "桃太郎"}, {"surface": "おじいさん", "type": "Actor", "resolution": "EXISTING", "id": "actor_ojiisan", "name": "おじいさん"}, {"surface": "おばあさん", "type": "Actor", "resolution": "EXISTING", "id": "actor_obaasan", "name": "おばあさん"}], "events": [{"action_type": "STATE_CHANGE", "subject": "actor_akasan", "inference": "明示", "target": null, "location": "loc_home", "destination": null, "item": null, "topic": null, "description": "成長する"}, {"action_type": "STATE_CHANGE", "subject": "actor_akasan", "inference": "明示", "target": null, "location": "loc_home", "destination": null, "item": null, "topic": null, "description": "体が大きくなる"}, {"action_type": "STATE_CHANGE", "subject": "actor_akasan", "inference": "明示", "target": null, "location": "loc_home", "destination": null, "item": null, "topic": null, "description": "力が強くなる"}, {"action_type": "PHYSICAL_ACTION", "subject": "actor_akasan", "inference": "明示", "target": null, "location": "loc_home", "destination": null, "item": null, "topic": null, "description": "相撲で勝つ"}, {"action_type": "STATE_CHANGE", "subject": "actor_akasan", "inference": "明示", "target": null, "location": "loc_home", "destination": null, "item": null, "topic": null, "description": "気立てが優しい"}, {"action_type": "PHYSICAL_ACTION", "subject": "actor_akasan", "inference": "明示", "target": "actor_ojiisan", "location": "loc_home", "destination": null, "item": null, "topic": null, "description": "孝行をする"}]}, {"sentence_id": 31, "text": "桃太郎は十五になりました。", "entities": [{"surface": "桃太郎", "type": "Actor", "resolution": "EXISTING", "id": "actor_akasan", "name": "桃太郎"}], "events": [{"action_type": "STATE_CHANGE", "subject": "actor_akasan", "inference": "明示", "target": null, "location": "loc_home", "destination": null, "item": null, "topic": null, "description": "十五歳になる"}]}, {"sentence_id": 32, "text": "もうそのじぶんには、日本の国中で、桃太郎ほど強いものはないようになりました。", "entities": [{"surface": "自分", "type": "Actor", "resolution": "EXISTING", "id": "actor_akasan", "name": "桃太郎"}, {"surface": "日本", "type": "Location", "resolution": "NEW", "id": "loc_japan", "name": "日本"}], "events": [{"action_type": "STATE_CHANGE", "subject": "actor_akasan", "inference": "明示", "target": null, "location": "loc_japan", "destination": null, "item": null, "topic": null, "description": "強くなる"}]}];
-let HIERARCHY = [{"child": "loc_somewhere", "parent": "loc_japan", "reason": "「あるところ」は「日本の国中」という広域な場所の一部として存在していると推測されるため。"}, {"child": "loc_mountain", "parent": "loc_somewhere", "reason": "「山」は「あるところ」という場所の内部またはその周辺に存在しているため。"}, {"child": "loc_river", "parent": "loc_somewhere", "reason": "「川」は「あるところ」という場所の内部またはその周辺に存在しているため。"}, {"child": "loc_river_side", "parent": "loc_river", "reason": "「川のそば」は「川」のすぐ隣接した部分であるため。"}, {"child": "loc_home", "parent": "loc_somewhere", "reason": "「うち」は「あるところ」という場所の中に存在しているため。"}];
+let HIERARCHY = [{"child": "loc_somewhere", "parent": "loc_japan", "reason": "「あるところ」は「日本の国中」という広域な場所の一部として存在していると推測されるため。"}, {"child": "loc_mountain", "parent": "loc_somewhere", "reason": "「山」は「あるところ」という場所の内部またはその周辺に存在しているため。"}, {"child": "loc_river", "parent": "loc_somewhere", "reason": "「川」は「あるところ」という場所の内部またはその周辺に存在しているため。"}, {"child": "loc_home", "parent": "loc_somewhere", "reason": "「うち」は「あるところ」という場所の中に存在しているため。"}];
 
 const TYPE_COLORS = {
   Actor: "#38bdf8",
@@ -247,6 +394,8 @@ const ACTION_COLORS = {
 let ENTITY_MAP = new Map();
 let LOC_POS = new Map();
 let SELECTED_EV_ID = null;
+let MAP_DRAG = null;
+let MAP_SHIFT_Y = 0;
 
 function rebuildEntityMap() {
   const map = new Map();
@@ -258,6 +407,7 @@ function rebuildEntityMap() {
         map.set(e.id, { id: e.id, type: e.type || "Actor", name: e.name || e.surface || e.id, aliases: [] });
       } else if (e.name && e.name !== prev.name) {
         if (!prev.aliases.includes(prev.name)) prev.aliases.push(prev.name);
+        prev.aliases = prev.aliases.filter(a => a !== e.name);
         prev.name = e.name;
       }
     }
@@ -367,10 +517,18 @@ function buildHierarchyTrees(locIds) {
   const childrenOf = new Map();
   for (const id of locIds) childrenOf.set(id, []);
   for (const rel of (HIERARCHY || [])) {
-    if (rel && valid.has(rel.child) && valid.has(rel.parent) && rel.child !== rel.parent && !parentOf.has(rel.child)) {
-      parentOf.set(rel.child, rel.parent);
-      childrenOf.get(rel.parent).push(rel.child);
+    if (!rel || !valid.has(rel.child) || !valid.has(rel.parent) || rel.child === rel.parent || parentOf.has(rel.child)) {
+      continue;
     }
+    let cur = rel.parent;
+    const seen = new Set([rel.child]);
+    while (cur && !seen.has(cur)) {
+      seen.add(cur);
+      cur = parentOf.get(cur);
+    }
+    if (cur && seen.has(cur)) continue;
+    parentOf.set(rel.child, rel.parent);
+    childrenOf.get(rel.parent).push(rel.child);
   }
   const roots = locIds.filter(id => !parentOf.has(id));
   return { parentOf, childrenOf, roots };
@@ -585,6 +743,7 @@ function renderMap(locData) {
     if (eg.peakY + 30 > maxY) maxY = eg.peakY + 30;
   }
   const shiftY = minY < 10 ? (10 - minY) : 0;
+  MAP_SHIFT_Y = shiftY;
   const viewH = maxY + shiftY;
 
   const parts = [];
@@ -679,35 +838,105 @@ function renderMoveLabelSpans(tr) {
   return tspans.join("");
 }
 
+const MOBILE_BREAKPOINT = 900;
+const SPLIT_RATIOS = ["42%", "62%", "24%"];
+let splitIdx = 0;
+
+function isMobileViewport() {
+  return typeof window !== "undefined" && typeof window.innerWidth === "number" && window.innerWidth <= MOBILE_BREAKPOINT;
+}
+
+function updateInspectorToggleLabel() {
+  const btn = document.getElementById("toggleInspectorBtn");
+  const insp = document.getElementById("inspector");
+  if (!btn || !insp) return;
+  const isOpen = isMobileViewport()
+    ? insp.classList.contains("open")
+    : !insp.classList.contains("desktop-hidden");
+  btn.textContent = isOpen ? "詳細を閉じる" : "詳細";
+}
+
+function openInspector(title) {
+  const insp = document.getElementById("inspector");
+  const backdrop = document.getElementById("inspectorBackdrop");
+  const titleEl = document.getElementById("inspectorTitle");
+  if (title && titleEl) titleEl.textContent = title;
+  if (insp) {
+    insp.classList.remove("desktop-hidden");
+    if (isMobileViewport()) insp.classList.add("open");
+  }
+  if (backdrop && isMobileViewport()) backdrop.classList.add("open");
+  updateInspectorToggleLabel();
+}
+
+function closeInspector() {
+  const insp = document.getElementById("inspector");
+  const backdrop = document.getElementById("inspectorBackdrop");
+  if (insp) {
+    if (isMobileViewport()) {
+      insp.classList.remove("open");
+    } else {
+      insp.classList.add("desktop-hidden");
+    }
+  }
+  if (backdrop) backdrop.classList.remove("open");
+  updateInspectorToggleLabel();
+}
+
+function getClientPoint(e) {
+  if (e.touches && e.touches.length > 0) return e.touches[0];
+  if (e.changedTouches && e.changedTouches.length > 0) return e.changedTouches[0];
+  return e;
+}
+
+function startMapDrag(id, e) {
+  const svg = document.getElementById("mapSvg");
+  const pos = LOC_POS.get(id);
+  if (!svg || !pos) return;
+  const p = getClientPoint(e);
+  const pt = svg.getBoundingClientRect();
+  MAP_DRAG = {
+    id,
+    offsetX: (p.clientX - pt.left) - pos.x,
+    offsetY: (p.clientY - pt.top) - (pos.y + MAP_SHIFT_Y)
+  };
+  if (e.preventDefault) e.preventDefault();
+}
+
+function moveMapDrag(e) {
+  if (!MAP_DRAG) return;
+  const svg = document.getElementById("mapSvg");
+  if (!svg) return;
+  if (e.cancelable && e.preventDefault) e.preventDefault();
+  const p = getClientPoint(e);
+  const pt = svg.getBoundingClientRect();
+  LOC_POS.set(MAP_DRAG.id, {
+    x: Math.max(70, (p.clientX - pt.left) - MAP_DRAG.offsetX),
+    y: Math.max(36, (p.clientY - pt.top) - MAP_SHIFT_Y - MAP_DRAG.offsetY)
+  });
+  renderMap(extractMovements());
+}
+
+function endMapDrag() {
+  MAP_DRAG = null;
+}
+
 function attachMapDrag() {
   const svg = document.getElementById("mapSvg");
   if (!svg) return;
-  let dragging = null;
-  let offset = { x: 0, y: 0 };
 
   svg.querySelectorAll(".loc-node").forEach(node => {
-    node.addEventListener("mousedown", e => {
-      const id = node.getAttribute("data-loc-id");
-      const pos = LOC_POS.get(id);
-      if (!pos) return;
-      const pt = svg.getBoundingClientRect();
-      dragging = id;
-      offset = { x: (e.clientX - pt.left) - pos.x, y: (e.clientY - pt.top) - pos.y };
-      e.preventDefault();
-    });
+    const id = node.getAttribute("data-loc-id");
+    node.addEventListener("mousedown", e => startMapDrag(id, e));
+    node.addEventListener("touchstart", e => startMapDrag(id, e), { passive: false });
   });
-
-  window.onmousemove = e => {
-    if (!dragging) return;
-    const pt = svg.getBoundingClientRect();
-    LOC_POS.set(dragging, {
-      x: Math.max(70, e.clientX - pt.left - offset.x),
-      y: Math.max(36, e.clientY - pt.top - offset.y)
-    });
-    renderMap(extractMovements());
-  };
-  window.onmouseup = () => { dragging = null; };
 }
+
+window.addEventListener("mousemove", moveMapDrag);
+window.addEventListener("mouseup", endMapDrag);
+window.addEventListener("touchmove", moveMapDrag, { passive: false });
+window.addEventListener("touchend", endMapDrag);
+window.addEventListener("touchcancel", endMapDrag);
 
 function renderSequence() {
   if (RECORDS.length === 0) {
@@ -736,13 +965,21 @@ function renderSequence() {
       participants.push(ent);
     }
   }
+  const participantIds = new Set(participants.map(p => p.id));
+  const hasUnknownSubject = RECORDS.some(rec =>
+    (rec.events || []).some(ev => !ev.subject || !participantIds.has(ev.subject))
+  );
+  if (hasUnknownSubject) {
+    participants.push({ id: "_unknown", type: "Unknown", name: "(主語不明/他)", aliases: [] });
+  }
   if (participants.length === 0) {
     participants.push({ id: "_narrator", type: "Actor", name: "物語", aliases: [] });
   }
 
+  const mobile = isMobileViewport();
   const colIndex = new Map(participants.map((p, i) => [p.id, i]));
-  const LEFT_PAD = 80;
-  const COL_W = 185;
+  const LEFT_PAD = mobile ? 20 : 80;
+  const COL_W = mobile ? 150 : 185;
   const HEADER_H = 66;
   const ROW_H = 56;
   const SENT_GAP = 24;
@@ -764,7 +1001,7 @@ function renderSequence() {
   }
   const totalH = y + 36;
   const bodyH = Math.max(120, totalH - HEADER_H);
-  const totalW = Math.max(760, LEFT_PAD + participants.length * COL_W + 40);
+  const totalW = Math.max(mobile ? 320 : 760, LEFT_PAD + participants.length * COL_W + (mobile ? 20 : 40));
 
   const headerParts = [];
   headerParts.push(`<div class="seq-header-sticky"><svg xmlns="http://www.w3.org/2000/svg" width="${totalW}" height="${HEADER_H}" viewBox="0 0 ${totalW} ${HEADER_H}" style="display:block">`);
@@ -804,7 +1041,9 @@ function renderSequence() {
 
       // 実際に線・ボックスが接続する列(subject, および矢印終点になる target/destination)のみ終端を更新
       const evEndY = row.y + 34;
-      const sCol = colIndex.has(ev.subject) ? ev.subject : participants[0].id;
+      const sCol = colIndex.has(ev.subject)
+        ? ev.subject
+        : (colIndex.has("_unknown") ? "_unknown" : participants[0].id);
       markActive(sCol, evEndY);
       if (ev.target && colIndex.has(ev.target)) {
         markActive(ev.target, evEndY);
@@ -850,7 +1089,10 @@ function renderSequence() {
       const refId = evIdx++;
 
       const color = ACTION_COLORS[ev.action_type] || "#94a3b8";
-      const sIdx = colIndex.has(ev.subject) ? colIndex.get(ev.subject) : 0;
+      const sId = colIndex.has(ev.subject)
+        ? ev.subject
+        : (colIndex.has("_unknown") ? "_unknown" : participants[0].id);
+      const sIdx = colIndex.get(sId);
       const sx = LEFT_PAD + sIdx * COL_W + COL_W / 2;
 
       const tId = ev.target && colIndex.has(ev.target)
@@ -941,14 +1183,32 @@ function selectEvent(idx, scrollToSeq = false) {
   }
 
   const { rec, ev } = item;
-  const insp = document.getElementById("inspector");
-  insp.innerHTML = `
-    <h2>文 ${rec.sentence_id} のイベント詳細</h2>
-    <div class="sent-box">${escapeXml(rec.text)}</div>
-    <pre>${escapeXml(JSON.stringify(ev, null, 2))}</pre>
-    <h2>この文の実体 (${(rec.entities || []).length})</h2>
-    <pre>${escapeXml(JSON.stringify(rec.entities || [], null, 2))}</pre>
-  `;
+  const bodyEl = document.getElementById("inspectorBody");
+  if (bodyEl) {
+    const ents = rec.entities || [];
+    bodyEl.innerHTML = `
+      <h3>本文</h3>
+      <div class="sent-box">${escapeXml(rec.text)}</div>
+      <details class="json-block" open>
+        <summary>イベント JSON</summary>
+        <pre>${escapeXml(JSON.stringify(ev, null, 2))}</pre>
+      </details>
+      <details class="json-block">
+        <summary>この文の実体 JSON (${ents.length})</summary>
+        <pre>${escapeXml(JSON.stringify(ents, null, 2))}</pre>
+      </details>
+    `;
+  }
+  openInspector(`文 ${rec.sentence_id} の詳細`);
+}
+
+function onDataLoaded() {
+  LOC_POS = new Map();
+  SELECTED_EV_ID = null;
+  renderAll();
+  const drawer = document.getElementById("headerDrawer");
+  if (drawer) drawer.classList.remove("open");
+  if (isMobileViewport()) closeInspector();
 }
 
 function loadJsonlString(text) {
@@ -959,9 +1219,7 @@ function loadJsonlString(text) {
       if (obj && Array.isArray(obj.records)) {
         RECORDS = obj.records;
         HIERARCHY = (obj.map && Array.isArray(obj.map.hierarchy)) ? obj.map.hierarchy : [];
-        LOC_POS = new Map();
-        SELECTED_EV_ID = null;
-        renderAll();
+        onDataLoaded();
         return;
       }
     } catch (_) {}
@@ -973,9 +1231,7 @@ function loadJsonlString(text) {
   }
   RECORDS = recs;
   HIERARCHY = [];
-  LOC_POS = new Map();
-  SELECTED_EV_ID = null;
-  renderAll();
+  onDataLoaded();
 }
 
 document.getElementById("loadFileBtn").addEventListener("click", () => {
@@ -989,15 +1245,19 @@ document.getElementById("fileInput").addEventListener("change", e => {
   reader.readAsText(file, "utf-8");
 });
 document.getElementById("togglePasteBtn").addEventListener("click", () => {
-  const insp = document.getElementById("inspector");
-  insp.innerHTML = `
-    <h2>JSONL を貼り付けて描画</h2>
-    <textarea id="jsonlPaste" rows="12" placeholder='{"sentence_id": 2, "text": "...", ...}'></textarea>
-    <button class="btn" id="applyPasteBtn">描画する</button>
-  `;
-  document.getElementById("applyPasteBtn").addEventListener("click", () => {
-    loadJsonlString(document.getElementById("jsonlPaste").value);
-  });
+  const drawer = document.getElementById("headerDrawer");
+  if (drawer) drawer.classList.remove("open");
+  const bodyEl = document.getElementById("inspectorBody");
+  if (bodyEl) {
+    bodyEl.innerHTML = `
+      <textarea id="jsonlPaste" rows="12" placeholder='{"sentence_id": 2, "text": "...", ...}'></textarea>
+      <button class="btn" id="applyPasteBtn" type="button">描画する</button>
+    `;
+    document.getElementById("applyPasteBtn").addEventListener("click", () => {
+      loadJsonlString(document.getElementById("jsonlPaste").value);
+    });
+  }
+  openInspector("JSONL を貼り付けて描画");
 });
 
 const overlay = document.getElementById("dropOverlay");
@@ -1012,6 +1272,48 @@ window.addEventListener("drop", e => {
   reader.onload = () => loadJsonlString(String(reader.result || ""));
   reader.readAsText(file, "utf-8");
 });
+
+document.getElementById("closeInspectorBtn").addEventListener("click", closeInspector);
+document.getElementById("inspectorBackdrop").addEventListener("click", closeInspector);
+document.getElementById("toggleInspectorBtn").addEventListener("click", () => {
+  const insp = document.getElementById("inspector");
+  if (!insp) return;
+  const isOpen = isMobileViewport()
+    ? insp.classList.contains("open")
+    : !insp.classList.contains("desktop-hidden");
+  if (isOpen) {
+    closeInspector();
+  } else {
+    openInspector();
+  }
+});
+document.getElementById("toggleMenuBtn").addEventListener("click", () => {
+  const drawer = document.getElementById("headerDrawer");
+  if (drawer) drawer.classList.toggle("open");
+});
+document.getElementById("cycleSplitBtn").addEventListener("click", () => {
+  splitIdx = (splitIdx + 1) % SPLIT_RATIOS.length;
+  document.documentElement.style.setProperty("--map-split", SPLIT_RATIOS[splitIdx]);
+});
+window.addEventListener("keydown", e => {
+  if (e.key === "Escape") closeInspector();
+});
+let lastMobileState = isMobileViewport();
+window.addEventListener("resize", () => {
+  const curMobile = isMobileViewport();
+  if (curMobile !== lastMobileState) {
+    lastMobileState = curMobile;
+    const insp = document.getElementById("inspector");
+    const backdrop = document.getElementById("inspectorBackdrop");
+    const drawer = document.getElementById("headerDrawer");
+    if (insp) insp.classList.remove("open", "desktop-hidden");
+    if (backdrop) backdrop.classList.remove("open");
+    if (drawer) drawer.classList.remove("open");
+    updateInspectorToggleLabel();
+    renderSequence();
+  }
+});
+updateInspectorToggleLabel();
 
 document.getElementById("showItems").addEventListener("change", renderSequence);
 document.getElementById("showLocs").addEventListener("change", renderSequence);
