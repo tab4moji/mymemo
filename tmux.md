@@ -2,6 +2,8 @@
 
 ### tmux のマウスメニューを便利にしたい
 
+#### .tmux.conf
+
 ```config
 # 目的と機能: tmux Nerd Font対応およびモダンUI化設定 (Pill/カプセル型・即時決定誤爆防止策)
 # 履歴: 15 2026-11-04 Meta+! (M-!) によるウィンドウ生成および不要なデフォルト!の割り当てを解除
@@ -187,3 +189,6 @@ bind-key -n MouseDown1Status if -F '#{==:#{mouse_status_range},session_menu}' \
     "󰗽 Detach TMUX"    d detach-client' \
   'select-window -t ='
 ```
+
+#### 有名フォント
+Hack と源柔ゴシックを合成したプログラミングフォント 白源 (はくげん／HackGen) https://github.com/yuru7/HackGen/releases Nerd Fonts 合成版: HackGen_NF_v2.10.0.zip
