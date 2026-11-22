@@ -59,6 +59,24 @@ function spawn () {
 }
 ```
 
+```bash:ホスト色々
+    _pastel_hue() {
+      local lo=150 hi=245 span=95
+      local h=$(( $(cksum <<< "$1" | cut -d' ' -f1) % (span * 6) ))
+      local s=$(( h / span )) o=$(( h % span ))
+      case $s in
+        0) printf '38;2;%d;%d;%d' $hi $((lo + o)) $lo ;;
+        1) printf '38;2;%d;%d;%d' $((hi - o)) $hi $lo ;;
+        2) printf '38;2;%d;%d;%d' $lo $hi $((lo + o)) ;;
+        3) printf '38;2;%d;%d;%d' $lo $((hi - o)) $hi ;;
+        4) printf '38;2;%d;%d;%d' $((lo + o)) $lo $hi ;;
+        5) printf '38;2;%d;%d;%d' $hi $lo $((hi - o)) ;;
+      esac
+    }
+
+    PS1="\[\e[$(_pastel_hue "$USER")m\]\u\[\e[0m\]@\[\e[$(_pastel_hue "$HOSTNAME")m\]\h\[\e[0m\]:\W\$ "
+```
+
 ```bash:shebang
 #!/usr/bin/env -S bash -ic 'source "$0"'
 set -eu
