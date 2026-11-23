@@ -6,7 +6,10 @@
 
 ```config
 # 目的と機能: tmux Nerd Font対応およびモダンUI化設定 (Pill/カプセル型・即時決定誤爆防止策)
-# 履歴: 15 2026-11-04 Meta+! (M-!) によるウィンドウ生成および不要なデフォルト!の割り当てを解除
+# 履歴: 18 2026-11-23 「Paste from Windows」を tmux-winpaste.bash に分離。ssh経由時は ssh_cli.py のクリップボードブリッジから取得
+#       17 2026-11-23 ssh先でもコピーできるよう「Copy to Windows」をOSC 52化。「Paste from Windows」はssh経由時に案内表示・末尾改行を付けない。terminal-features/overridesを添字指定にして再読込時の重複と上書き消失を解消
+#       16 2026-11-19 OSC 52クリップボード連携(set-clipboard, terminal-features/overrides)を追加
+#       15 2026-11-04 Meta+! (M-!) によるウィンドウ生成および不要なデフォルト!の割り当てを解除
 #       14 2026-02-22 range機能と MouseDown1Status を用いて session領域のみ左クリックを有効化
 ################################
 
@@ -25,8 +28,10 @@ set-option -g allow-passthrough on
 set -ga update-environment TERM
 set -ga update-environment TERM_PROGRAM
 
-# Windows Terminal等のSixel対応をtmuxに認識させる
-set -as terminal-features '*:sixel'
+# Windows Terminal等のSixel対応 + OSC 52 クリップボード連携 (親ターミナル/ssh元へのコピー同期)
+# -a で追記すると source-file のたびに重複するため、添字を固定して設定する
+set -s set-clipboard on
+set -s terminal-features[10] '*:sixel:clipboard'
 
 # ウィンドウサイズ計算を接続クライアント最大に同期
 setw -g aggressive-resize on
@@ -55,7 +60,7 @@ bind \" split-window -v -c '#{pane_current_path}'
 # ==============================================================================
 
 #set-option -g default-terminal screen-256color
-set-option -g terminal-overrides 'xterm:colors=256'
+set -s terminal-overrides[0] 'xterm:colors=256'
 
 set -g @status_fg "#11111b" # default
 set -g @status_bg "#000000" # default
@@ -142,7 +147,7 @@ bind-key -n MouseDown3Pane display-menu -x M -y M -T " 󰍽 Context Menu " \
     \"󰘖 F-Keys...\" f \"display-menu -x M -y M -T \\\" 󰘖 Function Keys \\\" \\\"F1\\\" \\\"\\\" \\\"send-keys F1\\\" \\\"F5\\\" \\\"\\\" \\\"send-keys F5\\\" \\\"F12\\\" \\\"\\\" \\\"send-keys F12\\\"\"" \
   "" \
   "󰅍 Paste [#{=20:buffer_sample}...]" p  paste-buffer \
-  "󰖳 Paste from Windows"               P  "run-shell '\"/mnt/c/Program Files/PowerShell/7/pwsh.exe\" -c \"[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; Get-Clipboard\" | tr -d \"\r\" | tmux load-buffer -b win_tmp - ; tmux paste-buffer -p -d -b win_tmp'" \
+  "󰖳 Paste from Windows"               P  "run-shell 'bash ~/myworks/rcs/tmux-winpaste.bash #{client_pid} #{pane_id}'" \
   "" \
   "󰚩 Toggle Gemini CLI"                y  "send-keys C-y" \
   "" \
@@ -157,14 +162,14 @@ bind-key -n MouseDown3Pane display-menu -x M -y M -T " 󰍽 Context Menu " \
 # --- 2. コピーモード（選択中）の右クリックメニュー ---
 bind-key -T copy-mode-vi MouseDown3Pane display-menu -x M -y M -T " 󰆏 Copy Mode " \
   "󰆏 Copy"              y  "send-keys -X copy-selection-and-cancel" \
-  "󰖳 Copy to Windows"   Y  "send-keys -X copy-pipe-and-cancel \"base64 -w0 | \\\"/mnt/c/Program Files/PowerShell/7/pwsh.exe\\\" -NoProfile -command ' \\\$in = \\\$Input | Out-String; \\\$txt = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String(\\\$in)); Set-Clipboard -Value \\\$txt '\"" \
+  "󰖳 Copy to Windows"   Y  "send-keys -X copy-pipe-and-cancel \"tmux load-buffer -w -b osc52 -\"" \
   "󰃢 Clear"             c  "send-keys -X clear-selection" \
   "" \
   "󰅙 Cancel"            q  "send-keys -X cancel" \
 
 bind-key -T copy-mode MouseDown3Pane display-menu -x M -y M -T " 󰆏 Copy Mode " \
   "󰆏 Copy"              y  "send-keys -X copy-selection-and-cancel" \
-  "󰖳 Copy to Windows"   Y  "send-keys -X copy-pipe-and-cancel \"base64 -w0 | \\\"/mnt/c/Program Files/PowerShell/7/pwsh.exe\\\" -NoProfile -command ' \\\$in = \\\$Input | Out-String; \\\$txt = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String(\\\$in)); Set-Clipboard -Value \\\$txt '\"" \
+  "󰖳 Copy to Windows"   Y  "send-keys -X copy-pipe-and-cancel \"tmux load-buffer -w -b osc52 -\"" \
   "󰃢 Clear"             c  "send-keys -X clear-selection" \
   "" \
   "󰅙 Cancel"            q  "send-keys -X cancel" \
