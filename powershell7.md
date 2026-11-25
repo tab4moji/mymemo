@@ -448,4 +448,34 @@ uv python update-shell
 uv python list --only-installed
 ```
 
+### PCスペック調査
+
+```powershell:PCスペック調査
+[PSCustomObject]@{
+    CPU      = (Get-CimInstance Win32_Processor).Name -join ', '
+    MemoryGB = [math]::Round(((Get-CimInstance Win32_PhysicalMemory | Measure-Object Capacity -Sum).Sum / 1GB), 2)
+    GPU      = (Get-CimInstance Win32_VideoController).Name -join ', '
+    WT       = (Get-AppxPackage Microsoft.WindowsTerminal* | ForEach-Object { "$($_.Name): $($_.Version)" }) -join ', '
+} | Format-List
+```
+
+実行例は以下の通り。
+
+```powershell:実行例
+PS C:\>
+PS C:\> [PSCustomObject]@{
+>>     CPU      = (Get-CimInstance Win32_Processor).Name -join ', '
+>>     MemoryGB = [math]::Round(((Get-CimInstance Win32_PhysicalMemory | Measure-Object Capacity -Sum).Sum / 1GB), 2)
+>>     GPU      = (Get-CimInstance Win32_VideoController).Name -join ', '
+>>     WT       = (Get-AppxPackage Microsoft.WindowsTerminal* | ForEach-Object { "$($_.Name): $($_.Version)" }) -join ', '
+>> } | Format-List
+
+CPU      : Intel(R) Pentium(R) CPU GOLD 6500Y @ 1.10GHz
+MemoryGB : 8
+GPU      : Intel(R) UHD Graphics 615
+WT       : Microsoft.WindowsTerminal: 1.25.3131.0
+
+PS C:\>
+```
+
 ##
