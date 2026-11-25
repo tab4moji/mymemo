@@ -1,6 +1,6 @@
-# StoryBook
+## StoryBook
 
-## 調査メモ
+### 調査メモ
 
 ```bash
 $ uv run --python 3.12 -m chat --host 192.168.11.6:11434
@@ -50,7 +50,7 @@ You >
 Bye.
 ```
 
-## 実験
+### 実験
 
 ```bash
 $ cat momotaro.md | python3 split_sentences.py | python3 processor.py --limit 10
@@ -583,3 +583,10 @@ $ cat momotaro.md | python3 split_sentences.py | python3 processor.py --limit 10
 - item_firewood [Item] 柴 @ loc_obaasan_house
 - time_now [Location] 今
 ```
+
+
+### 調査メモ2
+
+[生成シーケンス図](./storybook.html)
+
+##

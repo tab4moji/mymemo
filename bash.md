@@ -59,6 +59,65 @@ function spawn () {
 }
 ```
 
+```bash:ホスト色々
+_pastel_rgb() {
+  local -a _pr=(247 252 252 248 240 227 209 188 162 133  97  50  34  34  34  33  77 118 144 166 188 208 225 238)
+  local -a _pg=(132 132 136 141 149 159 169 178 187 194 199 202 200 198 195 191 184 177 170 162 151 144 138 134)
+  local -a _pb=(170 144 118  91  66  44  34  46  69  96 123 151 177 198 217 238 252 252 252 252 252 237 217 195)
+  local _ph=$(( (($1 % 360) + 360) % 360 ))
+  local _pi=$(( _ph / 15 )) _pf=$(( _ph % 15 ))
+  local _pj=$(( (_pi + 1) % 24 ))
+  local _cr=$(( (_pr[_pi] * (15 - _pf) + _pr[_pj] * _pf + 7) / 15 ))
+  local _cg=$(( (_pg[_pi] * (15 - _pf) + _pg[_pj] * _pf + 7) / 15 ))
+  local _cb=$(( (_pb[_pi] * (15 - _pf) + _pb[_pj] * _pf + 7) / 15 ))
+  if [[ -n "${2:-}" ]]; then
+    printf -v "$2" '38;2;%d;%d;%d' "$_cr" "$_cg" "$_cb"
+  else
+    printf '38;2;%d;%d;%d' "$_cr" "$_cg" "$_cb"
+  fi
+}
+
+_pastel_hue() {
+  local hash
+  hash=$(printf '%s' "$1" | sha256sum)
+  _pastel_rgb $(( 16#${hash:0:8} % 360 ))
+}
+
+_pastel_grad() {
+  local seed="$1" text="${2:-$1}"
+  local n=${#text}
+  if (( n == 0 )); then
+    return 0
+  fi
+  local hash h1 mag delta
+  hash=$(printf '%s' "$seed" | sha256sum)
+  h1=$(( 16#${hash:0:8} % 360 ))
+  mag=$(( 80 + 16#${hash:8:8} % 71 ))
+  if (( 16#${hash:16:2} & 1 )); then
+    delta=$mag
+  else
+    delta=$((-mag))
+  fi
+  local i h code
+  for (( i = 0; i < n; i++ )); do
+    if (( n == 1 )); then
+      h=$h1
+    elif (( delta >= 0 )); then
+      h=$(( h1 + (delta * i * 2 + (n - 1)) / (2 * (n - 1)) ))
+    else
+      h=$(( h1 + (delta * i * 2 - (n - 1)) / (2 * (n - 1)) ))
+    fi
+    _pastel_rgb "$h" code
+    printf '\\[\\e[%sm\\]%s' "$code" "${text:i:1}"
+  done
+  printf '\\[\\e[0m\\]'
+}
+
+_ps_host_full="${HOSTNAME:-$(hostname)}"
+_ps_host="${_ps_host_full%%.*}"
+export PS1="\[\e[$(_pastel_hue "${USER:-$(whoami)}")m\]\u\[\e[0m\]@$(_pastel_grad "$_ps_host_full" "$_ps_host"):\W\\$ "
+```
+
 ```bash:shebang
 #!/usr/bin/env -S bash -ic 'source "$0"'
 set -eu

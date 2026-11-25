@@ -262,3 +262,647 @@ PRレビューや影響分析に特化したローカルナレッジグラフ生
    `aider` の `repomap.py` ロジック、または `grep-ast` の利用が適している。コンテキスト長が有限な小型モデルでも、関係ない実装コードを削ぎ落としてシグネチャと重要シンボルだけを渡すことができる。
 
 ##
+
+## Cline CLIのOneshot料金確認方法
+
+> cline cli でOneshotの処理が完了したあとの料金を知りたい
+
+Cline CLI で Oneshot（ワンショット / 非対話モード）の処理が完了したあとのAPI利用料金やトークン消費量を確認する方法は、主に3つあります。
+
+### 1. JSON出力オプションを付けて実行する（一番確実）
+
+Cline CLI の実行時に JSON 形式で結果を出力するフラグ（`--json` や `-o json` など、バージョンにより異なります）を付けると、最終的なレスポンスデータ内に消費トークン数や算出コスト（`cost` や `usage` フィールド）が含まれます。
+
+```bash
+cline "あなたのプロンプト" --json
+```
+
+※ すでに完了してしまった過去の実行分には使えませんが、次回以降のコスト計測やスクリプトでの自動集計にはこの方法が最適です。
+
+### 2. ローカルのタスク履歴ファイル（`ui_messages.json` / `api_conversation_history.json`）を見る
+
+Cline（CLI版およびVS Code拡張機能版）は、実行したタスクの履歴をローカルストレージに保存しています。完了済みの Oneshot 処理の料金を後から知りたい場合は、履歴データから確認できます。
+
+1. **保存場所を探す**
+   Cline のタスク履歴は以下のディレクトリ配下の `tasks/<タスクID>/` フォルダに保存されています。
+   - **CLI単体利用の場合:** `~/.cline/data/tasks/` または `~/.config/cline/tasks/`
+   - **VS Code連携環境の場合:**
+     - **macOS:**
+       `~/Library/Application Support/Code/User/globalStorage/saoudrizwan.claude-dev/tasks/`
+     - **Linux:**
+       `~/.config/Code/User/globalStorage/saoudrizwan.claude-dev/tasks`
+     - **Windows:**
+       `%APPDATA%\Code\User\globalStorage\saoudrizwan.claude-dev\tasks`
+
+2. **ファイル内のコスト情報を検索する**
+   最新の `<タスクID>` フォルダ内にある `ui_messages.json` を開き、`"cost"` で検索すると、各APIリクエストの料金や合計金額が記録されています。
+
+```bash
+# 最新のタスクフォルダ内の ui_messages.json から cost を抽出する例（macOS/Linux）
+grep -o '"cost":[0-9.]*' ~/.cline/data/tasks/$(ls -t ~/.cline/data/tasks | head -n 1)/ui_messages.json
+```
+
+### 3. 利用しているAPIプロバイダーのダッシュボードで確認する
+
+ローカルで計算された概算値ではなく、実際の正確な請求額を知りたい場合は、設定しているAPIプロバイダーの管理画面（Usage / Billing）を確認してください。
+
+- **OpenRouter:** Activity ページでリクエストごとの正確な消費クレジット（`$`）と使用モデルが即座に確認できます。
+- **Anthropic (Claude API):** Anthropic Console の **Usage** または **Cost** タブから時間帯別の利用額を確認できます。
+- **OpenAI / Gemini API:** 各コンソールの Usage ダッシュボードから確認できます。
+
+**補足：**
+ローカルで表示・記録される料金は、Cline が内部に持っているモデルごとの単価テーブルから計算した概算値です。プロンプトキャッシュのヒット率やプロバイダー側の単価改定によって実際の請求額とわずかにズレることがあるため、正確な経費精算や予算管理を行う場合はプロバイダー側のダッシュボード（方法3）を正として確認することをおすすめします。
+
+---
+
+> opencodeでも同じことができる
+
+はい、**OpenCode** でも同じく Oneshot（非対話モード）完了後の料金やトークン消費量を確認できます。やり方は Cline と同様に3つあります。
+
+### 1. JSON出力オプションを付けて実行する（次回以降の計測用）
+
+OpenCode の非対話実行コマンド（`opencode run` など）に `--format json`（または `-f json`）を付けて実行すると、イベントストリームの最後に出力されるステップ完了データ（`step_finish` など）の中に、トークン数と算出コスト（`cost`）が含まれます。
+
+```bash
+opencode run "あなたのプロンプト" --format json
+```
+
+※ すでに完了してしまった過去の実行分には使えませんが、CI/CDやスクリプトでコストを自動集計したい場合はこの方法が最も確実です。
+
+### 2. ローカルのセッション履歴ファイルから確認する（完了済みの過去分）
+
+OpenCode も実行したセッションの履歴やメタデータをローカルストレージに保存しています。完了済みの Oneshot 処理の料金を後から確認したい場合は、保存されている JSON ファイルを直接参照します。
+
+1. **保存場所**
+   OSの XDG データディレクトリ配下にセッションデータ（JSONファイル）が保存されています。
+   - **macOS / Linux:** `~/.local/share/opencode/storage/`（または `~/.local/share/opencode/sessions/`）
+   - **Windows:** `%LOCALAPPDATA%\opencode\storage\`
+
+2. **コスト情報の確認**
+   上記のディレクトリ内で更新日時が新しいファイルを探し、`"cost"` や `"tokens"` で検索すると、そのセッションでかかった API コストを確認できます。
+
+```bash
+# macOS / Linux で直近更新されたファイルから cost を検索する例
+find ~/.local/share/opencode -type f -name "*.json" -exec grep -H '"cost"' {} +
+```
+
+※ また、対話モード（`opencode` 単体起動）で過去のセッションを開き直す（`--continue` / `-c` やセッション選択機能）と、TUI画面のヘッダーやステータスバーにそのセッションの累計コストが表示されるため、そこから確認することも可能です。
+
+### 3. APIプロバイダーのダッシュボードで確認する
+
+OpenCode のローカル計算値もモデル単価テーブルに基づく概算値です。プロンプトキャッシュの適用状況などを含めた正確な請求額は、利用しているプロバイダー側（OpenRouter、Anthropic Console、OpenAI Dashboard など）の Usage 画面で確認してください。
+
+---
+
+> jsonオプションを付けた場合で、計算するようなプログラムを作って
+
+Cline CLI と OpenCode の両方で、`--json`（または `--format json`）オプションを付けて実行した際の出力（NDJSON / JSON Lines形式のイベントストリーム）から、**合計料金（cost）とトークン消費量を自動集計して表示するラッパープログラム（Python版とシェルスクリプト版）**を作成します。
+
+どちらのツールも処理中に進捗イベントを1行ずつJSONで吐き出すため、リアルタイムにログを受け取りつつ、最終的に合計金額を合算してサマリーを出す仕組みにしています。
+
+### 1. Python版（推奨：一番確実で読みやすい）
+
+標準ライブラリのみで動作するため、追加インストールは不要です。Cline と OpenCode の両方の JSON 構造（`cost` フィールドや `usage` / `tokens` フィールド）を自動判別して合算します。
+
+`calc_cost.py`
+
+```python
+#!/usr/bin/env python3
+import sys
+import json
+import subprocess
+
+def find_numbers_by_key(data, target_keys):
+    """ネストされた辞書/リストから指定キーの数値をすべて抽出する"""
+    total = 0.0
+    if isinstance(data, dict):
+        for k, v in data.items():
+            if k in target_keys and isinstance(v, (int, float)):
+                total += float(v)
+            else:
+                total += find_numbers_by_key(v, target_keys)
+    elif isinstance(data, list):
+        for item in data:
+            total += find_numbers_by_key(item, target_keys)
+    return total
+
+def main():
+    if len(sys.argv) < 2:
+        print("使い方: python3 calc_cost.py <実行するコマンド...>")
+        print('例1: python3 calc_cost.py cline "READMEを要約して" --json')
+        print('例2: python3 calc_cost.py opencode run "バグを修正して" --format json')
+        sys.exit(1)
+
+    cmd = sys.argv[1:]
+    total_cost = 0.0
+    input_tokens = 0
+    output_tokens = 0
+    cache_read_tokens = 0
+
+    print(f"実行中: {' '.join(cmd)}\n" + "-" * 50)
+
+    # コマンドを実行し、標準出力を1行ずつリアルタイム処理
+    process = subprocess.Popen(
+        cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        bufsize=1
+    )
+
+    for line in process.stdout:
+        line_stripped = line.strip()
+        if not line_stripped:
+            continue
+
+        try:
+            event = json.loads(line_stripped)
+
+            # 1. テキスト出力やアシスタントの応答があれば画面に表示
+            if isinstance(event, dict):
+                # Cline / OpenCode 共通のテキスト抽出（構造に応じて適宜表示）
+                text = event.get("text") or event.get("content") or event.get("message")
+                if isinstance(text, str) and text.strip():
+                    print(text)
+
+                # 2. コストの集計（cost または total_cost キーを探索）
+                cost = find_numbers_by_key(event, {"cost", "total_cost", "totalCost"})
+                if cost > 0:
+                    total_cost += cost
+
+                # 3. トークン数の集計（Cline / OpenCode 両対応）
+                input_tokens += int(find_numbers_by_key(event, {"input", "input_tokens", "prompt_tokens", "tokensIn"}))
+                output_tokens += int(find_numbers_by_key(event, {"output", "output_tokens", "completion_tokens", "tokensOut"}))
+                cache_read_tokens += int(find_numbers_by_key(event, {"cache_read", "cacheRead", "cache_read_input_tokens"}))
+
+        except json.JSONDecodeError:
+            # JSON以外の通常ログ（エラーや警告など）はそのまま出力
+            print(line_stripped)
+
+    process.wait()
+
+    # 結果サマリーの表示（1ドル=150円換算の目安も表示）
+    jpy_rate = 150.0
+    print("\n" + "=" * 50)
+    print("📊 実行コスト・トークン集計結果")
+    print("=" * 50)
+    print(f"合計料金     : ${total_cost:.6f} (約 {total_cost * jpy_rate:.2f} 円 ※1$={jpy_rate}円換算)")
+    print(f"入力トークン : {input_tokens:,} tokens")
+    print(f"出力トークン : {output_tokens:,} tokens")
+    if cache_read_tokens > 0:
+        print(f"キャッシュ読込: {cache_read_tokens:,} tokens")
+    print("=" * 50)
+
+if __name__ == "__main__":
+    main()
+```
+
+#### 使い方
+
+実行権限を付与して、後ろにそのまま Cline や OpenCode のコマンドを渡すだけです。
+
+```bash
+chmod +x calc_cost.py
+
+# Cline CLI の場合
+./calc_cost.py cline "src/main.py をリファクタリングして" --json
+
+# OpenCode の場合
+./calc_cost.py opencode run "テストコードを追加して" --format json
+```
+
+### 2. ワンライナー版（`jq` コマンドを使う場合）
+
+スクリプトファイルを作らず、ターミナル上で直接パイプ（`|`）で繋いで合計金額だけを出したい場合は `jq` を使うと便利です。
+
+**OpenCode の場合：**
+
+```bash
+opencode run "あなたのプロンプト" --format json | jq -s '
+  {
+    total_cost_usd: ([.. | .cost? // empty] | add // 0),
+    input_tokens: ([.. | .tokens?.input? // empty] | add // 0),
+    output_tokens: ([.. | .tokens?.output? // empty] | add // 0)
+  }
+'
+```
+
+**Cline CLI の場合：**
+
+```bash
+cline "あなたのプロンプト" --json | jq -s '
+  {
+    total_cost_usd: ([.. | .cost? // empty] | add // 0),
+    tokens_in: ([.. | .tokensIn? // .input_tokens? // empty] | add // 0),
+    tokens_out: ([.. | .tokensOut? // .output_tokens? // empty] | add // 0)
+  }
+'
+```
+
+### プログラムのポイント
+
+- **複数ステップの合算に対応:** エージェントがファイル検索→編集→テスト実行のように内部で複数回 API を叩いた場合でも、各ステップ（`step_finish` や `api_req_started` 等）の JSON イベントに含まれる `cost` をすべて足し合わせて **1タスク全体の総額**を出します。
+- **JSONスキーマの差異を吸収:** Cline と OpenCode で微妙に異なるキー名（`input` vs `tokensIn` vs `input_tokens` など）やネスト構造を再帰的に探索して拾う設計にしています。
+
+---
+
+> jsonファイルを入力しても大丈夫
+
+はい、**すでに出力済みの JSON ファイルを入力して計算することも可能です！**
+
+先ほどのスクリプトはコマンドを直接実行する仕様になっていたため、**「コマンド実行」と「保存済みのJSONファイル読み込み（またはパイプ入力）」**の両方に対応した改良版を用意しました。
+
+事前に `cline ... --json > result.json` のようにファイルに保存しておき、後から何度でも料金を再計算・確認したい場合に便利です。
+
+### ファイル入力・パイプ・コマンド実行のすべてに対応した改良版
+
+`calc_cost.py`
+
+```python
+#!/usr/bin/env python3
+import sys
+import os
+import json
+import subprocess
+
+def find_numbers_by_key(data, target_keys):
+    """ネストされた辞書/リストから指定キーの数値をすべて抽出する"""
+    total = 0.0
+    if isinstance(data, dict):
+        for k, v in data.items():
+            if k in target_keys and isinstance(v, (int, float)):
+                total += float(v)
+            else:
+                total += find_numbers_by_key(v, target_keys)
+    elif isinstance(data, list):
+        for item in data:
+            total += find_numbers_by_key(item, target_keys)
+    return total
+
+def parse_lines(lines, show_text=True):
+    """行のイテレータからコストとトークンを集計する"""
+    total_cost = 0.0
+    input_tokens = 0
+    output_tokens = 0
+    cache_read_tokens = 0
+
+    for line in lines:
+        line_stripped = line.strip()
+        if not line_stripped:
+            continue
+
+        try:
+            event = json.loads(line_stripped)
+            if isinstance(event, dict):
+                # リアルタイム実行時などはテキストも表示
+                if show_text:
+                    text = event.get("text") or event.get("content") or event.get("message")
+                    if isinstance(text, str) and text.strip():
+                        print(text)
+
+                # コストとトークンの集計
+                total_cost += find_numbers_by_key(event, {"cost", "total_cost", "totalCost"})
+                input_tokens += int(find_numbers_by_key(event, {"input", "input_tokens", "prompt_tokens", "tokensIn"}))
+                output_tokens += int(find_numbers_by_key(event, {"output", "output_tokens", "completion_tokens", "tokensOut"}))
+                cache_read_tokens += int(find_numbers_by_key(event, {"cache_read", "cacheRead", "cache_read_input_tokens"}))
+
+        except json.JSONDecodeError:
+            # 1つの大きなJSON配列ファイル([...])だった場合のフォールバック処理
+            pass
+
+    return total_cost, input_tokens, output_tokens, cache_read_tokens
+
+def main():
+    total_cost = 0.0
+    input_tokens = 0
+    output_tokens = 0
+    cache_read_tokens = 0
+
+    # パターンA: パイプ入力 (cat result.json | python3 calc_cost.py)
+    if not sys.stdin.isatty() and len(sys.argv) == 1:
+        total_cost, input_tokens, output_tokens, cache_read_tokens = parse_lines(sys.stdin, show_text=False)
+
+    # パターンB: 引数にJSONファイルパスを指定 (python3 calc_cost.py result.json)
+    elif len(sys.argv) == 2 and os.path.isfile(sys.argv[1]):
+        filepath = sys.argv[1]
+        with open(filepath, "r", encoding="utf-8") as f:
+            content = f.read()
+            # まずNDJSON（1行1JSON）として解析
+            total_cost, input_tokens, output_tokens, cache_read_tokens = parse_lines(content.splitlines(), show_text=False)
+
+            # もし0件（単一のJSONオブジェクトまたは配列ファイル）なら全体をjson.loadsして解析
+            if total_cost == 0 and input_tokens == 0 and output_tokens == 0:
+                try:
+                    whole_data = json.loads(content)
+                    total_cost = find_numbers_by_key(whole_data, {"cost", "total_cost", "totalCost"})
+                    input_tokens = int(find_numbers_by_key(whole_data, {"input", "input_tokens", "prompt_tokens", "tokensIn"}))
+                    output_tokens = int(find_numbers_by_key(whole_data, {"output", "output_tokens", "completion_tokens", "tokensOut"}))
+                    cache_read_tokens = int(find_numbers_by_key(whole_data, {"cache_read", "cacheRead", "cache_read_input_tokens"}))
+                except json.JSONDecodeError:
+                    print("エラー: 有効なJSONファイルではありません。", file=sys.stderr)
+                    sys.exit(1)
+
+    # パターンC: コマンドを直接実行 (python3 calc_cost.py cline "..." --json)
+    elif len(sys.argv) >= 2:
+        cmd = sys.argv[1:]
+        print(f"実行中: {' '.join(cmd)}\n" + "-" * 50)
+        process = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1
+        )
+        total_cost, input_tokens, output_tokens, cache_read_tokens = parse_lines(process.stdout, show_text=True)
+        process.wait()
+
+    else:
+        print("使い方:")
+        print("  1. JSONファイルを指定: python3 calc_cost.py output.json")
+        print("  2. パイプで渡す      : cat output.json | python3 calc_cost.py")
+        print('  3. コマンドを直接実行: python3 calc_cost.py cline "プロンプト" --json')
+        sys.exit(1)
+
+    # 結果サマリーの表示
+    jpy_rate = 150.0
+    print("\n" + "=" * 50)
+    print("📊 実行コスト・トークン集計結果")
+    print("=" * 50)
+    print(f"合計料金     : ${total_cost:.6f} (約 {total_cost * jpy_rate:.2f} 円 ※1$={jpy_rate}円換算)")
+    print(f"入力トークン : {input_tokens:,} tokens")
+    print(f"出力トークン : {output_tokens:,} tokens")
+    if cache_read_tokens > 0:
+        print(f"キャッシュ読込: {cache_read_tokens:,} tokens")
+    print("=" * 50)
+
+if __name__ == "__main__":
+    main()
+```
+
+### 3通りの使い方
+
+#### ① 保存済みの JSON ファイルを直接指定する
+
+Cline や OpenCode の履歴フォルダにある `ui_messages.json` などをそのまま渡すこともできます。
+
+```bash
+# リダイレクトで保存したファイルを計算
+cline "コードレビューして" --json > output.json
+python3 calc_cost.py output.json
+
+# Clineのローカル履歴ファイル(ui_messages.json)を直接指定して計算することも可能
+python3 calc_cost.py ~/.cline/data/tasks/<タスクID>/ui_messages.json
+```
+
+#### ② パイプ（`|`）で繋いで渡す
+
+```bash
+opencode run "リファクタリングして" --format json | python3 calc_cost.py
+```
+
+#### ③ これまで通りコマンドを直接実行する
+
+```bash
+python3 calc_cost.py opencode run "リファクタリングして" --format json
+```
+
+### 改良のポイント
+
+- **NDJSON と 通常のJSON配列 の両対応:** CLI の標準出力（1行ごとにJSONが並ぶ形式）だけでなく、Cline の履歴ファイル `ui_messages.json` のような「1つの大きな `[ ... ]` 配列形式のJSONファイル」も自動で判別して集計できるようにしています。
+
+---
+
+> ディレクトリ内の複数のJSONファイルをまとめて指定して、全タスクの合計コストを一括集計できるようにしたいです。
+
+ディレクトリ内の複数の JSON ファイルをまとめて指定し、**ファイル（タスク）ごとの内訳と全体の合計コストを一括集計できる拡張版**を作成しました。
+
+ディレクトリパスを渡すと配下の `.json` ファイルを自動で探索して集計するほか、シェルのワイルドカード（`*.json` や `~/.cline/data/tasks/*/ui_messages.json` など）で複数ファイルを直接渡すこともできます。
+
+### 複数ファイル・ディレクトリ一括集計対応版
+
+`calc_cost.py`
+
+```python
+#!/usr/bin/env python3
+import sys
+import os
+import json
+import subprocess
+from pathlib import Path
+
+# 抽出対象のキー定義
+COST_KEYS = {"cost", "total_cost", "totalCost"}
+INPUT_KEYS = {"input", "input_tokens", "prompt_tokens", "tokensIn"}
+OUTPUT_KEYS = {"output", "output_tokens", "completion_tokens", "tokensOut"}
+CACHE_KEYS = {"cache_read", "cacheRead", "cache_read_input_tokens"}
+
+def find_numbers_by_key(data, target_keys):
+    """ネストされた辞書/リストから指定キーの数値をすべて抽出する"""
+    total = 0.0
+    if isinstance(data, dict):
+        for k, v in data.items():
+            if k in target_keys and isinstance(v, (int, float)):
+                total += float(v)
+            else:
+                total += find_numbers_by_key(v, target_keys)
+    elif isinstance(data, list):
+        for item in data:
+            total += find_numbers_by_key(item, target_keys)
+    return total
+
+def parse_lines(lines, show_text=False):
+    """行のイテレータ（NDJSON）からコストとトークンを集計する"""
+    cost = 0.0
+    in_tok = 0
+    out_tok = 0
+    cache_tok = 0
+
+    for line in lines:
+        line_stripped = line.strip()
+        if not line_stripped:
+            continue
+
+        try:
+            event = json.loads(line_stripped)
+            if isinstance(event, dict):
+                if show_text:
+                    text = event.get("text") or event.get("content") or event.get("message")
+                    if isinstance(text, str) and text.strip():
+                        print(text)
+
+                cost += find_numbers_by_key(event, COST_KEYS)
+                in_tok += int(find_numbers_by_key(event, INPUT_KEYS))
+                out_tok += int(find_numbers_by_key(event, OUTPUT_KEYS))
+                cache_tok += int(find_numbers_by_key(event, CACHE_KEYS))
+        except json.JSONDecodeError:
+            pass
+
+    return cost, in_tok, out_tok, cache_tok
+
+def parse_file(filepath):
+    """1つのJSONファイルを解析する（NDJSON / 単一JSON配列の両対応）"""
+    try:
+        with open(filepath, "r", encoding="utf-8") as f:
+            content = f.read()
+    except Exception as e:
+        print(f"⚠️ 読み込みスキップ ({filepath}): {e}", file=sys.stderr)
+        return 0.0, 0, 0, 0
+
+    # 1. NDJSON（1行1JSON）として解析を試みる
+    cost, in_tok, out_tok, cache_tok = parse_lines(content.splitlines(), show_text=False)
+
+    # 2. 0件だった場合、単一のJSON配列またはオブジェクトとして全体を解析
+    if cost == 0 and in_tok == 0 and out_tok == 0:
+        try:
+            whole_data = json.loads(content)
+            cost = find_numbers_by_key(whole_data, COST_KEYS)
+            in_tok = int(find_numbers_by_key(whole_data, INPUT_KEYS))
+            out_tok = int(find_numbers_by_key(whole_data, OUTPUT_KEYS))
+            cache_tok = int(find_numbers_by_key(whole_data, CACHE_KEYS))
+        except json.JSONDecodeError:
+            pass
+
+    return cost, in_tok, out_tok, cache_tok
+
+def collect_json_files(paths):
+    """指定されたファイル/ディレクトリのリストからJSONファイルパスを収集する"""
+    target_files = []
+    for p in paths:
+        path_obj = Path(p)
+        if path_obj.is_file():
+            target_files.append(path_obj)
+        elif path_obj.is_dir():
+            # ディレクトリ配下の .json ファイルを再帰的に取得（更新日時順）
+            found = sorted(path_obj.rglob("*.json"), key=lambda x: x.stat().st_mtime)
+            target_files.extend(found)
+    return target_files
+
+def main():
+    total_cost = 0.0
+    total_in = 0
+    total_out = 0
+    total_cache = 0
+    jpy_rate = 150.0
+
+    # パターンA: パイプ入力 (cat result.json | python3 calc_cost.py)
+    if not sys.stdin.isatty() and len(sys.argv) == 1:
+        total_cost, total_in, total_out, total_cache = parse_lines(sys.stdin, show_text=False)
+
+    # パターンB: 引数がすべてファイルまたはディレクトリの場合（複数指定・一括集計）
+    elif len(sys.argv) >= 2 and all(os.path.exists(arg) for arg in sys.argv[1:]):
+        files = collect_json_files(sys.argv[1:])
+        if not files:
+            print("指定されたパス内にJSONファイルが見つかりませんでした。", file=sys.stderr)
+            sys.exit(1)
+
+        print(f"📂 対象ファイル数: {len(files)} 件")
+        print("-" * 75)
+        print(f"{'料金 (USD)':>12} | {'入力Tok':>10} | {'出力Tok':>10} | ファイルパス")
+        print("-" * 75)
+
+        valid_count = 0
+        for filepath in files:
+            cost, in_tok, out_tok, cache_tok = parse_file(filepath)
+            # コストまたはトークンが含まれるファイルのみ明細表示＆加算
+            if cost > 0 or in_tok > 0 or out_tok > 0:
+                valid_count += 1
+                total_cost += cost
+                total_in += in_tok
+                total_out += out_tok
+                total_cache += cache_tok
+                print(f"${cost:11.6f} | {in_tok:10,} | {out_tok:10,} | {filepath}")
+
+        print("-" * 75)
+        print(f"集計対象タスク数: {valid_count} 件")
+
+    # パターンC: コマンド直接実行 (python3 calc_cost.py cline "..." --json)
+    elif len(sys.argv) >= 2:
+        cmd = sys.argv[1:]
+        print(f"実行中: {' '.join(cmd)}\n" + "-" * 50)
+        process = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1
+        )
+        total_cost, total_in, total_out, total_cache = parse_lines(process.stdout, show_text=True)
+        process.wait()
+
+    else:
+        print("使い方:")
+        print("  1. ディレクトリ一括集計: python3 calc_cost.py ./logs/")
+        print("  2. 複数ファイル指定    : python3 calc_cost.py task1.json task2.json")
+        print("  3. ワイルドカード指定  : python3 calc_cost.py ~/.cline/data/tasks/*/ui_messages.json")
+        print("  4. パイプで渡す        : cat output.json | python3 calc_cost.py")
+        print('  5. コマンド直接実行    : python3 calc_cost.py cline "プロンプト" --json')
+        sys.exit(1)
+
+    # 全体サマリーの表示
+    print("\n" + "=" * 55)
+    print("📊 合計コスト・トークン集計結果")
+    print("=" * 55)
+    print(f"合計料金     : ${total_cost:.6f} (約 {total_cost * jpy_rate:,.2f} 円 ※1$={jpy_rate}円換算)")
+    print(f"入力トークン : {total_in:,} tokens")
+    print(f"出力トークン : {total_out:,} tokens")
+    if total_cache > 0:
+        print(f"キャッシュ読込: {total_cache:,} tokens")
+    print("=" * 55)
+
+if __name__ == "__main__":
+    main()
+```
+
+### 使い方と出力イメージ
+
+#### 1. ディレクトリを指定して配下を丸ごと一括集計
+
+サブディレクトリも含めて `.json` ファイルを自動で探し出し、コストデータが含まれるファイルだけを抽出して合算します。
+
+```bash
+# 保存したログディレクトリを丸ごと集計
+python3 calc_cost.py ./my_oneshot_logs/
+
+# Cline のローカル全タスク履歴を一括集計する例
+python3 calc_cost.py ~/.cline/data/tasks/
+
+# OpenCode のローカル全セッション履歴を一括集計する例
+python3 calc_cost.py ~/.local/share/opencode/storage/
+```
+
+#### 2. ワイルドカード（`*`）で特定のファイルだけ指定
+
+Cline のタスクフォルダには `api_conversation_history.json` など別のJSONも混在しているため、特定ファイル名だけを狙い撃ちしたい場合はワイルドカードが便利です。
+
+```bash
+python3 calc_cost.py ~/.cline/data/tasks/*/ui_messages.json
+```
+
+#### 出力イメージ
+
+```text
+📂 対象ファイル数: 3 件
+---------------------------------------------------------------------------
+  料金 (USD) |    入力Tok |    出力Tok | ファイルパス
+---------------------------------------------------------------------------
+$   0.012450 |      4,120 |        380 | logs/task_01.json
+$   0.045200 |     15,800 |      1,240 | logs/task_02.json
+$   0.008100 |      2,900 |        210 | logs/task_03.json
+---------------------------------------------------------------------------
+集計対象タスク数: 3 件
+
+=======================================================
+📊 合計コスト・トークン集計結果
+=======================================================
+合計料金     : $0.065750 (約 9.86 円 ※1$=150.0円換算)
+入力トークン : 22,820 tokens
+出力トークン : 1,830 tokens
+=======================================================
+```
+
+### 実装の工夫点
+
+- **無関係なJSONの自動除外:** ディレクトリ内に設定ファイルやコスト情報を含まない別用途の `.json` が混ざっていても、`cost > 0` またはトークン数が存在するファイルだけを明細行に出力するため、ノイズになりません。
+- **更新日時順ソート:** ディレクトリ指定時はファイルの更新日時順（古い順→新しい順）に並べて表示するため、時系列でどのタスクにいくらかかったかが追いやすくなっています。
+
+##
