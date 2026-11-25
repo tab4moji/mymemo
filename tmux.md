@@ -192,10 +192,8 @@ bind-key -n MouseDown1Status if -F '#{==:#{mouse_status_range},session_menu}' \
     " New Window"     w new-window \
     "\" \
     "󰗽 Detach TMUX"    d detach-client' \
-  'select-window -t ='
-```
+  'select-window -t ='```
 
-<<<<<<< HEAD
 ```bash:tmux-winpaste.bash
 #!/bin/bash
 # 目的: tmuxの「Paste from Windows」本体。操作しているクライアントの手元Windowsクリップボードを貼り付ける
@@ -243,4 +241,3 @@ tmux paste-buffer -p -d -b "$buf" ${pane_id:+-t "$pane_id"}
 Hack と源柔ゴシックを合成したプログラミングフォント 白源 (はくげん／HackGen) https://github.com/yuru7/HackGen/releases Nerd Fonts 合成版: HackGen_NF_v2.10.0.zip
 
 ##
->>>>>>> refs/remotes/origin/main
