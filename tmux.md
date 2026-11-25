@@ -195,6 +195,49 @@ bind-key -n MouseDown1Status if -F '#{==:#{mouse_status_range},session_menu}' \
   'select-window -t ='
 ```
 
+```bash:tmux-winpaste.bash
+#!/bin/bash
+# 目的: tmuxの「Paste from Windows」本体。操作しているクライアントの手元Windowsクリップボードを貼り付ける
+#       - ssh経由: ssh_cli.py のクリップボードブリッジ(@clip_sock のUnixソケット)から取得
+#       - ローカル(WSL): このホストの powershell.exe で Get-Clipboard
+# 使い方: tmux-winpaste.bash <client_pid> <pane_id>   (.tmux.conf の run-shell から呼ぶ)
+# 履歴: 1 2026-11-23 初版
+
+set -o pipefail
+
+client_pid="$1"
+pane_id="$2"
+buf="win_tmp"
+ps_exe="/mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe"
+
+fail() {
+    tmux display-message "Paste from Windows: $1"
+    exit 1
+}
+
+# クライアントがssh経由かどうか(tmuxクライアントプロセスの環境変数で判定)
+is_ssh=0
+if [ -n "$client_pid" ] && grep -qz '^SSH_CONNECTION=' "/proc/$client_pid/environ" 2>/dev/null; then
+    is_ssh=1
+fi
+
+if [ "$is_ssh" = 1 ]; then
+    sock="$(tmux show-options -sv @clip_sock 2>/dev/null)"
+    [ -n "$sock" ] || fail "クリップボードブリッジ未設定(ssh_cli.py で接続していない?)"
+    [ -S "$sock" ] || fail "ブリッジのソケットが無い: $sock"
+    curl -sSf --max-time 15 --unix-socket "$sock" http://clip/clip | tmux load-buffer -b "$buf" - \
+        || fail "ブリッジから取得できない(切断済み?): $sock"
+else
+    [ -x "$ps_exe" ] || fail "powershell.exe が無い(WSLではない?)"
+    "$ps_exe" -NoProfile -Command \
+        '[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; [Console]::Out.Write((Get-Clipboard -Raw))' \
+        | tr -d '\r' | tmux load-buffer -b "$buf" - \
+        || fail "Get-Clipboard に失敗"
+fi
+
+tmux paste-buffer -p -d -b "$buf" ${pane_id:+-t "$pane_id"}
+```
+
 #### 有名フォント
 Hack と源柔ゴシックを合成したプログラミングフォント 白源 (はくげん／HackGen) https://github.com/yuru7/HackGen/releases Nerd Fonts 合成版: HackGen_NF_v2.10.0.zip
 
