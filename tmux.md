@@ -238,6 +238,8 @@ fi
 tmux paste-buffer -p -d -b "$buf" ${pane_id:+-t "$pane_id"}
 ```
 
+##### Windows Terminal 側の設定
+
 [./windowsterminal_settings.png](./windowsterminal_settings.png)
 
 #### 有名フォント
