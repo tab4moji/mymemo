@@ -238,6 +238,8 @@ fi
 tmux paste-buffer -p -d -b "$buf" ${pane_id:+-t "$pane_id"}
 ```
 
+[./windowsterminal_settings.png](./windowsterminal_settings.png)
+
 #### 有名フォント
 Hack と源柔ゴシックを合成したプログラミングフォント 白源 (はくげん／HackGen) https://github.com/yuru7/HackGen/releases Nerd Fonts 合成版: HackGen_NF_v2.10.0.zip
 
