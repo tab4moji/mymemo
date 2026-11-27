@@ -870,4 +870,25 @@ sudo apt install yazi
 alias webget='\curl -JOL -w "%{filename_effective}\n"'
 ```
 
+### sudo
+
+```bash:sudo パスワード無しにする
+_() {
+    local u="$1"; \
+    sudo_filename="/etc/sudoers.d/90-nopasswd"; \
+    local c="$u ALL=(ALL) NOPASSWD: ALL"; \
+    if [[ ! -f "$sudo_filename" ]]; then \
+        echo "$c" | sudo tee "$sudo_filename" >/dev/null; \
+        echo "Created: $sudo_filename"; \
+    elif ! sudo grep -q "^$u .*NOPASSWD: ALL" "$sudo_filename"; then \
+        echo "$c" | sudo tee -a "$sudo_filename" >/dev/null; \
+        echo "Appended to: $sudo_filename"; \
+    else \
+        echo "Already exists."; \
+    fi; \
+    sudo chmod 0440 "$sudo_filename"; \
+}; \
+_ $(whoami) # 関数呼び出し
+```
+
 ##
