@@ -190,7 +190,7 @@ unbind-key -n MouseDown1StatusLeft
 bind-key -n MouseDown1Status if -F '#{==:#{mouse_status_range},session_menu}' \
   'display-menu -T "#[align=centre] #{session_name} " -t = -x M -y W \
     " New Window"     w new-window \
-    "\" \
+    "" \
     "󰗽 Detach TMUX"    d detach-client' \
   'select-window -t ='
 ```
