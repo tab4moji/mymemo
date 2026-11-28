@@ -6,7 +6,8 @@
 
 ```config
 # 目的と機能: tmux Nerd Font対応およびモダンUI化設定 (Pill/カプセル型・即時決定誤爆防止策)
-# 履歴: 18 2026-11-23 「Paste from Windows」を tmux-winpaste.bash に分離。ssh経由時は ssh_cli.py のクリップボードブリッジから取得
+# 履歴: 19 2026-11-28 コピーモード右クリックメニューを「Copy to host (OSC52)」と「Copy to Windows (clip.exe)」の2択に分割(wt.exeのOSC 52固まり対策)
+#       18 2026-11-23 「Paste from Windows」を tmux-winpaste.bash に分離。ssh経由時は ssh_cli.py のクリップボードブリッジから取得
 #       17 2026-11-23 ssh先でもコピーできるよう「Copy to Windows」をOSC 52化。「Paste from Windows」はssh経由時に案内表示・末尾改行を付けない。terminal-features/overridesを添字指定にして再読込時の重複と上書き消失を解消
 #       16 2026-11-19 OSC 52クリップボード連携(set-clipboard, terminal-features/overrides)を追加
 #       15 2026-11-04 Meta+! (M-!) によるウィンドウ生成および不要なデフォルト!の割り当てを解除
@@ -162,14 +163,16 @@ bind-key -n MouseDown3Pane display-menu -x M -y M -T " 󰍽 Context Menu " \
 # --- 2. コピーモード（選択中）の右クリックメニュー ---
 bind-key -T copy-mode-vi MouseDown3Pane display-menu -x M -y M -T " 󰆏 Copy Mode " \
   "󰆏 Copy"              y  "send-keys -X copy-selection-and-cancel" \
-  "󰖳 Copy to Windows"   Y  "send-keys -X copy-pipe-and-cancel \"tmux load-buffer -w -b osc52 -\"" \
+  "󰖳 Copy to host (OSC52)"       Y  "send-keys -X copy-pipe-and-cancel \"tmux load-buffer -w -b osc52 -\"" \
+  "󰖳 Copy to Windows (clip.exe)" W  "send-keys -X copy-pipe-and-cancel \"iconv -c -f utf-8 -t utf-16le | /mnt/c/Windows/System32/clip.exe\"" \
   "󰃢 Clear"             c  "send-keys -X clear-selection" \
   "" \
   "󰅙 Cancel"            q  "send-keys -X cancel" \
 
 bind-key -T copy-mode MouseDown3Pane display-menu -x M -y M -T " 󰆏 Copy Mode " \
   "󰆏 Copy"              y  "send-keys -X copy-selection-and-cancel" \
-  "󰖳 Copy to Windows"   Y  "send-keys -X copy-pipe-and-cancel \"tmux load-buffer -w -b osc52 -\"" \
+  "󰖳 Copy to host (OSC52)"       Y  "send-keys -X copy-pipe-and-cancel \"tmux load-buffer -w -b osc52 -\"" \
+  "󰖳 Copy to Windows (clip.exe)" W  "send-keys -X copy-pipe-and-cancel \"iconv -c -f utf-8 -t utf-16le | /mnt/c/Windows/System32/clip.exe\"" \
   "󰃢 Clear"             c  "send-keys -X clear-selection" \
   "" \
   "󰅙 Cancel"            q  "send-keys -X cancel" \
